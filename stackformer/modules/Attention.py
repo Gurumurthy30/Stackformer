@@ -33,10 +33,10 @@ Quick start:
     torch.Size([2, 32, 256])
 """
 
-import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from collections import OrderedDict
 from stackformer.utils.attn_utils import _run_sdpa, _get_attention_mask 
 
 
@@ -144,7 +144,7 @@ class Self_Attention(nn.Module):
         self.qkv_proj = nn.Linear(embed_dim, embed_dim * 3, bias=qkv_bias, device=device, dtype=dtype)
         self.out_proj = nn.Linear(embed_dim, embed_dim, device=device, dtype=dtype)
         self.dropout_p = dropout
-        self._causal_mask_cache = {}
+        self._causal_mask_cache = OrderedDict()
 
 
     def _get_or_create_mask(self, seq_len: int, device):
@@ -235,7 +235,7 @@ class Multi_Head_Attention(nn.Module):
         self.dropout_p = dropout
         
         # Cache for causal masks keyed by sequence length
-        self._causal_mask_cache = {}
+        self._causal_mask_cache = OrderedDict()
 
     def _get_or_create_mask(self, seq_len: int, device):
         return _get_attention_mask(
@@ -321,7 +321,7 @@ class Multi_Head_Attention_With_RoPE(nn.Module):
         self.dropout_p = dropout
         
         # Cache for causal masks keyed by sequence length
-        self._causal_mask_cache = {}
+        self._causal_mask_cache = OrderedDict()
 
     def _get_or_create_mask(self, seq_len: int, device):
         return _get_attention_mask(
@@ -411,7 +411,7 @@ class Cross_MultiHead_Attention(nn.Module):
         self.dropout_p = dropout
         
         # Cache for causal masks (optional)
-        self._causal_mask_cache = {}
+        self._causal_mask_cache = OrderedDict()
 
     def _get_or_create_mask(self, seq_len: int, device):
         return _get_attention_mask(
@@ -501,7 +501,7 @@ class Multi_query_Attention(nn.Module):
         self.dropout_p = dropout
         
         # Cache for causal masks (for autoregressive models)
-        self._causal_mask_cache = {}
+        self._causal_mask_cache = OrderedDict()
 
     def _get_or_create_mask(self, seq_len: int, device):
         return _get_attention_mask(
@@ -592,7 +592,7 @@ class Multi_query_Attention_With_RoPE(nn.Module):
         self.dropout_p = dropout
         
         # Cache for causal masks (for autoregressive models)
-        self._causal_mask_cache = {}
+        self._causal_mask_cache = OrderedDict()
 
     def _get_or_create_mask(self, seq_len: int, device):
         return _get_attention_mask(
@@ -703,7 +703,7 @@ class Group_query_Attention(nn.Module):
         # Dropout applied to the attention weights
         self.dropout_p = dropout
         
-        self._causal_mask_cache = {}
+        self._causal_mask_cache = OrderedDict()
 
     def _get_or_create_mask(self, seq_len: int, device):
         return _get_attention_mask(
@@ -795,7 +795,7 @@ class Group_query_Attention_With_RoPE(nn.Module):
         # Dropout applied to the attention weights
         self.dropout_p = dropout
 
-        self._causal_mask_cache = {}
+        self._causal_mask_cache = OrderedDict()
 
     def _get_or_create_mask(self, seq_len: int, device):
         return _get_attention_mask(
@@ -906,22 +906,32 @@ class kv_cache_multihead(nn.Module):
             persistent=False,
         )
         self.kv_seq_len = kv_seq_len
-        self._causal_mask_cache = {}
+        self._causal_mask_cache = OrderedDict()
 
     def _precompute_theta_position_frequency(self, head_dim: int, seq_len: int, device: torch.device, theta: float = 10000.0):
         return _build_rope_frequency(head_dim, seq_len, device, self.dtype, theta=theta)
 
-    def _get_or_create_kv_mask(self, T: int, S: int, start_pos: int, device: torch.device):
-        # Device included in key so cached masks are not reused across device moves
+    def _get_or_create_kv_mask(self, T, S, start_pos, device, max_cache_size=64):
         key = (T, S, start_pos, str(device))
 
-        if key not in self._causal_mask_cache:
-            i = torch.arange(T, device=device).unsqueeze(1)
-            j = torch.arange(S, device=device).unsqueeze(0)
-            visible = j <= (start_pos + i)
-            self._causal_mask_cache[key] = visible
+        if key in self._causal_mask_cache:
+            self._causal_mask_cache.move_to_end(key)  # mark as recently used
+            return self._causal_mask_cache[key]
+
+        if len(self._causal_mask_cache) >= max_cache_size:
+            self._causal_mask_cache.popitem(last=False)  # evict least-recently-used
+
+        i = torch.arange(T, device=device).unsqueeze(1)
+        j = torch.arange(S, device=device).unsqueeze(0)
+        visible = j <= (start_pos + i)
+        self._causal_mask_cache[key] = visible
 
         return self._causal_mask_cache[key]
+    
+    def reset_cache(self):
+        self.cache_keys.zero_()
+        self.cache_values.zero_()
+        self._causal_mask_cache.clear()
 
     def forward(self, x: torch.Tensor, start_pos: int = 0, mask: bool = True, rope: bool = True, theta: float = 10000.0):
         B, T, C = x.shape
@@ -1050,7 +1060,7 @@ class kv_cache_group_query(nn.Module):
         # Dropout applied to the attention weights
         self.dropout_p = dropout
         
-        self._causal_mask_cache = {}
+        self._causal_mask_cache = OrderedDict()
 
         # KV Cache registered as buffers so they move with .to(device) and are
         # included in state_dict. persistent=False keeps them out of checkpoints.
@@ -1068,17 +1078,27 @@ class kv_cache_group_query(nn.Module):
     def _precompute_theta_position_frequency(self, head_dim: int, seq_len: int, device: torch.device, theta: float = 10000.0):
         return _build_rope_frequency(head_dim, seq_len, device, self.dtype, theta=theta)
 
-    def _get_or_create_kv_mask(self, T: int, S: int, start_pos: int, device: torch.device):
-        # Device included in key so cached masks are not reused across device moves
+    def _get_or_create_kv_mask(self, T, S, start_pos, device, max_cache_size=64):
         key = (T, S, start_pos, str(device))
 
-        if key not in self._causal_mask_cache:
-            i = torch.arange(T, device=device).unsqueeze(1)
-            j = torch.arange(S, device=device).unsqueeze(0)
-            visible = j <= (start_pos + i)
-            self._causal_mask_cache[key] = visible
+        if key in self._causal_mask_cache:
+            self._causal_mask_cache.move_to_end(key)  # mark as recently used
+            return self._causal_mask_cache[key]
+
+        if len(self._causal_mask_cache) >= max_cache_size:
+            self._causal_mask_cache.popitem(last=False)  # evict least-recently-used
+
+        i = torch.arange(T, device=device).unsqueeze(1)
+        j = torch.arange(S, device=device).unsqueeze(0)
+        visible = j <= (start_pos + i)
+        self._causal_mask_cache[key] = visible
 
         return self._causal_mask_cache[key]
+    
+    def reset_cache(self):
+        self.cache_keys.zero_()
+        self.cache_values.zero_()
+        self._causal_mask_cache.clear()
 
     def forward(self, x, start_pos=0, mask=True, rope=True, theta: float = 10000.0):
         B, T, C = x.shape

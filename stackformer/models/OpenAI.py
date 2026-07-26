@@ -148,7 +148,6 @@ class GPT_1(nn.Module):
             eos_token_id=eos_token_id,
         )
 
-
 class GPT_2(nn.Module):
     """GPT-2 style decoder-only causal language model.
 
@@ -272,4 +271,4 @@ class GPT_2(nn.Module):
             top_k=top_k,
             top_p=top_p,
             eos_token_id=eos_token_id,
-        )
+        )

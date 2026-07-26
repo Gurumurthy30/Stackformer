@@ -103,6 +103,38 @@ def _resolve_generation_config(
 
     return generation_config
 
+def prefill(model: torch.nn.Module, input_ids: torch.Tensor) -> tuple[torch.Tensor, dict]:
+    """Prefill the KV-cache for models that support it.
+
+    Args:
+        model (torch.nn.Module): Language model instance.
+        input_ids (torch.Tensor): Input token IDs of shape ``(B, T)``.
+
+    Returns:
+        tuple[torch.Tensor, dict]: Logits tensor of shape ``(B, T, V)`` and cache dictionary.
+    """
+    if not callable(getattr(model, "prefill", None)):
+        raise RuntimeError("Model does not implement 'prefill()' method.")
+
+    logits, cache = model.prefill(input_ids)
+    return logits, cache
+
+def decode(model: torch.nn.Module, next_token: torch.Tensor, cache: dict) -> tuple[torch.Tensor, dict]:
+    """Decode the next token using the KV-cache for models that support it.
+
+    Args:
+        model (torch.nn.Module): Language model instance.
+        next_token (torch.Tensor): Next token IDs of shape ``(B, 1)``.
+        cache (dict): KV-cache dictionary from prefill.
+
+    Returns:
+        tuple[torch.Tensor, dict]: Logits tensor of shape ``(B, 1, V)`` and updated cache dictionary.
+    """
+    if not callable(getattr(model, "decode", None)):
+        raise RuntimeError("Model does not implement 'decode()' method.")
+
+    logits, updated_cache = model.decode(next_token, cache)
+    return logits, updated_cache
 
 def text_generate(
     model: torch.nn.Module,
@@ -229,4 +261,4 @@ def text_generate(
             logits = model(input_ids)
             logits = logits[:, -1, :]  # (B, T_ctx, V) -> (B, V)
 
-    return generated
+    return generated

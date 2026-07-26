@@ -330,6 +330,52 @@ class Llama_2(nn.Module):
             top_p=top_p,
             eos_token_id=eos_token_id,
         )
+        
+    def reset_cache(self):
+        for layer in self.layers:
+            layer.attn.reset_cache()
+        
+    def prefill(self, prompt_ids: torch.Tensor) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+        """Prefill the KV-cache for models that support it.
+
+        Args:
+            prompt_ids (torch.Tensor): Prompt token IDs of shape ``(B, T)``.
+
+        Returns:
+            tuple[torch.Tensor, dict[str, torch.Tensor]]: Logits tensor of shape ``(B, T, V)`` and KV-cache dictionary.
+        """
+        B, T = prompt_ids.shape
+        if T > self.seq_len:
+            raise ValueError(
+                f"Prompt length {T} exceeds KV cache capacity {self.seq_len}. "
+                f"Truncate the prompt or rebuild the model with a larger kv_seq_len."
+            )
+        self.reset_cache()
+        logits = self.forward(prompt_ids, start_pos=0)
+        cache = {"start_pos": T}
+        return logits, cache
+    
+    def decode(self, next_token: torch.Tensor, cache: dict[str, torch.Tensor]) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+        """Decode the next token using the KV-cache for models that support it.
+
+        Args:
+            next_token (torch.Tensor): Next token IDs of shape ``(B, 1)``.
+            cache (dict[str, torch.Tensor]): KV-cache dictionary from prefill.
+
+        Returns:
+            tuple[torch.Tensor, dict[str, torch.Tensor]]: Logits tensor of shape ``(B, 1, V)`` and updated KV-cache dictionary.
+        """
+        start_pos = cache["start_pos"]
+        end_pos = start_pos + next_token.shape[1]
+        if end_pos > self.seq_len:
+            raise ValueError(
+                f"KV cache capacity exceeded: start_pos={start_pos} + new_tokens={next_token.shape[1]} "
+                f"= {end_pos} > cache length {self.seq_len}. Generation must stop or the model must be "
+                f"rebuilt with a larger kv_seq_len."
+            )
+        logits = self.forward(next_token, start_pos=start_pos)
+        cache["start_pos"] = end_pos
+        return logits, cache
 
 
 # Backward compatibility aliases
