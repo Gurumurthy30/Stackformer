@@ -22,18 +22,18 @@ def test_kv_cache_growth_per_step_and_no_overwrite(cache_cls, kwargs, kv_heads, 
     x = torch.randn(BATCH, SEQ, EMB, device=torch_device)
     cache = cache_cls(device=torch_device, **kwargs)
 
-    first_written = []
+    first_written = None
     for step in range(SEQ):
         token = x[:, step : step + 1]
         out = cache(token, start_pos=step, rope=False)
         _checkpoint("Step execution", step=step, out_shape=out.shape)
         assert out.shape == (BATCH, 1, EMB)
         assert torch.isfinite(out).all()
-
-        current = cache.cache_keys[:, :, : step + 1].detach().clone()
+        
+        current = cache.cache.peek_kv(0,step+1)[0]
         assert current.shape == (BATCH, kv_heads, step + 1, EMB // HEADS)
 
         if step == 0:
             first_written = current.clone()
         else:
-            assert torch.allclose(cache.cache_keys[:, :, :1], first_written)
+            assert torch.allclose(current[:, :, :1], first_written)

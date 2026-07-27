@@ -37,7 +37,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
-from stackformer.utils.attn_utils import _run_sdpa, _get_attention_mask 
+from stackformer.utils.attn_utils import _run_sdpa, _get_attention_mask
+from stackformer.cache import StaticKVCache
 
 
 _ROPE_FREQ_CACHE: dict[tuple[int, int, str, torch.dtype, float], torch.Tensor] = {}
@@ -859,6 +860,7 @@ class kv_cache_multihead(nn.Module):
         dropout (float, optional, default=0.0).
         device (optional, default='cpu').
         dtype (optional, default=torch.float32).
+        cache_policy (KVCachePolicy | None, optional): defaults to StaticKVCache.
 
     Forward args:
         x (torch.Tensor): ``(B, T, C)`` token chunk.
@@ -869,7 +871,9 @@ class kv_cache_multihead(nn.Module):
     Returns:
         torch.Tensor: ``(B, T, C)``.
     """
-    def __init__(self, embed_dim, num_heads, batch_size, kv_seq_len, mask_type=None, qkv_bias=False, dropout=0.0, device='cpu', dtype=torch.float32, **mask_kwargs):
+    def __init__(self, embed_dim, num_heads, batch_size, kv_seq_len, mask_type=None,
+                 qkv_bias=False, dropout=0.0, device='cpu', dtype=torch.float32,
+                 cache_policy=None, **mask_kwargs):
         super().__init__()
         assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
 
@@ -880,33 +884,26 @@ class kv_cache_multihead(nn.Module):
         self.dtype = dtype
         self.mask_type = mask_type
         self.mask_kwargs = mask_kwargs
-        
+
         #  QKV projection
         self.q_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=dtype)
         self.kv_proj = nn.Linear(embed_dim, embed_dim * 2, bias=qkv_bias, device=device, dtype=dtype)
-        
+
         # Final output projection
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=dtype)
-        
+
         # Dropout applied to the attention weights
         self.dropout_p = dropout
 
-        # KV Cache registered as buffers so they move with .to(device) and are
-        # included in state_dict. persistent=False keeps them out of checkpoints
-        # (they are transient inference state, not learned parameters).
-        self.register_buffer(
-        "cache_keys",
-        torch.empty(batch_size,num_heads,kv_seq_len,self.head_dim,device=self.device,dtype=self.dtype,),
-        persistent=False,
-        )
-
-        self.register_buffer(
-            "cache_values",
-            torch.empty(batch_size,num_heads,kv_seq_len,self.head_dim,device=self.device,dtype=self.dtype,),
-            persistent=False,
-        )
         self.kv_seq_len = kv_seq_len
         self._causal_mask_cache = OrderedDict()
+
+        # Cache storage/retrieval is delegated entirely to a KVCachePolicy —
+        # this module no longer owns cache_keys/cache_values directly.
+        self.cache = cache_policy or StaticKVCache()
+        self.cache.allocate(batch_size=batch_size, num_heads=num_heads,
+                             head_dim=self.head_dim, max_len=kv_seq_len,
+                             device=device, dtype=dtype)
 
     def _precompute_theta_position_frequency(self, head_dim: int, seq_len: int, device: torch.device, theta: float = 10000.0):
         return _build_rope_frequency(head_dim, seq_len, device, self.dtype, theta=theta)
@@ -927,15 +924,14 @@ class kv_cache_multihead(nn.Module):
         self._causal_mask_cache[key] = visible
 
         return self._causal_mask_cache[key]
-    
+
     def reset_cache(self):
-        self.cache_keys.zero_()
-        self.cache_values.zero_()
+        self.cache.reset()
         self._causal_mask_cache.clear()
 
     def forward(self, x: torch.Tensor, start_pos: int = 0, mask: bool = True, rope: bool = True, theta: float = 10000.0):
         B, T, C = x.shape
-        
+
         assert C == self.embed_dim, "Input embed_dim mismatch"
         end_pos = start_pos + T
         assert end_pos <= self.kv_seq_len, (
@@ -952,62 +948,33 @@ class kv_cache_multihead(nn.Module):
         q = q.view(B, T, self.num_heads, self.head_dim).transpose(1, 2) # (B, H, T, D)
         k = k.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
         v = v.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
-        
 
         # Rotary Position Embedding (correct for KV cache)
         if rope:
             freq = self._precompute_theta_position_frequency(self.head_dim, end_pos, device=x.device, theta=theta)
-            # apply only the slice corresponding to current tokens
             q = _apply_rotary_position_embedding(q, freq[start_pos:end_pos])
             k = _apply_rotary_position_embedding(k, freq[start_pos:end_pos])
 
-        # Write KV cache — detach only at inference to avoid blocking gradients
-        # during training (torch.is_grad_enabled() is False inside torch.no_grad())
-        _k_to_store = k.detach() if not torch.is_grad_enabled() else k
-        _v_to_store = v.detach() if not torch.is_grad_enabled() else v
-
-        # Guard against silent dtype mismatch under autocast/mixed precision
-        assert _k_to_store.dtype == self.cache_keys.dtype, (
-            f"KV cache dtype mismatch: got {_k_to_store.dtype}, "
-            f"cache is {self.cache_keys.dtype}. Cast inputs or recreate the cache "
-            f"with the desired dtype."
-        )
-
-        self.cache_keys[:B, :, start_pos:end_pos] = _k_to_store
-        self.cache_values[:B, :, start_pos:end_pos] = _v_to_store
-        
-        # Read full cached KV
-        k_full = self.cache_keys[:B, :, :end_pos]
-        v_full = self.cache_values[:B, :, :end_pos]
-
-        # RATIONALE (Gradient Flow & Autograd Safety):
-        # During training (or when gradients are enabled), writing in-place to pre-allocated buffers
-        # creates dependencies across time steps that would corrupt PyTorch's autograd graph.
-        # To ensure correct backpropagation through current-step keys/values while reusing
-        # memory, we detach and clone the historical prefix tokens (0 to start_pos), then splice in
-        # the live autograd computation nodes for the current chunk (start_pos to end_pos).
-        if torch.is_grad_enabled():
-            k_full = k_full.detach().clone()
-            v_full = v_full.detach().clone()
-            k_full[:, :, start_pos:end_pos] = _k_to_store
-            v_full[:, :, start_pos:end_pos] = _v_to_store
+        # Cache owns detach/dtype-guard/grad-safety entirely — pass raw k, v
+        self.cache.update(k, v, start_pos)
+        k_full, v_full = self.cache.get_kv(start_pos, end_pos)
+        # (no further grad handling needed here — get_kv() already spliced it)
 
         # Rectangular causal mask (T, S)
         attn_mask = None
         if mask:
             attn_mask = self._get_or_create_kv_mask(T, end_pos, start_pos, device=x.device)
 
-
-        # Scaled Dot Product Attention (Flash / MemEff)        
+        # Scaled Dot Product Attention (Flash / MemEff)
         context = F.scaled_dot_product_attention(
             q,
             k_full,
             v_full,
-            attn_mask = attn_mask,   # (T, S)
-            dropout_p = self.dropout_p
+            attn_mask=attn_mask,   # (T, S)
+            dropout_p=self.dropout_p
         )
 
-        # Merge heads + output projection        
+        # Merge heads + output projection
         out = context.transpose(1, 2).contiguous().view(B, T, C)
         return self.out_proj(out)
 
@@ -1062,18 +1029,10 @@ class kv_cache_group_query(nn.Module):
         
         self._causal_mask_cache = OrderedDict()
 
-        # KV Cache registered as buffers so they move with .to(device) and are
-        # included in state_dict. persistent=False keeps them out of checkpoints.
-        self.register_buffer(
-            "cache_keys",
-            torch.empty(batch_size, num_kv_heads, kv_seq_len, self.head_dim, device=self.device, dtype=self.dtype),
-            persistent=False,
-        )
-        self.register_buffer(
-            "cache_values",
-            torch.empty(batch_size, num_kv_heads, kv_seq_len, self.head_dim, device=self.device, dtype=self.dtype),
-            persistent=False,
-        )
+        self.cache = StaticKVCache()
+        self.cache.allocate(batch_size=batch_size, num_heads=num_kv_heads,
+                             head_dim=self.head_dim, max_len=kv_seq_len,
+                             device=device, dtype=dtype)
 
     def _precompute_theta_position_frequency(self, head_dim: int, seq_len: int, device: torch.device, theta: float = 10000.0):
         return _build_rope_frequency(head_dim, seq_len, device, self.dtype, theta=theta)
@@ -1096,12 +1055,12 @@ class kv_cache_group_query(nn.Module):
         return self._causal_mask_cache[key]
     
     def reset_cache(self):
-        self.cache_keys.zero_()
-        self.cache_values.zero_()
+        self.cache.reset()
         self._causal_mask_cache.clear()
 
     def forward(self, x, start_pos=0, mask=True, rope=True, theta: float = 10000.0):
         B, T, C = x.shape
+        assert C == self.embed_dim, "Input embed_dim mismatch"
         end_pos = start_pos + T
         assert end_pos <= self.kv_seq_len, (
             f"KV cache capacity exceeded: start_pos={start_pos} + T={T} = {end_pos} "
@@ -1112,60 +1071,31 @@ class kv_cache_group_query(nn.Module):
         q = self.q_proj(x)
         kv = self.kv_proj(x)
         k, v = kv.chunk(2, dim=-1)  # each (B, T, num_kv_heads * head_dim)
-        # Reshape
-        # Q: (B, T, QH, D)  K/V: (B, T, KVH, D)
+
         q = q.view(B, T, self.num_query_heads, self.head_dim).transpose(1, 2)
         k = k.view(B, T, self.num_kv_heads, self.head_dim).transpose(1, 2)
         v = v.view(B, T, self.num_kv_heads, self.head_dim).transpose(1, 2)
-        
+
         # RoPE (correct for KV cache)
         if rope:
-            freq = self._precompute_theta_position_frequency(self.head_dim,end_pos,device=x.device,theta=theta,)
-            q = _apply_rotary_position_embedding(q,freq[start_pos:end_pos],)
-            k = _apply_rotary_position_embedding(k,freq[start_pos:end_pos],)
+            freq = self._precompute_theta_position_frequency(self.head_dim, end_pos, device=x.device, theta=theta)
+            q = _apply_rotary_position_embedding(q, freq[start_pos:end_pos])
+            k = _apply_rotary_position_embedding(k, freq[start_pos:end_pos])
 
-        # Write KV cache — detach only at inference to avoid blocking gradients
-        _k_to_store = k.detach() if not torch.is_grad_enabled() else k
-        _v_to_store = v.detach() if not torch.is_grad_enabled() else v
-        self.cache_keys[:B, :, start_pos:end_pos] = _k_to_store
-        self.cache_values[:B, :, start_pos:end_pos] = _v_to_store
-
-        # Read full KV
-        k_full = self.cache_keys[:B, :, :end_pos]
-        v_full = self.cache_values[:B, :, :end_pos]
-
-        # RATIONALE (Gradient Flow & Autograd Safety):
-        # During training (or when gradients are enabled), writing in-place to pre-allocated buffers
-        # creates dependencies across time steps that would corrupt PyTorch's autograd graph.
-        # To ensure correct backpropagation through current-step keys/values while reusing
-        # memory, we detach and clone the historical prefix tokens (0 to start_pos), then splice in
-        # the live autograd computation nodes for the current chunk (start_pos to end_pos).
-        if torch.is_grad_enabled():
-            k_full = k_full.detach().clone()
-            k_full[:, :, start_pos:end_pos] = _k_to_store
-
-            v_full = v_full.detach().clone()
-            v_full[:, :, start_pos:end_pos] = _v_to_store
+        # Cache owns the detach/grad-safety decision entirely now — pass raw k, v
+        self.cache.update(k, v, start_pos)
+        k_full, v_full = self.cache.get_kv(start_pos, end_pos)   # <-- start_pos, not 0
+        # (no further grad handling needed here — get_kv() already spliced it)
 
         # Expand KV heads to match Q heads (GQA)
         k_full = k_full.repeat_interleave(self.num_queries_per_kv, dim=1)
         v_full = v_full.repeat_interleave(self.num_queries_per_kv, dim=1)
 
-
-        # Rectangular causal mask (T,S)
         attn_mask = None
         if mask:
             attn_mask = self._get_or_create_kv_mask(T, end_pos, start_pos, device=x.device)
 
-        # SDPA
-        context = _run_sdpa(
-            q,
-            k_full,
-            v_full,
-            attn_mask = attn_mask,
-            dropout_p = self.dropout_p
-        )
+        context = _run_sdpa(q, k_full, v_full, attn_mask=attn_mask, dropout_p=self.dropout_p)
 
-        # Merge heads
         out = context.transpose(1, 2).contiguous().view(B, T, C)
         return self.out_proj(out)

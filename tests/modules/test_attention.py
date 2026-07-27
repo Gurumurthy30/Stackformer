@@ -95,7 +95,8 @@ def test_kv_cache_multihead_multiple_decode_steps(batch, torch_device):
     _checkpoint("KV cache step 0 forward", x0_shape=x0.shape)
     y0 = cache(x0, start_pos=0)
     assert y0.shape == x0.shape
-    assert cache.cache_keys[:batch, :, :2].shape == (batch, HEADS, 2, EMB // HEADS)
+    k_check, _ = cache.cache.peek_kv(0, 2)
+    assert k_check[:batch].shape == (batch, HEADS, 2, EMB // HEADS)
 
     x1 = torch.randn(batch, 1, EMB, device=torch_device)
     _checkpoint("KV cache step 1 forward", x1_shape=x1.shape)
@@ -121,7 +122,8 @@ def test_kv_cache_group_query_multiple_decode_steps(torch_device):
     _checkpoint("Group query KV cache step 0 forward", x0_shape=x0.shape)
     y0 = cache(x0, start_pos=0, rope=True)
     assert y0.shape == x0.shape
-    assert cache.cache_keys[:, :, :2].shape == (BATCH, KV_HEADS, 2, EMB // HEADS)
+    k_check, _ = cache.cache.peek_kv(0, 2)
+    assert k_check.shape == (BATCH, KV_HEADS, 2, EMB // HEADS)
 
     x1 = torch.randn(BATCH, 1, EMB, device=torch_device)
     _checkpoint("Group query KV cache step 1 forward", x1_shape=x1.shape)

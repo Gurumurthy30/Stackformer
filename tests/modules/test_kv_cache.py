@@ -19,7 +19,9 @@ def test_kv_cache_multihead_updates_cache_and_stays_stable(batch, torch_device):
     assert y2.shape == x2.shape
     assert torch.isfinite(y1).all() and torch.isfinite(y2).all()
     assert torch.abs(y2).mean() < 100
-    assert layer.cache_keys[:batch, :, :3].shape == (batch, 2, 3, 4)
+
+    k_check, _ = layer.cache.peek_kv(0, 3)
+    assert k_check[:batch].shape == (batch, 2, 3, 4)
 
 
 def test_kv_cache_group_query_updates_cache_and_stays_stable(torch_device):
@@ -36,4 +38,6 @@ def test_kv_cache_group_query_updates_cache_and_stays_stable(torch_device):
     assert y2.shape == x2.shape
     assert torch.isfinite(y1).all() and torch.isfinite(y2).all()
     assert torch.abs(y2).mean() < 100
-    assert layer.cache_keys[:, :, :3].shape == (2, 1, 3, 4)
+
+    k_check, _ = layer.cache.peek_kv(0, 3)
+    assert k_check.shape == (2, 1, 3, 4)
