@@ -1185,3 +1185,16 @@ class kv_cache_group_query(nn.Module):
 
         out = context.transpose(1, 2).contiguous().view(B, T, C)
         return self.out_proj(out)
+
+
+# New canonical class names (Step 4 rename)
+SelfAttention = Self_Attention
+MultiHeadAttention = Multi_Head_Attention
+MultiHeadAttentionWithRoPE = Multi_Head_Attention_With_RoPE
+CrossMultiHeadAttention = Cross_MultiHead_Attention
+MultiQueryAttention = Multi_query_Attention
+MultiQueryAttentionWithRoPE = Multi_query_Attention_With_RoPE
+GroupQueryAttention = Group_query_Attention
+GroupQueryAttentionWithRoPE = Group_query_Attention_With_RoPE
+KVCacheMultiHead = kv_cache_multihead
+KVCacheGroupQuery = kv_cache_group_query

@@ -21,6 +21,17 @@ from .Attention import (
     Self_Attention,
     kv_cache_group_query,
     kv_cache_multihead,
+    # New canonical names
+    SelfAttention,
+    MultiHeadAttention,
+    MultiHeadAttentionWithRoPE,
+    CrossMultiHeadAttention,
+    MultiQueryAttention,
+    MultiQueryAttentionWithRoPE,
+    GroupQueryAttention,
+    GroupQueryAttentionWithRoPE,
+    KVCacheMultiHead,
+    KVCacheGroupQuery,
 )
 from .Feed_forward import (
     FF_GELU,
