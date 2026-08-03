@@ -19,28 +19,12 @@ def get_local_rank() -> int:
     return int(os.environ.get("LOCAL_RANK", "0"))
 
 
-def get_rank() -> int:
-    """Return global process rank in distributed process group (defaults to 0 if not initialized)."""
-    if not dist.is_available() or not dist.is_initialized():
-        return 0
-    return dist.get_rank()
-
-
-def get_world_size() -> int:
-    """Return total number of processes in distributed process group (defaults to 1 if not initialized)."""
-    if not dist.is_available() or not dist.is_initialized():
-        return 1
-    return dist.get_world_size()
+from stackformer.utils.utils import get_rank, get_world_size, is_main_process
 
 
 def is_distributed() -> bool:
     """Check whether torch.distributed is initialized and active."""
     return dist.is_available() and dist.is_initialized()
-
-
-def is_main_process() -> bool:
-    """Check whether the current process is global rank 0 main process."""
-    return get_rank() == 0
 
 
 def init_distributed(backend: str | None = None) -> bool:
