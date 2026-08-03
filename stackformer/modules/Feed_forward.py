@@ -359,3 +359,12 @@ class FF_GeGLU(nn.Module):
         x = self.dropout2(x)
         return x
 
+
+# New canonical class names (Step 3 rename)
+FeedForwardReLU = FF_ReLU
+FeedForwardLeakyReLU = FF_LeakyReLU
+FeedForwardGELU = FF_GELU
+FeedForwardSigmoid = FF_Sigmoid
+FeedForwardSiLU = FF_SiLU
+FeedForwardSwiGLU = FF_SwiGLU
+FeedForwardGeGLU = FF_GeGLU

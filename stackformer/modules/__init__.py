@@ -30,6 +30,13 @@ from .Feed_forward import (
     FF_Sigmoid,
     FF_SiLU,
     FF_SwiGLU,
+    FeedForwardReLU,
+    FeedForwardLeakyReLU,
+    FeedForwardGELU,
+    FeedForwardSigmoid,
+    FeedForwardSiLU,
+    FeedForwardSwiGLU,
+    FeedForwardGeGLU,
 )
 
 from .Normalization import LayerNorm, RMSNorm
@@ -59,6 +66,13 @@ __all__ = [
     "FF_Sigmoid",
     "FF_SiLU",
     "FF_SwiGLU",
+    "FeedForwardReLU",
+    "FeedForwardLeakyReLU",
+    "FeedForwardGELU",
+    "FeedForwardSigmoid",
+    "FeedForwardSiLU",
+    "FeedForwardSwiGLU",
+    "FeedForwardGeGLU",
     "Group_query_Attention",
     "Group_query_Attention_With_RoPE",
     "LayerNorm",
