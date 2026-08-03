@@ -16,7 +16,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from stackformer.modules.attention_engine import _run_sdpa
-from stackformer.modules.Feed_forward import FF_GELU
+from stackformer.modules.Feed_forward import FeedForwardGELU
 
 
 class Patch(nn.Module):
@@ -203,7 +203,7 @@ class TransformerBlock(nn.Module):
             embed_dim=embed_dim, num_heads=num_heads, dropout=dropout, reduction=reduction
         )
         self.norm2 = nn.LayerNorm(embed_dim)
-        self.ff = FF_GELU(embed_dim=embed_dim, hidden_dim=hidden_dim, dropout=dropout)
+        self.ff = FeedForwardGELU(embed_dim=embed_dim, hidden_dim=hidden_dim, dropout=dropout)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = x + self.att(self.norm1(x))

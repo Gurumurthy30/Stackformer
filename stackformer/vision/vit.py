@@ -13,8 +13,8 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
-from stackformer.modules.Attention import Multi_Head_Attention
-from stackformer.modules.Feed_forward import FF_GELU
+from stackformer.modules.Attention import MultiHeadAttention
+from stackformer.modules.Feed_forward import FeedForwardGELU
 
 
 class PatchEmbedding(nn.Module):
@@ -117,7 +117,7 @@ class Block(nn.Module):
         super().__init__()
         if Emb_dim is not None:
             embed_dim = Emb_dim
-        self.attention = Multi_Head_Attention(
+        self.attention = MultiHeadAttention(
             embed_dim=embed_dim,
             num_heads=num_heads,
             dropout=dropout,
@@ -126,7 +126,7 @@ class Block(nn.Module):
             dtype=dtype,
         )
         self.norm1 = nn.LayerNorm(embed_dim, eps=eps, dtype=dtype)
-        self.ff_gelu = FF_GELU(embed_dim, hidden_dim, dropout, device=device, dtype=dtype)
+        self.ff_gelu = FeedForwardGELU(embed_dim, hidden_dim, dropout, device=device, dtype=dtype)
         self.norm2 = nn.LayerNorm(embed_dim, eps=eps, dtype=dtype)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
