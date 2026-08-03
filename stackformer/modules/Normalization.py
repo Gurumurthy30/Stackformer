@@ -1,8 +1,8 @@
 """Normalization layers for StackFormer blocks.
 
 Provides per-token normalization operators used in Transformer architectures:
-- LayerNormalization (mean + variance normalization with affine scale/bias)
-- RMSNormalization (Root Mean Square normalization with affine scale only)
+- LayerNorm (mean + variance normalization with affine scale/bias)
+- RMSNorm (Root Mean Square normalization with affine scale only)
 
 Equations:
 - LayerNorm: y = gamma * (x - mean(x)) / sqrt(var(x) + eps) + beta
@@ -15,7 +15,7 @@ import torch
 import torch.nn as nn
 
 
-class LayerNormalization(nn.Module):
+class LayerNorm(nn.Module):
     """Layer normalization over the last tensor dimension.
 
     Computation:
@@ -38,7 +38,7 @@ class LayerNormalization(nn.Module):
         torch.Tensor: Normalized output tensor of shape ``(B, T, C)``.
 
     Example:
-        >>> norm = LayerNormalization(embed_dim=256, eps=1e-5)
+        >>> norm = LayerNorm(embed_dim=256, eps=1e-5)
         >>> x = torch.randn(4, 32, 256)
         >>> y = norm(x)
         >>> y.shape
@@ -67,7 +67,7 @@ class LayerNormalization(nn.Module):
         return output  # (B, T, C)
 
 
-class RMSNormalization(nn.Module):
+class RMSNorm(nn.Module):
     """Root Mean Square Normalization (RMSNorm) over the last tensor dimension.
 
     Computation:
@@ -89,7 +89,7 @@ class RMSNormalization(nn.Module):
         torch.Tensor: Normalized output tensor of shape ``(B, T, C)``.
 
     Example:
-        >>> norm = RMSNormalization(embed_dim=256)
+        >>> norm = RMSNorm(embed_dim=256)
         >>> x = torch.randn(4, 32, 256)
         >>> y = norm(x)
         >>> y.shape
@@ -113,4 +113,9 @@ class RMSNormalization(nn.Module):
         rms = (x.pow(2).mean(-1, keepdim=True) + self.eps).sqrt()
         normalized_x = x / rms
         output = self.weight * normalized_x
-        return output  # (B, T, C)
+        return output  # (B, T, C)
+
+
+# Backward-compat aliases
+LayerNormalization = LayerNorm
+RMSNormalization = RMSNorm

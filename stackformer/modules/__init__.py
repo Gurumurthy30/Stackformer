@@ -32,7 +32,10 @@ from .Feed_forward import (
     FF_SwiGLU,
 )
 
-from .Normalization import LayerNormalization, RMSNormalization
+from .Normalization import LayerNorm, RMSNorm
+# Backward-compat aliases
+LayerNormalization = LayerNorm
+RMSNormalization = RMSNorm
 from .layer import (
     BlockConfig,
     TransformerDecoder,
@@ -58,11 +61,13 @@ __all__ = [
     "FF_SwiGLU",
     "Group_query_Attention",
     "Group_query_Attention_With_RoPE",
+    "LayerNorm",
     "LayerNormalization",
     "Multi_Head_Attention",
     "Multi_Head_Attention_With_RoPE",
     "Multi_query_Attention",
     "Multi_query_Attention_With_RoPE",
+    "RMSNorm",
     "RMSNormalization",
     "RoPE",
     "Self_Attention",

@@ -10,6 +10,7 @@ from typing import Any, List
 
 import torch
 from stackformer.attention_engine.masking.dense import make_mask
+from stackformer.attention_engine.masking.mask_cache import _get_block_mask
 # Maximum number of cached attention masks.
 _MAX_MASK_CACHE_SIZE = 32
 

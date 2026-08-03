@@ -43,9 +43,12 @@ from stackformer.modules.Feed_forward import (
     FF_SwiGLU,
 )
 from stackformer.modules.Normalization import (
-    LayerNormalization,
-    RMSNormalization,
+    LayerNorm,
+    RMSNorm,
 )
+# Aliases for backward compat within this file
+LayerNormalization = LayerNorm
+RMSNormalization = RMSNorm
 from stackformer.modules.position_embedding import (
     AbsolutePositionEmbedding,
     SinusoidalPositionalEmbedding,

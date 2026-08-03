@@ -4,8 +4,8 @@ from typing import Literal, Optional, Dict, Any
 from collections import OrderedDict
  
 from .backends.sdpa import _run_sdpa
-from .backends.flex_attention import _run_flex
-from .masking.functional import make_mask
+from .backends.flex_attention import _run_flex_attention
+from .masking.dense import make_mask
 from .masking.functional import make_block_mask
  
 Backend = Literal["sdpa", "flex"]
@@ -40,7 +40,7 @@ def _run_attention(
         block_mask = make_block_mask(
             cache, mask_type, seq_len, device, combine=combine, **mask_kwargs
         )
-        return _run_flex(
+        return _run_flex_attention(
             q, k, v, score_mod=score_mod, block_mask=block_mask, scale=scale, enable_gqa=enable_gqa
         )
  
