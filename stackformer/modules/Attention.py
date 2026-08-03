@@ -53,8 +53,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
-from stackformer.utils.attn_utils import _get_attention_mask, _get_block_mask
-from stackformer.attention_engine import _run_sdpa, _run_flex_attention
+from stackformer.modules.masks import _get_attention_mask, _get_block_mask
+from stackformer.modules.attention_engine import _run_sdpa, _run_flex_attention
 from stackformer.cache import StaticKVCache
 
 

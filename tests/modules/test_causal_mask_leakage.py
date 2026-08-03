@@ -1,7 +1,7 @@
 import math
 import torch
 from tests._test_utils import _checkpoint
-from stackformer.attention_engine.masking.dense import make_mask
+from stackformer.modules.masks import make_mask
 
 BATCH = 2
 SEQ = 6

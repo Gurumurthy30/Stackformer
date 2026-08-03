@@ -15,8 +15,8 @@ Exposes:
     - Trainer: High-level engine trainer
 """
 
-from .attention_engine.masking import make_mask
-from .attention_engine.backends import _run_sdpa
+from .modules.masks import make_mask
+from .modules.attention_engine import _run_sdpa
 from .config import GenerationConfig, ModelConfig, TrainingConfig
 from .engine import Trainer
 from .generate import text_generate
