@@ -3,31 +3,36 @@
 Exposes:
     - ModelConfig, GenerationConfig, TrainingConfig: Core configuration classes
     - text_generate: Text generation inference utility
-    - GPT_1, GPT_2, Transformer: GPT-family and vanilla Transformer model architectures
-    - Gemma_1_2B, Gemma_1_7B (gemma_1_2b, gemma_1_7b): Google Gemma model architectures
-    - Llama_1, Llama_2 (llama_1, llama_2): Meta LLaMA model architectures
+    - GPT1, GPT2, GPT_1, GPT_2, Transformer: GPT-family and vanilla Transformer model architectures
+    - Gemma1_2B, Gemma1_7B, Gemma_1_2B, Gemma_1_7B (gemma_1_2b, gemma_1_7b): Google Gemma model architectures
+    - Llama1, Llama2, Llama_1, Llama_2 (llama_1, llama_2): Meta LLaMA model architectures
     - ViT, SegFormerB0: Vision Transformer and SegFormer vision models
     - BERT, RoBERTa: Encoder-based language models
-    - Multi_Head_Attention, Group_query_Attention, Multi_query_Attention, Self_Attention, Cross_MultiHead_Attention: Attention modules
-    - LayerNormalization, RMSNormalization: Normalization layers
+    - MultiHeadAttention, GroupQueryAttention, MultiQueryAttention, SelfAttention, CrossMultiHeadAttention: Attention modules
+    - LayerNorm, RMSNorm: Normalization layers
     - AbsolutePositionEmbedding, SinusoidalPositionalEmbedding, RoPE: Positional embeddings
     - TransformerEncoder, TransformerDecoder, BlockConfig: Layer building blocks
     - Trainer: High-level engine trainer
 """
 
-from .modules.masks import make_mask
-from .modules.attention_engine import _run_sdpa
 from .config import GenerationConfig, ModelConfig, TrainingConfig
 from .engine import Trainer
 from .generate import text_generate
-from .language import BERT, RoBERTa
 from .models import (
+    BERT,
+    GPT1,
+    GPT2,
     GPT_1,
     GPT_2,
+    Gemma1_2B,
+    Gemma1_7B,
     Gemma_1_2B,
     Gemma_1_7B,
+    Llama1,
+    Llama2,
     Llama_1,
     Llama_2,
+    RoBERTa,
     Transformer,
     gemma_1_2b,
     gemma_1_7b,
@@ -37,6 +42,7 @@ from .models import (
 from .modules import (
     AbsolutePositionEmbedding,
     BlockConfig,
+    CrossMultiHeadAttention,
     Cross_MultiHead_Attention,
     FF_GELU,
     FF_GeGLU,
@@ -45,15 +51,33 @@ from .modules import (
     FF_Sigmoid,
     FF_SiLU,
     FF_SwiGLU,
+    FeedForwardGeGLU,
+    FeedForwardGELU,
+    FeedForwardLeakyReLU,
+    FeedForwardReLU,
+    FeedForwardSigmoid,
+    FeedForwardSiLU,
+    FeedForwardSwiGLU,
+    GroupQueryAttention,
+    GroupQueryAttentionWithRoPE,
     Group_query_Attention,
     Group_query_Attention_With_RoPE,
+    KVCacheGroupQuery,
+    KVCacheMultiHead,
+    LayerNorm,
     LayerNormalization,
+    MultiHeadAttention,
+    MultiHeadAttentionWithRoPE,
+    MultiQueryAttention,
+    MultiQueryAttentionWithRoPE,
     Multi_Head_Attention,
     Multi_Head_Attention_With_RoPE,
     Multi_query_Attention,
     Multi_query_Attention_With_RoPE,
+    RMSNorm,
     RMSNormalization,
     RoPE,
+    SelfAttention,
     Self_Attention,
     SinusoidalPositionalEmbedding,
     TransformerDecoder,
@@ -61,12 +85,15 @@ from .modules import (
     kv_cache_group_query,
     kv_cache_multihead,
 )
+from .modules.attention_engine import _run_sdpa
+from .modules.masks import make_mask
 from .vision import SegFormerB0, ViT
 
 __all__ = [
     "AbsolutePositionEmbedding",
-    "BlockConfig",
     "BERT",
+    "BlockConfig",
+    "CrossMultiHeadAttention",
     "Cross_MultiHead_Attention",
     "FF_GELU",
     "FF_GeGLU",
@@ -75,29 +102,58 @@ __all__ = [
     "FF_Sigmoid",
     "FF_SiLU",
     "FF_SwiGLU",
+    "FeedForwardGeGLU",
+    "FeedForwardGELU",
+    "FeedForwardLeakyReLU",
+    "FeedForwardReLU",
+    "FeedForwardSigmoid",
+    "FeedForwardSiLU",
+    "FeedForwardSwiGLU",
+    "GPT1",
+    "GPT2",
     "GPT_1",
     "GPT_2",
+    "Gemma1_2B",
+    "Gemma1_7B",
     "Gemma_1_2B",
     "Gemma_1_7B",
+    "GenerationConfig",
+    "GroupQueryAttention",
+    "GroupQueryAttentionWithRoPE",
     "Group_query_Attention",
     "Group_query_Attention_With_RoPE",
+    "KVCacheGroupQuery",
+    "KVCacheMultiHead",
+    "LayerNorm",
     "LayerNormalization",
+    "Llama1",
+    "Llama2",
     "Llama_1",
     "Llama_2",
+    "ModelConfig",
+    "MultiHeadAttention",
+    "MultiHeadAttentionWithRoPE",
+    "MultiQueryAttention",
+    "MultiQueryAttentionWithRoPE",
     "Multi_Head_Attention",
     "Multi_Head_Attention_With_RoPE",
     "Multi_query_Attention",
     "Multi_query_Attention_With_RoPE",
-    "_run_sdpa",
+    "RMSNorm",
     "RMSNormalization",
-    "RoPE",
     "RoBERTa",
+    "RoPE",
     "SegFormerB0",
+    "SelfAttention",
     "Self_Attention",
     "SinusoidalPositionalEmbedding",
-    "TransformerEncoder",
+    "Trainer",
+    "Transformer",
     "TransformerDecoder",
+    "TransformerEncoder",
+    "TrainingConfig",
     "ViT",
+    "_run_sdpa",
     "gemma_1_2b",
     "gemma_1_7b",
     "kv_cache_group_query",
@@ -106,11 +162,4 @@ __all__ = [
     "llama_2",
     "make_mask",
     "text_generate",
-    "Transformer",
-    "GenerationConfig",
-    "ModelConfig",
-    "TrainingConfig",
-    "Trainer",
-    "make_mask"
 ]
-
