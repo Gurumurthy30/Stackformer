@@ -1,7 +1,7 @@
 import pytest
 import torch
 from tests._test_utils import _checkpoint
-from stackformer.models.Transformer import Transformer
+from stackformer.models.transformer import Transformer
 from stackformer.modules.Attention import Multi_Head_Attention
 from stackformer.modules.Feed_forward import FF_ReLU
 from stackformer.modules.position_embedding import SinusoidalPositionalEmbedding

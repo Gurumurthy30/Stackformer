@@ -16,7 +16,7 @@ from stackformer.generate import text_generate
 from stackformer.modules.layer import BlockConfig, TransformerEncoder
 
 
-class Gemma_1_2B(nn.Module):
+class Gemma1_2B(nn.Module):
     """Gemma 1 2B style decoder-only causal language model.
 
     Simple explanation:
@@ -140,7 +140,7 @@ class Gemma_1_2B(nn.Module):
         )
 
 
-class Gemma_1_7B(nn.Module):
+class Gemma1_7B(nn.Module):
     """Gemma 1 7B style decoder-only causal language model.
 
     Simple explanation:
@@ -264,5 +264,7 @@ class Gemma_1_7B(nn.Module):
 
 
 # Backward compatibility aliases
-gemma_1_2b = Gemma_1_2B
-gemma_1_7b = Gemma_1_7B
+gemma_1_2b = Gemma1_2B
+gemma_1_7b = Gemma1_7B
+Gemma_1_2B = Gemma1_2B
+Gemma_1_7B = Gemma1_7B

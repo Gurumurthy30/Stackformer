@@ -21,7 +21,7 @@ from stackformer.modules.Attention import kv_cache_group_query
 from stackformer.modules.layer import BlockConfig, TransformerEncoder, _build_ffn, _build_norm
 
 
-class Llama_1(nn.Module):
+class Llama1(nn.Module):
     """LLaMA 1 style decoder-only causal language model.
 
     Simple explanation:
@@ -183,7 +183,7 @@ class _Llama2Block(nn.Module):
         return x
 
 
-class Llama_2(nn.Module):
+class Llama2(nn.Module):
     """LLaMA 2 style decoder-only causal language model with GQA and persistent KV cache.
 
     Simple explanation:
@@ -379,7 +379,9 @@ class Llama_2(nn.Module):
 
 
 # Backward compatibility aliases
-llama_1 = Llama_1
-llama_2 = Llama_2
+llama_1 = Llama1
+llama_2 = Llama2
+Llama_1 = Llama1
+Llama_2 = Llama2
 _llama_2_Block = _Llama2Block
 

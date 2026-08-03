@@ -21,7 +21,7 @@ from stackformer.modules.layer import BlockConfig, TransformerEncoder
 from stackformer.modules.position_embedding import AbsolutePositionEmbedding
 
 
-class GPT_1(nn.Module):
+class GPT1(nn.Module):
     """GPT-1 style decoder-only causal language model.
 
     Simple explanation:
@@ -148,7 +148,7 @@ class GPT_1(nn.Module):
             eos_token_id=eos_token_id,
         )
 
-class GPT_2(nn.Module):
+class GPT2(nn.Module):
     """GPT-2 style decoder-only causal language model.
 
     Simple explanation:
@@ -272,3 +272,9 @@ class GPT_2(nn.Module):
             top_p=top_p,
             eos_token_id=eos_token_id,
         )
+
+
+# Backward compatibility aliases
+GPT_1 = GPT1
+GPT_2 = GPT2
+

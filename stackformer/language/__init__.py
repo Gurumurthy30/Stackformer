@@ -8,7 +8,8 @@ Exposes:
 """
 
 from .decoder import Decoder, GPTDecoder
-from .encoder import BERT, RoBERTa
+from stackformer.models.bert import BERT
+from stackformer.models.roberta import RoBERTa
 from .encoder_decoder import EncoderDecoder
 
 __all__ = [
