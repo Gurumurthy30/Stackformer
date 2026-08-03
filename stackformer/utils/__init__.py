@@ -7,7 +7,7 @@ Exposes:
     - _run_sdpa, _normalize_mask_type, _get_attention_mask: Attention helper functions
 """
 
-from .attn_utils import _get_attention_mask, _normalize_mask_type, _run_sdpa
+from .attn_utils import _get_attention_mask, _normalize_mask_type
 from .cache import _grad_safe_splice
 from .device import clear_cuda_cache, format_memory, get_device, move_to_device, print_device_info, synchronize
 from .ff_utils import hidden_dim_helper
@@ -38,7 +38,6 @@ __all__ = [
     "get_world_size",
     "is_main_process",
     "print_once",
-    "_run_sdpa",
     "_normalize_mask_type",
     "_get_attention_mask",
     "_grad_safe_splice",

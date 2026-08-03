@@ -16,12 +16,21 @@ Notation:
 - ``S``: key/value sequence length (context or cache length)
 - ``C``: embedding dimension
 - ``H``: number of query heads
+- ``H_kv``: number of key/value heads (MQA: 1, GQA: 1 < H_kv < H, MHA: H_kv == H)
 - ``D``: head dimension, usually ``C // H``
 
 Implementation notes:
 - Inputs are moved to ``device``/``dtype`` configured in each module.
-- Causal masks are cached by sequence shape to reduce allocation overhead.
+- Masks are cached by (mask names, sequence shape, backend-relevant params)
+  to reduce allocation/compilation overhead.
 - RoPE modules require even head dimension (enforced with assertions).
+- MQA/GQA classes (``Multi_query_Attention*``, ``Group_query_Attention*``)
+  support a ``backend`` switch between ``"sdpa"`` and ``"flex"``. Both
+  kernels understand ``enable_gqa=True``, which lets them broadcast K/V from
+  ``H_kv`` heads up to ``H`` heads internally. Because of this, these classes
+  keep K/V at their native, smaller head count and never materialize a
+  repeated/expanded copy -- faster and lower memory than the classic
+  ``.expand()`` / ``.repeat_interleave()`` approach.
 
 Quick start:
     >>> import torch
@@ -31,13 +40,21 @@ Quick start:
     >>> y = attn(x, mask=True)
     >>> y.shape
     torch.Size([2, 32, 256])
+
+    >>> from stackformer.modules.Attention import Group_query_Attention
+    >>> gqa = Group_query_Attention(embed_dim=256, num_query_heads=8, num_kv_heads=2,
+    ...                              mask_type="causal", backend="flex")
+    >>> y = gqa(torch.randn(2, 32, 256))
 """
+
+from typing import Literal
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
-from stackformer.utils.attn_utils import _run_sdpa, _get_attention_mask
+from stackformer.utils.attn_utils import _get_attention_mask, _get_block_mask
+from stackformer.attention_engine import _run_sdpa, _run_flex_attention
 from stackformer.cache import StaticKVCache
 
 
@@ -214,13 +231,16 @@ class Multi_Head_Attention(nn.Module):
         >>> layer = Multi_Head_Attention(embed_dim=512, num_heads=8)
         >>> y = layer(torch.randn(2, 128, 512), mask=True)
     """
-    def __init__(self, embed_dim, num_heads, dropout=0.0, mask_type=None,qkv_bias=False,device='cpu', dtype=torch.float32, **mask_kwargs):
+    def __init__(self, embed_dim, num_heads, dropout=0.0, mask_type=None,
+                 qkv_bias=False,device='cpu', dtype=torch.float32, 
+                 **mask_kwargs):
         super().__init__()
         assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
 
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.head_dim = embed_dim // num_heads  # Each head gets a slice of the embedding
+        
         self.mask_type = mask_type
         self.device = device
         self.dtype = dtype
@@ -460,16 +480,30 @@ class Cross_MultiHead_Attention(nn.Module):
         return self.out_proj(out)
     
 class Multi_query_Attention(nn.Module):
-    """Multi-Query Attention (MQA): many query heads, shared K/V head.
+    """Multi-Query Attention (MQA): many query heads, one shared K/V head.
+
+    Backend note:
+        K/V are kept at a single head, shape ``(B, 1, T, D)`` -- they are
+        **not** manually broadcast to ``num_heads`` heads. Instead the
+        attention kernel is called with ``enable_gqa=True``, which both SDPA
+        (torch >= 2.5) and FlexAttention understand natively: they repeat K/V
+        across query-head groups internally, on the fly, without allocating
+        an expanded copy. This is strictly faster and lighter than the old
+        ``.expand()`` approach, especially as ``num_heads`` grows.
 
     Constructor args:
         embed_dim (int, required).
         num_heads (int, required): Number of query heads. Rule:
             ``embed_dim % num_heads == 0``.
-        dropout (float, optional, default=0.0).
+        dropout (float, optional, default=0.0): SDPA-only; FlexAttention has
+            no built-in dropout, so this is ignored when ``backend="flex"``.
         qkv_bias (bool, optional, default=False).
         device (optional, default='cpu').
         dtype (optional, default=torch.float32).
+        backend (Literal["sdpa", "flex"], optional, default="sdpa"): Which
+            attention kernel to run.
+        combine (Literal["or", "and"], optional, default="or"): How multiple
+            mask types in ``mask_type`` combine.
         mask_type ([str], optional, default=['causal']): 'causal' or 'sliding_window'.
 
     Forward args:
@@ -478,15 +512,27 @@ class Multi_query_Attention(nn.Module):
 
     Returns:
         torch.Tensor: ``(B, T, C)``.
+
+    Example:
+        >>> mqa = Multi_query_Attention(embed_dim=512, num_heads=8, mask_type="causal")
+        >>> y = mqa(torch.randn(2, 128, 512))
+        >>> mqa_flex = Multi_query_Attention(embed_dim=512, num_heads=8,
+        ...                                   mask_type="causal", backend="flex")
     """
-    def __init__(self, embed_dim, num_heads, dropout=0.0, mask_type=None, qkv_bias=False,device='cpu', dtype=torch.float32, **mask_kwargs):
+    def __init__(self, embed_dim, num_heads, dropout=0.0, mask_type=None, qkv_bias=False,
+                 device='cpu', dtype=torch.float32, backend: Literal["sdpa", "flex"] = "sdpa",
+                 combine: Literal["or", "and"] = "or", **mask_kwargs):
         super().__init__()
         assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
+        if backend not in ("sdpa", "flex"):
+            raise ValueError(f"backend must be 'sdpa' or 'flex', got {backend!r}")
 
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.head_dim = embed_dim // num_heads
         self.mask_type = mask_type
+        self.combine = combine
+        self.backend = backend
         self.device = device
         self.dtype = dtype
         self.mask_kwargs = mask_kwargs
@@ -498,19 +544,22 @@ class Multi_query_Attention(nn.Module):
         # Output final projection
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=self.dtype)
         
-        # Dropout applied to the attention weights
+        # Dropout applied to the attention weights (sdpa backend only)
         self.dropout_p = dropout
         
-        # Cache for causal masks (for autoregressive models)
+        # Cache holds dense masks (sdpa) or BlockMasks (flex) -- never both
+        # at once, since backend is fixed for the lifetime of this module.
         self._causal_mask_cache = OrderedDict()
 
     def _get_or_create_mask(self, seq_len: int, device):
-        return _get_attention_mask(
-            self._causal_mask_cache,
-            self.mask_type,
-            seq_len,
-            device,
-            **self.mask_kwargs,
+        if self.backend == "sdpa":
+            return _get_attention_mask(
+                self._causal_mask_cache, self.mask_type, seq_len, device,
+                combine=self.combine, **self.mask_kwargs,
+            )
+        return _get_block_mask(
+            self._causal_mask_cache, self.mask_type, seq_len, device,
+            combine=self.combine, **self.mask_kwargs,
         )
 
     def forward(self, x, mask=True):
@@ -523,44 +572,42 @@ class Multi_query_Attention(nn.Module):
 
         # Multi-head queries
         q = q.view(B, T, self.num_heads, self.head_dim).transpose(1, 2) # (B, H, T, D)
-        # Shared K/V
+        # Single shared K/V head -- left at (B, 1, T, D). enable_gqa below
+        # does the broadcast to H heads inside the kernel; no .expand() here.
         k = k.unsqueeze(1)                    # (B, 1, T, D)
         v = v.unsqueeze(1)                    # (B, 1, T, D)
 
-        # Broadcast to all query heads (no memory allocation)
-        k = k.expand(-1, self.num_heads, -1, -1)
-        v = v.expand(-1, self.num_heads, -1, -1)
+        attn_mask = self._get_or_create_mask(seq_len=T, device=x.device) if mask else None
 
-        attn_mask = None
-        if mask:
-            attn_mask = self._get_or_create_mask(
-                seq_len=T,
-                device=x.device,
-            )
-
-        out = _run_sdpa(
-            q,
-            k,
-            v,
-            attn_mask=attn_mask,
-            dropout_p=self.dropout_p,
-        )
+        if self.backend == "sdpa":
+            out = _run_sdpa(q, k, v, attn_mask=attn_mask, dropout_p=self.dropout_p, enable_gqa=True)
+        else:
+            out = _run_flex_attention(q, k, v, block_mask=attn_mask, enable_gqa=True)
 
         out = out.transpose(1, 2).reshape(B, T, C)
 
         return self.out_proj(out)
     
 class Multi_query_Attention_With_RoPE(nn.Module):
-    """MQA with RoPE on queries and shared keys.
+    """MQA with RoPE on queries and the shared key.
+
+    Backend note:
+        Same ``enable_gqa=True`` treatment as ``Multi_query_Attention``: K/V
+        stay at a single head and are never expanded. RoPE is applied to the
+        single-head ``k`` exactly as it would be to any other head count --
+        rotation is per-position, per-head-independent, so it composes fine
+        with the un-expanded shape.
 
     Constructor args:
         embed_dim (int, required).
         num_heads (int, required): ``embed_dim % num_heads == 0`` and even
             ``head_dim`` for RoPE.
-        dropout (float, optional, default=0.0).
+        dropout (float, optional, default=0.0): SDPA-only.
         qkv_bias (bool, optional, default=False).
         device (optional, default='cpu').
         dtype (optional, default=torch.float32).
+        backend (Literal["sdpa", "flex"], optional, default="sdpa").
+        combine (Literal["or", "and"], optional, default="or").
         mask_type ([str], optional, default=['causal']): 'causal' or 'sliding_window'.
 
     Forward args:
@@ -570,14 +617,20 @@ class Multi_query_Attention_With_RoPE(nn.Module):
     Returns:
         torch.Tensor: ``(B, T, C)``.
     """
-    def __init__(self, embed_dim, num_heads, dropout=0.0, mask_type=None, qkv_bias=False,device='cpu', dtype=torch.float32, **mask_kwargs):
+    def __init__(self, embed_dim, num_heads, dropout=0.0, mask_type=None, qkv_bias=False,
+                 device='cpu', dtype=torch.float32, backend: Literal["sdpa", "flex"] = "sdpa",
+                 combine: Literal["or", "and"] = "or", **mask_kwargs):
         super().__init__()
         assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
+        if backend not in ("sdpa", "flex"):
+            raise ValueError(f"backend must be 'sdpa' or 'flex', got {backend!r}")
 
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.head_dim = embed_dim // num_heads
         self.mask_type = mask_type
+        self.combine = combine
+        self.backend = backend
         self.device = device
         self.dtype = dtype
         self.mask_kwargs = mask_kwargs
@@ -589,19 +642,20 @@ class Multi_query_Attention_With_RoPE(nn.Module):
         # Output final projection
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=self.dtype)
         
-        # Dropout applied to the attention weights
+        # Dropout applied to the attention weights (sdpa backend only)
         self.dropout_p = dropout
         
-        # Cache for causal masks (for autoregressive models)
         self._causal_mask_cache = OrderedDict()
 
     def _get_or_create_mask(self, seq_len: int, device):
-        return _get_attention_mask(
-            self._causal_mask_cache,
-            self.mask_type,
-            seq_len,
-            device,
-            **self.mask_kwargs,
+        if self.backend == "sdpa":
+            return _get_attention_mask(
+                self._causal_mask_cache, self.mask_type, seq_len, device,
+                combine=self.combine, **self.mask_kwargs,
+            )
+        return _get_block_mask(
+            self._causal_mask_cache, self.mask_type, seq_len, device,
+            combine=self.combine, **self.mask_kwargs,
         )
     
     def _precompute_theta_position_frequency(self, head_dim: int, seq_len: int, device: torch.device,theta: float = 10000.0):
@@ -618,7 +672,7 @@ class Multi_query_Attention_With_RoPE(nn.Module):
         # Reshape
         q = q.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)  # (B, H, T, D)
 
-        # Single KV head
+        # Single KV head -- left un-expanded (B, 1, T, D)
         k = k.unsqueeze(1)  # (B, 1, T, D)
         v = v.unsqueeze(1)  # (B, 1, T, D)
 
@@ -633,26 +687,14 @@ class Multi_query_Attention_With_RoPE(nn.Module):
         q = _apply_rotary_position_embedding(q, freq)
         k = _apply_rotary_position_embedding(k, freq)
 
-        # Broadcast KV to all query heads (no memory copy)
-        k = k.expand(-1, self.num_heads, -1, -1)
-        v = v.expand(-1, self.num_heads, -1, -1)
+        # No .expand() -- enable_gqa broadcasts K/V from 1 head to H heads
+        # inside the kernel.
+        attn_mask = self._get_or_create_mask(seq_len=T, device=x.device) if mask else None
 
-        # Causal mask
-        attn_mask = None
-        if mask:
-            attn_mask = self._get_or_create_mask(
-                seq_len=T,
-                device=x.device,
-            )
-
-        # SDPA
-        out = _run_sdpa(
-            q,
-            k,
-            v,
-            attn_mask=attn_mask,
-            dropout_p=self.dropout_p,
-        )
+        if self.backend == "sdpa":
+            out = _run_sdpa(q, k, v, attn_mask=attn_mask, dropout_p=self.dropout_p, enable_gqa=True)
+        else:
+            out = _run_flex_attention(q, k, v, block_mask=attn_mask, enable_gqa=True)
 
         # Merge heads
         out = out.transpose(1, 2).reshape(B, T, C)
@@ -662,14 +704,24 @@ class Multi_query_Attention_With_RoPE(nn.Module):
 class Group_query_Attention(nn.Module):
     """Grouped-Query Attention (GQA): intermediate between MHA and MQA.
 
+    Backend note:
+        K/V stay at ``num_kv_heads`` heads -- no ``repeat_interleave`` up
+        front. Both SDPA (``enable_gqa=True``, torch >= 2.5) and
+        FlexAttention (``enable_gqa=True``) broadcast K/V to the query-head
+        groups internally, which is faster and uses less memory than
+        materializing the repeated tensors first, and scales better as
+        ``num_queries_per_kv`` grows.
+
     Constructor args:
         embed_dim (int, required).
         num_query_heads (int, required): Rule ``embed_dim % num_query_heads == 0``.
         num_kv_heads (int, required): Rule ``num_query_heads % num_kv_heads == 0``.
         qkv_bias (bool, optional, default=False).
-        dropout (float, optional, default=0.0).
+        dropout (float, optional, default=0.0): SDPA-only.
         device (optional, default='cpu').
         dtype (optional, default=torch.float32).
+        backend (Literal["sdpa", "flex"], optional, default="sdpa").
+        combine (Literal["or", "and"], optional, default="or").
         mask_type ([str], optional, default=['causal']): 'causal' or 'sliding_window'.
 
     Forward args:
@@ -678,11 +730,22 @@ class Group_query_Attention(nn.Module):
 
     Returns:
         torch.Tensor: ``(B, T, C)``.
+
+    Example:
+        >>> gqa = Group_query_Attention(embed_dim=512, num_query_heads=8, num_kv_heads=2)
+        >>> y = gqa(torch.randn(2, 128, 512))
+        >>> gqa_flex = Group_query_Attention(embed_dim=512, num_query_heads=8, num_kv_heads=2,
+        ...                                   backend="flex", mask_type="sliding_window", window_size=64)
     """
-    def __init__(self, embed_dim, num_query_heads, num_kv_heads, qkv_bias=False, dropout=0.0, mask_type=None, device='cpu', dtype=torch.float32, **mask_kwargs):
+    def __init__(self, embed_dim, num_query_heads, num_kv_heads, qkv_bias=False, dropout=0.0,
+                 mask_type=None, device='cpu', dtype=torch.float32,
+                 backend: Literal["sdpa", "flex"] = "sdpa", combine: Literal["or", "and"] = "or",
+                 **mask_kwargs):
         super().__init__()
         assert embed_dim % num_query_heads == 0, "embed_dim must be divisible by num_query_heads"
         assert num_query_heads % num_kv_heads == 0, "num_query_heads must be divisible by num_kv_heads"
+        if backend not in ("sdpa", "flex"):
+            raise ValueError(f"backend must be 'sdpa' or 'flex', got {backend!r}")
 
         self.dtype = dtype
         self.device = device
@@ -692,6 +755,8 @@ class Group_query_Attention(nn.Module):
         self.head_dim = embed_dim // num_query_heads
         self.num_queries_per_kv = num_query_heads // num_kv_heads
         self.mask_type = mask_type
+        self.combine = combine
+        self.backend = backend
         self.mask_kwargs = mask_kwargs
 
         # Projection layers
@@ -701,18 +766,20 @@ class Group_query_Attention(nn.Module):
         # Output final projection
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=dtype)
         
-        # Dropout applied to the attention weights
+        # Dropout applied to the attention weights (sdpa backend only)
         self.dropout_p = dropout
         
         self._causal_mask_cache = OrderedDict()
 
     def _get_or_create_mask(self, seq_len: int, device):
-        return _get_attention_mask(
-            self._causal_mask_cache,
-            self.mask_type,
-            seq_len,
-            device,
-            **self.mask_kwargs,
+        if self.backend == "sdpa":
+            return _get_attention_mask(
+                self._causal_mask_cache, self.mask_type, seq_len, device,
+                combine=self.combine, **self.mask_kwargs,
+            )
+        return _get_block_mask(
+            self._causal_mask_cache, self.mask_type, seq_len, device,
+            combine=self.combine, **self.mask_kwargs,
         )
 
     def forward(self, x, mask=True):
@@ -727,22 +794,18 @@ class Group_query_Attention(nn.Module):
         # Reshape projections
         q = q.view(B, T, self.num_query_heads, self.head_dim).transpose(1, 2)  # (B, num_query_heads, T, head_dim)
         k = k.view(B, T, self.num_kv_heads, self.head_dim).transpose(1, 2)     # (B, num_kv_heads, T, head_dim)
-        v = v.view(B, T, self.num_kv_heads, self.head_dim).transpose(1, 2)
+        v = v.view(B, T, self.num_kv_heads, self.head_dim).transpose(1, 2)     # (B, num_kv_heads, T, head_dim)
 
-        # Repeat keys and values for each query head group
-        k = k.repeat_interleave(self.num_queries_per_kv, dim=1)  # (B, num_query_heads, T, head_dim)
-        v = v.repeat_interleave(self.num_queries_per_kv, dim=1)
+        # No repeat_interleave here -- enable_gqa lets the kernel broadcast
+        # num_kv_heads -> num_query_heads internally instead of materializing
+        # the repeated K/V.
 
-        causal_mask = None
-        # Apply causal mask if needed
-        if mask:
-            causal_mask = self._get_or_create_mask(seq_len=T, device=x.device)  # (T, T)
+        attn_mask = self._get_or_create_mask(seq_len=T, device=x.device) if mask else None
 
-        out = _run_sdpa(
-            q, k, v,
-            attn_mask = causal_mask,
-            dropout_p = self.dropout_p
-        )
+        if self.backend == "sdpa":
+            out = _run_sdpa(q, k, v, attn_mask=attn_mask, dropout_p=self.dropout_p, enable_gqa=True)
+        else:
+            out = _run_flex_attention(q, k, v, block_mask=attn_mask, enable_gqa=True)
 
         out = out.transpose(1, 2).contiguous().view(B, T, C)
 
@@ -751,14 +814,22 @@ class Group_query_Attention(nn.Module):
 class Group_query_Attention_With_RoPE(nn.Module):
     """GQA with RoPE for relative-position-aware grouped attention.
 
+    Backend note:
+        Same treatment as ``Group_query_Attention``: K/V stay at
+        ``num_kv_heads``, RoPE is applied before any head-count change (there
+        isn't one anymore), and ``enable_gqa=True`` does the broadcast to
+        ``num_query_heads`` inside the kernel for both backends.
+
     Constructor args:
         embed_dim (int, required).
         num_query_heads (int, required): ``embed_dim % num_query_heads == 0``.
         num_kv_heads (int, required): ``num_query_heads % num_kv_heads == 0``.
         qkv_bias (bool, optional, default=False).
-        dropout (float, optional, default=0.0).
+        dropout (float, optional, default=0.0): SDPA-only.
         device (optional, default='cpu').
         dtype (optional, default=torch.float32).
+        backend (Literal["sdpa", "flex"], optional, default="sdpa").
+        combine (Literal["or", "and"], optional, default="or").
         mask_type ([str], optional, default=['causal']): 'causal' or 'sliding_window'.
 
     Rules:
@@ -771,10 +842,15 @@ class Group_query_Attention_With_RoPE(nn.Module):
     Returns:
         torch.Tensor: ``(B, T, C)``.
     """
-    def __init__(self, embed_dim, num_query_heads, num_kv_heads, qkv_bias=False, dropout=0.0, mask_type=None, device='cpu', dtype=torch.float32, **mask_kwargs):
+    def __init__(self, embed_dim, num_query_heads, num_kv_heads, qkv_bias=False, dropout=0.0,
+                 mask_type=None, device='cpu', dtype=torch.float32,
+                 backend: Literal["sdpa", "flex"] = "sdpa", combine: Literal["or", "and"] = "or",
+                 **mask_kwargs):
         super().__init__()
         assert embed_dim % num_query_heads == 0, "embed_dim must be divisible by num_query_heads"
         assert num_query_heads % num_kv_heads == 0, "num_query_heads must be divisible by num_kv_heads"
+        if backend not in ("sdpa", "flex"):
+            raise ValueError(f"backend must be 'sdpa' or 'flex', got {backend!r}")
 
         self.dtype = dtype
         self.device = device
@@ -784,6 +860,8 @@ class Group_query_Attention_With_RoPE(nn.Module):
         self.head_dim = embed_dim // num_query_heads
         self.num_queries_per_kv = num_query_heads // num_kv_heads
         self.mask_type = mask_type
+        self.combine = combine
+        self.backend = backend
         self.mask_kwargs = mask_kwargs
 
         # Projection layers
@@ -793,18 +871,20 @@ class Group_query_Attention_With_RoPE(nn.Module):
         # Output final projection
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=dtype)
         
-        # Dropout applied to the attention weights
+        # Dropout applied to the attention weights (sdpa backend only)
         self.dropout_p = dropout
 
         self._causal_mask_cache = OrderedDict()
 
     def _get_or_create_mask(self, seq_len: int, device):
-        return _get_attention_mask(
-            self._causal_mask_cache,
-            self.mask_type,
-            seq_len,
-            device,
-            **self.mask_kwargs,
+        if self.backend == "sdpa":
+            return _get_attention_mask(
+                self._causal_mask_cache, self.mask_type, seq_len, device,
+                combine=self.combine, **self.mask_kwargs,
+            )
+        return _get_block_mask(
+            self._causal_mask_cache, self.mask_type, seq_len, device,
+            combine=self.combine, **self.mask_kwargs,
         )
     
     def _precompute_theta_position_frequency(self, head_dim: int, seq_len: int, device: torch.device,theta: float = 10000.0):
@@ -822,27 +902,21 @@ class Group_query_Attention_With_RoPE(nn.Module):
         # Reshape projections
         q = q.view(B, T, self.num_query_heads, self.head_dim).transpose(1, 2)  # (B, num_query_heads, T, head_dim)
         k = k.view(B, T, self.num_kv_heads, self.head_dim).transpose(1, 2)     # (B, num_kv_heads, T, head_dim)
-        v = v.view(B, T, self.num_kv_heads, self.head_dim).transpose(1, 2)
+        v = v.view(B, T, self.num_kv_heads, self.head_dim).transpose(1, 2)     # (B, num_kv_heads, T, head_dim)
 
         freq = self._precompute_theta_position_frequency(self.head_dim, T, device=x.device,theta=theta)
         q = _apply_rotary_position_embedding(q, freq)
         k = _apply_rotary_position_embedding(k, freq)
         
-        # Repeat keys and values for each query head group
-        k = k.repeat_interleave(self.num_queries_per_kv, dim=1)  # (B, num_query_heads, T, head_dim)
-        v = v.repeat_interleave(self.num_queries_per_kv, dim=1)
-        
-        
-        causal_mask = None
-        # Apply causal mask if needed
-        if mask:
-            causal_mask = self._get_or_create_mask(seq_len=T, device=x.device)  # (T, T)
+        # No repeat_interleave -- enable_gqa broadcasts num_kv_heads ->
+        # num_query_heads internally.
 
-        out = _run_sdpa(
-            q, k, v,
-            attn_mask = causal_mask,
-            dropout_p = self.dropout_p
-        )
+        attn_mask = self._get_or_create_mask(seq_len=T, device=x.device) if mask else None
+
+        if self.backend == "sdpa":
+            out = _run_sdpa(q, k, v, attn_mask=attn_mask, dropout_p=self.dropout_p, enable_gqa=True)
+        else:
+            out = _run_flex_attention(q, k, v, block_mask=attn_mask, enable_gqa=True)
         
         out = out.transpose(1, 2).contiguous().view(B, T, C)
 
@@ -981,6 +1055,17 @@ class kv_cache_multihead(nn.Module):
 class kv_cache_group_query(nn.Module):  
     """GQA with KV cache for production-grade decoding throughput.
 
+    Backend note:
+        This class is SDPA-only. Incremental decoding grows the cache's
+        span ``S = start_pos + T`` by ``T`` on every call, and a
+        FlexAttention ``BlockMask`` is compiled for a fixed ``(Q_LEN, KV_LEN)``
+        pair -- rebuilding/recompiling one every decode step would cost far
+        more than it saves, so this class keeps ``F.scaled_dot_product_attention``
+        directly. It still gets the ``enable_gqa`` speedup: K/V are cached and
+        returned at their native ``num_kv_heads`` head count and are no
+        longer expanded to ``num_query_heads`` via ``repeat_interleave``
+        before the attention call.
+
     Constructor args:
         embed_dim (int, required).
         num_query_heads (int, required): ``embed_dim % num_query_heads == 0``.
@@ -1087,15 +1172,16 @@ class kv_cache_group_query(nn.Module):
         k_full, v_full = self.cache.get_kv(start_pos, end_pos)   # <-- start_pos, not 0
         # (no further grad handling needed here — get_kv() already spliced it)
 
-        # Expand KV heads to match Q heads (GQA)
-        k_full = k_full.repeat_interleave(self.num_queries_per_kv, dim=1)
-        v_full = v_full.repeat_interleave(self.num_queries_per_kv, dim=1)
+        # k_full/v_full stay at num_kv_heads heads -- NOT expanded to
+        # num_query_heads. enable_gqa=True below lets SDPA broadcast the
+        # head groups internally instead of paying for a repeat_interleave
+        # on every single decode step.
 
         attn_mask = None
         if mask:
             attn_mask = self._get_or_create_kv_mask(T, end_pos, start_pos, device=x.device)
 
-        context = _run_sdpa(q, k_full, v_full, attn_mask=attn_mask, dropout_p=self.dropout_p)
+        context = _run_sdpa(q, k_full, v_full, attn_mask=attn_mask, dropout_p=self.dropout_p, enable_gqa=True)
 
         out = context.transpose(1, 2).contiguous().view(B, T, C)
         return self.out_proj(out)

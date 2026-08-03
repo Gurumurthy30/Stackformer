@@ -15,6 +15,8 @@ Exposes:
     - Trainer: High-level engine trainer
 """
 
+from .attention_engine.masking import make_mask
+from .attention_engine.backends import _run_sdpa
 from .config import GenerationConfig, ModelConfig, TrainingConfig
 from .engine import Trainer
 from .generate import text_generate
@@ -58,7 +60,6 @@ from .modules import (
     TransformerEncoder,
     kv_cache_group_query,
     kv_cache_multihead,
-    make_mask,
 )
 from .vision import SegFormerB0, ViT
 
@@ -87,6 +88,7 @@ __all__ = [
     "Multi_Head_Attention_With_RoPE",
     "Multi_query_Attention",
     "Multi_query_Attention_With_RoPE",
+    "_run_sdpa",
     "RMSNormalization",
     "RoPE",
     "RoBERTa",
@@ -109,5 +111,6 @@ __all__ = [
     "ModelConfig",
     "TrainingConfig",
     "Trainer",
+    "make_mask"
 ]
 

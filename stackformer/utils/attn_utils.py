@@ -9,39 +9,9 @@ from collections import OrderedDict
 from typing import Any, List
 
 import torch
-import torch.nn.functional as F
-
+from stackformer.attention_engine.masking.dense import make_mask
 # Maximum number of cached attention masks.
 _MAX_MASK_CACHE_SIZE = 32
-
-
-def _run_sdpa(
-    q: torch.Tensor,
-    k: torch.Tensor,
-    v: torch.Tensor,
-    attn_mask: torch.Tensor | None,
-    dropout_p: float,
-) -> torch.Tensor:
-    """Wrapper around PyTorch's scaled dot-product attention (SDPA).
-
-    Args:
-        q (torch.Tensor): Query tensor of shape `(B, H, T, D)`.
-        k (torch.Tensor): Key tensor of shape `(B, H, T, D)`.
-        v (torch.Tensor): Value tensor of shape `(B, H, T, D)`.
-        attn_mask (torch.Tensor | None): Attention mask tensor or None.
-        dropout_p (float): Attention dropout probability.
-
-    Returns:
-        torch.Tensor: Output tensor of shape `(B, H, T, D)`.
-    """
-    return F.scaled_dot_product_attention(
-        q,
-        k,
-        v,
-        attn_mask=attn_mask,
-        dropout_p=dropout_p,
-        is_causal=False,
-    )
 
 
 def _normalize_mask_type(mask_type: bool | str | list[str] | tuple[str, ...] | None) -> List[str] | None:
@@ -107,7 +77,6 @@ def _get_attention_mask(
     Returns:
         torch.Tensor | None: Constructed attention mask tensor or None.
     """
-    from stackformer.modules.Masking import make_mask
 
     mask_types = _normalize_mask_type(mask_type)
 
@@ -134,4 +103,4 @@ def _get_attention_mask(
         )
 
     return cache[key]
-
+

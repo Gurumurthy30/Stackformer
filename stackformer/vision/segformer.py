@@ -15,7 +15,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from stackformer.utils import _run_sdpa
+from stackformer.attention_engine import _run_sdpa
 from stackformer.modules.Feed_forward import FF_GELU
 
 

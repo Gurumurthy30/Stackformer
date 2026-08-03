@@ -31,7 +31,7 @@ from .Feed_forward import (
     FF_SiLU,
     FF_SwiGLU,
 )
-from .Masking import make_mask
+
 from .Normalization import LayerNormalization, RMSNormalization
 from .layer import (
     BlockConfig,
@@ -44,13 +44,6 @@ from .position_embedding import (
     SinusoidalPositionalEmbedding,
 )
 
-TokenizerImportError: Exception | None = None
-
-try:
-    from .tokenizer import Embedding_using_tiktoken
-except Exception as exc:  # optional dependency: tiktoken
-    TokenizerImportError = exc
-    Embedding_using_tiktoken = None  # type: ignore[assignment]
 
 __all__ = [
     "AbsolutePositionEmbedding",
@@ -78,9 +71,4 @@ __all__ = [
     "TransformerDecoder",
     "kv_cache_group_query",
     "kv_cache_multihead",
-    "make_mask",
 ]
-
-if Embedding_using_tiktoken is not None:
-    __all__.append("Embedding_using_tiktoken")
-
