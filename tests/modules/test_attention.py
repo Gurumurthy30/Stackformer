@@ -15,6 +15,7 @@ from stackformer.modules.Attention import (
     kv_cache_multihead,
     _ROPE_FREQ_CACHE,
 )
+from stackformer.modules.attention_engine import _run_attention, _run_flex_attention, _run_sdpa
 
 BATCH, SEQ, EMB = 2, 6, 8
 HEADS, KV_HEADS = 2, 1
@@ -194,3 +195,51 @@ def test_attention_rope_freq_cache_tracking(torch_device):
     out = layer(x)
     _checkpoint("Checking RoPE cache presence", cache_size=len(_ROPE_FREQ_CACHE))
     assert isinstance(_ROPE_FREQ_CACHE, dict)
+
+
+def test_run_attention_dispatcher_defaults(torch_device):
+    _checkpoint("test_run_attention_dispatcher_defaults setup", device=torch_device)
+    q = torch.randn(2, 2, 4, 8, device=torch_device)
+    k = torch.randn(2, 2, 4, 8, device=torch_device)
+    v = torch.randn(2, 2, 4, 8, device=torch_device)
+
+    # Calling _run_attention with default backend ("sdpa")
+    out_default = _run_attention(q=q, k=k, v=v)
+    out_sdpa = _run_attention(backend="sdpa", q=q, k=k, v=v)
+    assert out_default.shape == (2, 2, 4, 8)
+    assert torch.allclose(out_default, out_sdpa)
+
+
+def test_run_attention_invalid_backend_raises(torch_device):
+    _checkpoint("test_run_attention_invalid_backend_raises setup", device=torch_device)
+    q = torch.randn(2, 2, 4, 8, device=torch_device)
+    with pytest.raises(ValueError, match="Unknown backend"):
+        _run_attention(backend="invalid_backend", q=q, k=q, v=q)
+
+
+@pytest.mark.parametrize(
+    "ctor",
+    [
+        lambda dev, backend: Self_Attention(EMB, dropout=0.0, device=dev, backend=backend),
+        lambda dev, backend: Multi_Head_Attention(embed_dim=EMB, num_heads=HEADS, dropout=0.0, device=dev, backend=backend),
+        lambda dev, backend: Multi_Head_Attention_With_RoPE(embed_dim=EMB, num_heads=HEADS, dropout=0.0, device=dev, backend=backend),
+        lambda dev, backend: Cross_MultiHead_Attention(embed_dim=EMB, num_heads=HEADS, dropout=0.0, device=dev, backend=backend),
+        lambda dev, backend: Multi_query_Attention(embed_dim=EMB, num_heads=HEADS, dropout=0.0, device=dev, backend=backend),
+        lambda dev, backend: Multi_query_Attention_With_RoPE(embed_dim=EMB, num_heads=HEADS, dropout=0.0, device=dev, backend=backend),
+        lambda dev, backend: Group_query_Attention(embed_dim=EMB, num_query_heads=HEADS, num_kv_heads=KV_HEADS, dropout=0.0, device=dev, backend=backend),
+        lambda dev, backend: Group_query_Attention_With_RoPE(embed_dim=EMB, num_query_heads=HEADS, num_kv_heads=KV_HEADS, dropout=0.0, device=dev, backend=backend),
+        lambda dev, backend: kv_cache_multihead(embed_dim=EMB, num_heads=HEADS, batch_size=BATCH, kv_seq_len=SEQ, dropout=0.0, device=dev, backend=backend),
+        lambda dev, backend: kv_cache_group_query(embed_dim=EMB, num_query_heads=HEADS, num_kv_heads=KV_HEADS, batch_size=BATCH, kv_seq_len=SEQ, dropout=0.0, device=dev, backend=backend),
+    ],
+)
+def test_attention_modules_backend_support(ctor, torch_device):
+    _checkpoint("test_attention_modules_backend_support setup", device=torch_device)
+    layer_sdpa = ctor(torch_device, "sdpa")
+    assert layer_sdpa.backend == "sdpa"
+
+    layer_flex = ctor(torch_device, "flex")
+    assert layer_flex.backend == "flex"
+
+    with pytest.raises(ValueError):
+        ctor(torch_device, "unsupported_backend")
+

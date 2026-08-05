@@ -54,7 +54,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
 from stackformer.modules.masks import _get_attention_mask, _get_block_mask
-from stackformer.modules.attention_engine import _run_sdpa, _run_flex_attention
+from stackformer.modules.attention_engine import _run_sdpa, _run_flex_attention, _run_attention
 from stackformer.cache import StaticKVCache
 
 
@@ -150,13 +150,19 @@ class Self_Attention(nn.Module):
         qkv_bias: bool = False,
         device: torch.device | str = "cpu",
         dtype: torch.dtype = torch.float32,
+        backend: Literal["sdpa", "flex"] = "sdpa",
+        combine: Literal["or", "and"] = "or",
         **mask_kwargs,
     ) -> None:
         super().__init__()
+        if backend not in ("sdpa", "flex"):
+            raise ValueError(f"backend must be 'sdpa' or 'flex', got {backend!r}")
         self.embed_dim = embed_dim
         self.device = device
         self.dtype = dtype
         self.mask_type = mask_type
+        self.backend = backend
+        self.combine = combine
         self.mask_kwargs = mask_kwargs
 
         self.qkv_proj = nn.Linear(embed_dim, embed_dim * 3, bias=qkv_bias, device=device, dtype=dtype)
@@ -164,13 +170,22 @@ class Self_Attention(nn.Module):
         self.dropout_p = dropout
         self._causal_mask_cache = OrderedDict()
 
-
     def _get_or_create_mask(self, seq_len: int, device):
-        return _get_attention_mask(
+        if self.backend == "sdpa":
+            return _get_attention_mask(
+                self._causal_mask_cache,
+                self.mask_type,
+                seq_len,
+                device,
+                combine=self.combine,
+                **self.mask_kwargs,
+            )
+        return _get_block_mask(
             self._causal_mask_cache,
             self.mask_type,
             seq_len,
             device,
+            combine=self.combine,
             **self.mask_kwargs,
         )
 
@@ -181,19 +196,22 @@ class Self_Attention(nn.Module):
         qkv = self.qkv_proj(x)                      # (B, T, 3*C)
         q, k, v = qkv.split(self.embed_dim, dim=-1)    # each (B, T, C)
 
-        # Add single head dimension for SDPA
+        # Add single head dimension for SDPA / FlexAttention
         q = q.unsqueeze(1)  # (B, 1, T, C)
         k = k.unsqueeze(1)
         v = v.unsqueeze(1)
 
-        attn_mask = None
-        if mask:
-            attn_mask = self._get_or_create_mask(seq_len=T, device=x.device)
-
-        out = _run_sdpa(
-            q,k,v,
-            attn_mask = attn_mask,
-            dropout_p=self.dropout_p)
+        out = _run_attention(
+            backend=self.backend,
+            q=q, k=k, v=v,
+            mask_type=self.mask_type if mask else None,
+            seq_len=T,
+            device=x.device,
+            cache=self._causal_mask_cache,
+            dropout_p=self.dropout_p,
+            combine=self.combine,
+            mask_kwargs=self.mask_kwargs,
+        )
 
         # Remove head dimension
         out = out.squeeze(1)  # (B, T, C)
@@ -232,16 +250,21 @@ class Multi_Head_Attention(nn.Module):
         >>> y = layer(torch.randn(2, 128, 512), mask=True)
     """
     def __init__(self, embed_dim, num_heads, dropout=0.0, mask_type=None,
-                 qkv_bias=False,device='cpu', dtype=torch.float32, 
+                 qkv_bias=False, device='cpu', dtype=torch.float32,
+                 backend: Literal["sdpa", "flex"] = "sdpa", combine: Literal["or", "and"] = "or",
                  **mask_kwargs):
         super().__init__()
         assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
+        if backend not in ("sdpa", "flex"):
+            raise ValueError(f"backend must be 'sdpa' or 'flex', got {backend!r}")
 
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.head_dim = embed_dim // num_heads  # Each head gets a slice of the embedding
         
         self.mask_type = mask_type
+        self.backend = backend
+        self.combine = combine
         self.device = device
         self.dtype = dtype
         self.mask_kwargs = mask_kwargs
@@ -259,11 +282,21 @@ class Multi_Head_Attention(nn.Module):
         self._causal_mask_cache = OrderedDict()
 
     def _get_or_create_mask(self, seq_len: int, device):
-        return _get_attention_mask(
+        if self.backend == "sdpa":
+            return _get_attention_mask(
+                self._causal_mask_cache,
+                self.mask_type,
+                seq_len,
+                device,
+                combine=self.combine,
+                **self.mask_kwargs,
+            )
+        return _get_block_mask(
             self._causal_mask_cache,
             self.mask_type,
             seq_len,
             device,
+            combine=self.combine,
             **self.mask_kwargs,
         )
 
@@ -279,15 +312,16 @@ class Multi_Head_Attention(nn.Module):
         k = k.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
         v = v.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
         
-        causal_mask = None
-        # Apply causal mask if needed
-        if mask:
-            causal_mask = self._get_or_create_mask(seq_len=T, device=x.device)  # (T, T)
-
-        out = _run_sdpa(
-            q, k, v,
-            attn_mask = causal_mask,
-            dropout_p=self.dropout_p
+        out = _run_attention(
+            backend=self.backend,
+            q=q, k=k, v=v,
+            mask_type=self.mask_type if mask else None,
+            seq_len=T,
+            device=x.device,
+            cache=self._causal_mask_cache,
+            dropout_p=self.dropout_p,
+            combine=self.combine,
+            mask_kwargs=self.mask_kwargs,
         )
         
         out = out.transpose(1, 2).contiguous().view(B, T, C)
@@ -320,13 +354,19 @@ class Multi_Head_Attention_With_RoPE(nn.Module):
     Returns:
         torch.Tensor: ``(B, T, C)``.
     """
-    def __init__(self, embed_dim, num_heads, dropout=0.0, mask_type=None, qkv_bias=False,device='cpu', dtype=torch.float32, **mask_kwargs):
+    def __init__(self, embed_dim, num_heads, dropout=0.0, mask_type=None, qkv_bias=False,
+                 device='cpu', dtype=torch.float32, backend: Literal["sdpa", "flex"] = "sdpa",
+                 combine: Literal["or", "and"] = "or", **mask_kwargs):
         super().__init__()
         assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
+        if backend not in ("sdpa", "flex"):
+            raise ValueError(f"backend must be 'sdpa' or 'flex', got {backend!r}")
 
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.mask_type = mask_type
+        self.backend = backend
+        self.combine = combine
         self.head_dim = embed_dim // num_heads  # Each head gets a slice of the embedding
         self.device = device
         self.dtype = dtype
@@ -345,11 +385,21 @@ class Multi_Head_Attention_With_RoPE(nn.Module):
         self._causal_mask_cache = OrderedDict()
 
     def _get_or_create_mask(self, seq_len: int, device):
-        return _get_attention_mask(
+        if self.backend == "sdpa":
+            return _get_attention_mask(
+                self._causal_mask_cache,
+                self.mask_type,
+                seq_len,
+                device,
+                combine=self.combine,
+                **self.mask_kwargs,
+            )
+        return _get_block_mask(
             self._causal_mask_cache,
             self.mask_type,
             seq_len,
             device,
+            combine=self.combine,
             **self.mask_kwargs,
         )
     
@@ -372,15 +422,16 @@ class Multi_Head_Attention_With_RoPE(nn.Module):
         q = _apply_rotary_position_embedding(q, freq)
         k = _apply_rotary_position_embedding(k, freq)
         
-        causal_mask = None
-        # Apply causal mask if needed
-        if mask:
-            causal_mask = self._get_or_create_mask(seq_len=T, device=x.device)  # (T, T)
-
-        out = _run_sdpa(
-            q, k, v,
-            attn_mask = causal_mask,
-            dropout_p=self.dropout_p
+        out = _run_attention(
+            backend=self.backend,
+            q=q, k=k, v=v,
+            mask_type=self.mask_type if mask else None,
+            seq_len=T,
+            device=x.device,
+            cache=self._causal_mask_cache,
+            dropout_p=self.dropout_p,
+            combine=self.combine,
+            mask_kwargs=self.mask_kwargs,
         )
         
         out = out.transpose(1, 2).contiguous().view(B, T, C)
@@ -409,14 +460,20 @@ class Cross_MultiHead_Attention(nn.Module):
     Returns:
         torch.Tensor: ``(B, T, C)``.
     """
-    def __init__(self, embed_dim, num_heads, dropout=0.0, mask_type=None, qkv_bias=False,device='cpu', dtype=torch.float32, **mask_kwargs):
+    def __init__(self, embed_dim, num_heads, dropout=0.0, mask_type=None, qkv_bias=False,
+                 device='cpu', dtype=torch.float32, backend: Literal["sdpa", "flex"] = "sdpa",
+                 combine: Literal["or", "and"] = "or", **mask_kwargs):
         super().__init__()
         assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
+        if backend not in ("sdpa", "flex"):
+            raise ValueError(f"backend must be 'sdpa' or 'flex', got {backend!r}")
 
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.head_dim = embed_dim // num_heads
         self.mask_type = mask_type
+        self.backend = backend
+        self.combine = combine
         self.device = device
         self.dtype = dtype
         self.mask_kwargs = mask_kwargs
@@ -435,11 +492,21 @@ class Cross_MultiHead_Attention(nn.Module):
         self._causal_mask_cache = OrderedDict()
 
     def _get_or_create_mask(self, seq_len: int, device):
-        return _get_attention_mask(
+        if self.backend == "sdpa":
+            return _get_attention_mask(
+                self._causal_mask_cache,
+                self.mask_type,
+                seq_len,
+                device,
+                combine=self.combine,
+                **self.mask_kwargs,
+            )
+        return _get_block_mask(
             self._causal_mask_cache,
             self.mask_type,
             seq_len,
             device,
+            combine=self.combine,
             **self.mask_kwargs,
         )
 
@@ -461,17 +528,27 @@ class Cross_MultiHead_Attention(nn.Module):
             if attn_mask.dim() == 2 and attn_mask.shape != (T, S):
                 raise ValueError(f"Cross attention mask must have shape (T, S)=({T}, {S}); got {tuple(attn_mask.shape)}")
             causal_mask = attn_mask
+            effective_mask_type = None
         elif mask:
             if T != S:
                 raise ValueError("Causal cross-attention mask requires T == S. Provide explicit attn_mask with shape (T, S).")
-            causal_mask = self._get_or_create_mask(seq_len=T, device=x.device)
+            causal_mask = None
+            effective_mask_type = self.mask_type
         else:
             causal_mask = None
+            effective_mask_type = None
 
-        out = _run_sdpa(
-            q, k, v,
-            attn_mask = causal_mask,
-            dropout_p=self.dropout_p
+        out = _run_attention(
+            backend=self.backend,
+            q=q, k=k, v=v,
+            attn_mask=causal_mask,
+            mask_type=effective_mask_type,
+            seq_len=T,
+            device=x.device,
+            cache=self._causal_mask_cache,
+            dropout_p=self.dropout_p,
+            combine=self.combine,
+            mask_kwargs=self.mask_kwargs,
         )
         
         out = out.transpose(1, 2).contiguous().view(B, T, C)
@@ -577,12 +654,18 @@ class Multi_query_Attention(nn.Module):
         k = k.unsqueeze(1)                    # (B, 1, T, D)
         v = v.unsqueeze(1)                    # (B, 1, T, D)
 
-        attn_mask = self._get_or_create_mask(seq_len=T, device=x.device) if mask else None
-
-        if self.backend == "sdpa":
-            out = _run_sdpa(q, k, v, attn_mask=attn_mask, dropout_p=self.dropout_p, enable_gqa=True)
-        else:
-            out = _run_flex_attention(q, k, v, block_mask=attn_mask, enable_gqa=True)
+        out = _run_attention(
+            backend=self.backend,
+            q=q, k=k, v=v,
+            mask_type=self.mask_type if mask else None,
+            seq_len=T,
+            device=x.device,
+            cache=self._causal_mask_cache,
+            dropout_p=self.dropout_p,
+            combine=self.combine,
+            enable_gqa=True,
+            mask_kwargs=self.mask_kwargs,
+        )
 
         out = out.transpose(1, 2).reshape(B, T, C)
 
@@ -689,12 +772,18 @@ class Multi_query_Attention_With_RoPE(nn.Module):
 
         # No .expand() -- enable_gqa broadcasts K/V from 1 head to H heads
         # inside the kernel.
-        attn_mask = self._get_or_create_mask(seq_len=T, device=x.device) if mask else None
-
-        if self.backend == "sdpa":
-            out = _run_sdpa(q, k, v, attn_mask=attn_mask, dropout_p=self.dropout_p, enable_gqa=True)
-        else:
-            out = _run_flex_attention(q, k, v, block_mask=attn_mask, enable_gqa=True)
+        out = _run_attention(
+            backend=self.backend,
+            q=q, k=k, v=v,
+            mask_type=self.mask_type if mask else None,
+            seq_len=T,
+            device=x.device,
+            cache=self._causal_mask_cache,
+            dropout_p=self.dropout_p,
+            combine=self.combine,
+            enable_gqa=True,
+            mask_kwargs=self.mask_kwargs,
+        )
 
         # Merge heads
         out = out.transpose(1, 2).reshape(B, T, C)
@@ -800,12 +889,18 @@ class Group_query_Attention(nn.Module):
         # num_kv_heads -> num_query_heads internally instead of materializing
         # the repeated K/V.
 
-        attn_mask = self._get_or_create_mask(seq_len=T, device=x.device) if mask else None
-
-        if self.backend == "sdpa":
-            out = _run_sdpa(q, k, v, attn_mask=attn_mask, dropout_p=self.dropout_p, enable_gqa=True)
-        else:
-            out = _run_flex_attention(q, k, v, block_mask=attn_mask, enable_gqa=True)
+        out = _run_attention(
+            backend=self.backend,
+            q=q, k=k, v=v,
+            mask_type=self.mask_type if mask else None,
+            seq_len=T,
+            device=x.device,
+            cache=self._causal_mask_cache,
+            dropout_p=self.dropout_p,
+            combine=self.combine,
+            enable_gqa=True,
+            mask_kwargs=self.mask_kwargs,
+        )
 
         out = out.transpose(1, 2).contiguous().view(B, T, C)
 
@@ -911,12 +1006,18 @@ class Group_query_Attention_With_RoPE(nn.Module):
         # No repeat_interleave -- enable_gqa broadcasts num_kv_heads ->
         # num_query_heads internally.
 
-        attn_mask = self._get_or_create_mask(seq_len=T, device=x.device) if mask else None
-
-        if self.backend == "sdpa":
-            out = _run_sdpa(q, k, v, attn_mask=attn_mask, dropout_p=self.dropout_p, enable_gqa=True)
-        else:
-            out = _run_flex_attention(q, k, v, block_mask=attn_mask, enable_gqa=True)
+        out = _run_attention(
+            backend=self.backend,
+            q=q, k=k, v=v,
+            mask_type=self.mask_type if mask else None,
+            seq_len=T,
+            device=x.device,
+            cache=self._causal_mask_cache,
+            dropout_p=self.dropout_p,
+            combine=self.combine,
+            enable_gqa=True,
+            mask_kwargs=self.mask_kwargs,
+        )
         
         out = out.transpose(1, 2).contiguous().view(B, T, C)
 
@@ -947,13 +1048,18 @@ class kv_cache_multihead(nn.Module):
     """
     def __init__(self, embed_dim, num_heads, batch_size, kv_seq_len, mask_type=None,
                  qkv_bias=False, dropout=0.0, device='cpu', dtype=torch.float32,
+                 backend: Literal["sdpa", "flex"] = "sdpa", combine: Literal["or", "and"] = "or",
                  cache_policy=None, **mask_kwargs):
         super().__init__()
         assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
+        if backend not in ("sdpa", "flex"):
+            raise ValueError(f"backend must be 'sdpa' or 'flex', got {backend!r}")
 
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.head_dim = embed_dim // num_heads
+        self.backend = backend
+        self.combine = combine
         self.device = device
         self.dtype = dtype
         self.mask_type = mask_type
@@ -1039,13 +1145,13 @@ class kv_cache_multihead(nn.Module):
         if mask:
             attn_mask = self._get_or_create_kv_mask(T, end_pos, start_pos, device=x.device)
 
-        # Scaled Dot Product Attention (Flash / MemEff)
-        context = F.scaled_dot_product_attention(
-            q,
-            k_full,
-            v_full,
-            attn_mask=attn_mask,   # (T, S)
-            dropout_p=self.dropout_p
+        context = _run_attention(
+            backend=self.backend,
+            q=q,
+            k=k_full,
+            v=v_full,
+            attn_mask=attn_mask,
+            dropout_p=self.dropout_p,
         )
 
         # Merge heads + output projection
@@ -1086,10 +1192,12 @@ class kv_cache_group_query(nn.Module):
     Returns:
         torch.Tensor: ``(B, T, C)``.
     """
-    def __init__(self, embed_dim, num_query_heads, num_kv_heads, kv_seq_len, batch_size, mask_type=None, qkv_bias=False, dropout=0.0, device='cpu', dtype=torch.float32, **mask_kwargs):
+    def __init__(self, embed_dim, num_query_heads, num_kv_heads, kv_seq_len, batch_size, mask_type=None, qkv_bias=False, dropout=0.0, device='cpu', dtype=torch.float32, backend: Literal["sdpa", "flex"] = "sdpa", combine: Literal["or", "and"] = "or", **mask_kwargs):
         super().__init__()
         assert embed_dim % num_query_heads == 0, "embed_dim must be divisible by num_query_heads"
         assert num_query_heads % num_kv_heads == 0, "num_query_heads must be divisible by num_kv_heads"
+        if backend not in ("sdpa", "flex"):
+            raise ValueError(f"backend must be 'sdpa' or 'flex', got {backend!r}")
 
         self.embed_dim = embed_dim
         self.num_query_heads = num_query_heads
@@ -1097,6 +1205,8 @@ class kv_cache_group_query(nn.Module):
         self.head_dim = embed_dim // num_query_heads
         self.num_queries_per_kv = num_query_heads // num_kv_heads
         self.kv_seq_len = kv_seq_len
+        self.backend = backend
+        self.combine = combine
         self.device = device
         self.dtype = dtype
         self.mask_type = mask_type
@@ -1181,7 +1291,13 @@ class kv_cache_group_query(nn.Module):
         if mask:
             attn_mask = self._get_or_create_kv_mask(T, end_pos, start_pos, device=x.device)
 
-        context = _run_sdpa(q, k_full, v_full, attn_mask=attn_mask, dropout_p=self.dropout_p, enable_gqa=True)
+        context = _run_attention(
+            backend=self.backend,
+            q=q, k=k_full, v=v_full,
+            attn_mask=attn_mask,
+            dropout_p=self.dropout_p,
+            enable_gqa=True,
+        )
 
         out = context.transpose(1, 2).contiguous().view(B, T, C)
         return self.out_proj(out)

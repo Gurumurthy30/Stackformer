@@ -85,7 +85,7 @@ from .modules import (
     kv_cache_group_query,
     kv_cache_multihead,
 )
-from .modules.attention_engine import _run_sdpa
+from .modules.attention_engine import _run_attention, _run_flex_attention, _run_sdpa
 from .modules.masks import make_mask
 from .vision import SegFormerB0, ViT
 
@@ -153,6 +153,8 @@ __all__ = [
     "TransformerEncoder",
     "TrainingConfig",
     "ViT",
+    "_run_attention",
+    "_run_flex_attention",
     "_run_sdpa",
     "gemma_1_2b",
     "gemma_1_7b",
