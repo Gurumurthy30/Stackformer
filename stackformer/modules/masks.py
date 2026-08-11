@@ -10,13 +10,16 @@ import inspect
 from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 
 import torch
-from torch.nn.attention.flex_attention import (
-    BlockMask,
-    and_masks,
-    create_block_mask,
-    noop_mask,
-    or_masks,
-)
+try:
+    from torch.nn.attention.flex_attention import (
+        BlockMask,
+        and_masks,
+        create_block_mask,
+        noop_mask,
+        or_masks,
+    )
+except ImportError:
+    BlockMask = and_masks = create_block_mask = noop_mask = or_masks = None
 
 MaskSpec = Union[List[str], Tuple[str, ...], str, None]
 MaskMod = Callable[[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor]

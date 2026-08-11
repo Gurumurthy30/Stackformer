@@ -11,7 +11,10 @@ from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 
 import torch
 import torch.nn.functional as F
-from torch.nn.attention.flex_attention import flex_attention
+try:
+    from torch.nn.attention.flex_attention import flex_attention
+except ImportError:
+    flex_attention = None
 
 from stackformer.modules.masks import (
     MaskSpec,
