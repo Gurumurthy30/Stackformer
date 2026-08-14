@@ -63,7 +63,6 @@ class LayerNorm(nn.Module):
         >>> y.shape
         torch.Size([4, 32, 256])
     """
-
     def __init__(
         self,
         embed_dim: int,
@@ -74,20 +73,18 @@ class LayerNorm(nn.Module):
         super().__init__()
         self.eps = eps
         factory_kwargs = {"device": device, "dtype": dtype}
-        self.weight = nn.Parameter(torch.ones(embed_dim, **factory_kwargs))  # gamma
-        self.bias = nn.Parameter(torch.zeros(embed_dim, **factory_kwargs))  # beta
+        self.weight = nn.Parameter(torch.ones(embed_dim, **factory_kwargs))
+        self.bias = nn.Parameter(torch.zeros(embed_dim, **factory_kwargs))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # x: (B, T, C)
-        # Upcast to fp32 for the reduction/normalization math so this is safe under
-        # fp16 autocast, then cast back down -- a drop-in replacement for callers.
         orig_dtype = x.dtype
         x32 = x.float()
         mean = x32.mean(dim=-1, keepdim=True)
         var = x32.var(dim=-1, keepdim=True, unbiased=False)
         normalized_x = (x32 - mean) / torch.sqrt(var + self.eps)
         output = self.weight.float() * normalized_x + self.bias.float()
-        return output.to(orig_dtype)  # (B, T, C)
+        return output.to(orig_dtype)
+
 
 
 class RMSNorm(nn.Module):
@@ -124,28 +121,25 @@ class RMSNorm(nn.Module):
         >>> y.shape
         torch.Size([4, 32, 256])
     """
-
     def __init__(
-        self,
-        embed_dim: int,
-        device: torch.device | str | None = None,
-        dtype: torch.dtype | None = None,
-        eps: float = 1e-5,
-    ) -> None:
-        super().__init__()
-        self.eps = eps
-        factory_kwargs = {"device": device, "dtype": dtype}
-        self.weight = nn.Parameter(torch.ones(embed_dim, **factory_kwargs))  # gamma
-
+            self,
+            embed_dim: int,
+            device: torch.device | str | None = None,
+            dtype: torch.dtype | None = None,
+            eps: float = 1e-5,
+        ) -> None:
+            super().__init__()
+            self.eps = eps
+            factory_kwargs = {"device": device, "dtype": dtype}
+            self.weight = nn.Parameter(torch.ones(embed_dim, **factory_kwargs))
+    
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # x: (B, T, C)
         orig_dtype = x.dtype
         x32 = x.float()
         rms = (x32.pow(2).mean(-1, keepdim=True) + self.eps).sqrt()
         normalized_x = x32 / rms
         output = self.weight.float() * normalized_x
-        return output.to(orig_dtype)  # (B, T, C)
-
+        return output.to(orig_dtype)
 
 # Backward-compat aliases
 LayerNormalization = LayerNorm
