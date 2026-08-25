@@ -1,7 +1,10 @@
 """Vision Transformer (ViT) architecture implementation for image classification.
 
-Implements patch projection tokenization, standard transformer encoder blocks with Pre-Norm,
-learnable absolute positional embeddings, and classification head.
+Provides Vision Transformer components:
+- PatchEmbedding: Convolutional patch projection layer
+- Block: Pre-Norm Transformer Encoder layer
+- Encoder: Stacked Encoder block backbone
+- ViT: Full image classification network with [CLS] token and linear classifier head
 
 Paper reference:
     An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale
@@ -25,10 +28,11 @@ class PatchEmbedding(nn.Module):
         patch_size (int, default=16): Height and width of image patches.
         embed_dim (int, default=768): Dimension of patch projection vectors.
         in_channels (int, default=3): Number of input image channels.
+        Emb_dim (int | None, default=None): Deprecated alias for embed_dim.
 
     Learnable parameters:
-        proj.weight: Shape ``(embed_dim, in_channels, patch_size, patch_size)``. Convolutional kernel.
-        proj.bias: Shape ``(embed_dim,)``. Bias vector.
+        projection.weight: Shape ``(embed_dim, in_channels, patch_size, patch_size)``. Convolutional kernel.
+        projection.bias: Shape ``(embed_dim,)``. Bias vector.
 
     Forward args:
         x (torch.Tensor): Input images tensor of shape ``(B, C, H, W)``.
@@ -62,7 +66,6 @@ class PatchEmbedding(nn.Module):
         self.img_size = img_size
         self.patch_size = patch_size
         self.embed_dim = embed_dim
-        self.Emb_dim = embed_dim
         self.num_patches = (img_size // patch_size) ** 2
 
         self.projection = nn.Conv2d(
@@ -80,10 +83,10 @@ class Block(nn.Module):
     """Transformer block combining pre-norm multi-head self-attention and GELU FFN.
 
     Constructor args:
-        embed_dim (int): Embedding dimension.
-        num_heads (int): Number of attention heads.
-        dropout (float): Dropout probability.
-        hidden_dim (int): Inner hidden dimension of feed-forward layer.
+        embed_dim (int, default=768): Embedding dimension.
+        num_heads (int, default=12): Number of attention heads.
+        dropout (float, default=0.1): Dropout probability.
+        hidden_dim (int, default=3072): Inner hidden dimension of feed-forward layer.
         eps (float, default=1e-5): LayerNorm epsilon.
         device (torch.device | str | None, default=None): Target device.
         dtype (torch.dtype, default=torch.float32): Tensor data type.
@@ -130,13 +133,11 @@ class Block(nn.Module):
         self.norm2 = nn.LayerNorm(embed_dim, eps=eps, dtype=dtype)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # Pre-norm attention
         residual = x
         x = self.norm1(x)
         x = self.attention(x, mask=False)
         x = x + residual
 
-        # Pre-norm FFN
         residual = x
         x = self.norm2(x)
         x = self.ff_gelu(x)
@@ -149,11 +150,11 @@ class Encoder(nn.Module):
     """Stack of Vision Transformer encoder blocks.
 
     Constructor args:
-        num_layers (int): Number of encoder blocks.
-        embed_dim (int): Embedding dimension.
-        num_heads (int): Number of attention heads.
-        dropout (float): Dropout probability.
-        hidden_dim (int): Feed-forward inner hidden dimension.
+        num_layers (int, default=12): Number of encoder blocks.
+        embed_dim (int, default=768): Embedding dimension.
+        num_heads (int, default=12): Number of attention heads.
+        dropout (float, default=0.1): Dropout probability.
+        hidden_dim (int, default=3072): Feed-forward inner hidden dimension.
         eps (float, default=1e-5): LayerNorm epsilon.
         device (torch.device | str | None, default=None): Target device.
         dtype (torch.dtype, default=torch.float32): Tensor data type.
@@ -275,19 +276,16 @@ class ViT(nn.Module):
 
         self.encoder = Encoder(num_layers, embed_dim, num_heads, dropout, hidden_dim, eps)
 
-        # Classification head
         self.mlp_head = nn.Sequential(
             nn.LayerNorm(embed_dim, eps=eps),
             nn.Linear(embed_dim, num_classes),
         )
 
-        # Init weights
         self.apply(self._init_weights)
         nn.init.trunc_normal_(self.cls_token, std=0.02)
         nn.init.trunc_normal_(self.pos_embed, std=0.02)
 
     def _init_weights(self, m: nn.Module) -> None:
-        """Initialize linear, conv, and layernorm layer weights."""
         if isinstance(m, nn.Linear):
             nn.init.trunc_normal_(m.weight, std=0.02)
             if m.bias is not None:
@@ -313,4 +311,3 @@ class ViT(nn.Module):
 
         x = self.encoder(x)  # (B, 1+N, C)
         return self.mlp_head(x[:, 0])  # (B, num_classes)
-

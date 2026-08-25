@@ -258,7 +258,7 @@ class CheckpointManager:
             "jit_model_path": checkpoint.get("jit_model_path"),
         }
 
-    def save_jit_model(self, model: torch.nn.Module, name: str = "latest") -> str:
+    def save_jit_model(self, model: torch.nn.Module, name: str = "latest") -> str | None:
         """Export TorchScript compiled model artifact to disk.
 
         Args:
@@ -266,10 +266,10 @@ class CheckpointManager:
             name (str, default="latest"): Output filename identifier.
 
         Returns:
-            str: Path to saved TorchScript file (or empty string on non-main process).
+            str | None: Path to saved TorchScript file (or None on non-main process).
         """
         if not is_main_process():
-            return ""
+            return None
 
         model = self._unwrap_model(model)
         model.eval()

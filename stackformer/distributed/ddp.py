@@ -55,11 +55,13 @@ def init_distributed(backend: str | None = None) -> bool:
     return True
 
 
-def wrap_model_ddp(model: nn.Module) -> nn.Module:
+def wrap_model_ddp(model: nn.Module, find_unused_parameters: bool = False) -> nn.Module:
     """Wrap a PyTorch model with DistributedDataParallel if running in a distributed environment.
 
     Args:
         model (nn.Module): Model instance to wrap.
+        find_unused_parameters (bool, default=False): Traverse model graph during backward pass to find unused parameters.
+            Must be set to True if model outputs do not depend on all model parameters to prevent backward hangs.
 
     Returns:
         nn.Module: DDP-wrapped model instance, or original model if not distributed.
@@ -69,9 +71,14 @@ def wrap_model_ddp(model: nn.Module) -> nn.Module:
 
     if torch.cuda.is_available():
         local_rank = get_local_rank()
-        return DDP(model, device_ids=[local_rank], output_device=local_rank, find_unused_parameters=False)
+        return DDP(
+            model,
+            device_ids=[local_rank],
+            output_device=local_rank,
+            find_unused_parameters=find_unused_parameters,
+        )
 
-    return DDP(model)
+    return DDP(model, find_unused_parameters=find_unused_parameters)
 
 
 def distributed_sampler(dataset: Any, shuffle: bool = True) -> Any | None:

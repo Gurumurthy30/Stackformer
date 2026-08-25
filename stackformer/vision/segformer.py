@@ -1,7 +1,7 @@
-"""SegFormer-B0 architecture implementation for semantic segmentation.
+"""SegFormer / MixVisionTransformer architecture implementation for semantic segmentation.
 
-Implements multi-scale hierarchical transformer encoder stages with Spatial Reduction Attention
-and lightweight MLP decoder head.
+Provides hierarchical multi-stage vision encoders with spatial reduction attention (SRA) and Mix-FFN blocks,
+along with all-MLP decode heads for semantic segmentation tasks.
 
 Paper reference:
     SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers
@@ -10,414 +10,301 @@ Paper reference:
 
 from __future__ import annotations
 
-import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from stackformer.modules.attention_engine import _run_sdpa
-from stackformer.modules.Feed_forward import FeedForwardGELU
-
-
-class Patch(nn.Module):
-    """Overlapping patch embedding layer for SegFormer encoder stages.
-
-    Constructor args:
-        img_size (int, default=224): Input spatial dimensions.
-        in_channels (int, default=3): Input feature channels.
-        out_channels (int, default=768): Output embedding channels.
-        kernel (int, default=7): Convolution kernel size.
-        stride (int, default=3): Convolution stride.
-        padding (int, default=3): Convolution padding.
-
-    Learnable parameters:
-        proj.weight: Shape ``(out_channels, in_channels, kernel, kernel)``. Convolution weights.
-        proj.bias: Shape ``(out_channels,)``. Convolution bias.
-
-    Forward args:
-        x (torch.Tensor): Input feature maps of shape ``(B, C, H, W)``.
-
-    Returns:
-        torch.Tensor: Flattened patch tokens of shape ``(B, N, C_out)``.
-
-    Example:
-        >>> p = Patch(img_size=224, in_channels=3, out_channels=32, kernel=7, stride=4, padding=3)
-        >>> x = torch.randn(2, 3, 224, 224)
-        >>> out = p(x)
-        >>> out.shape
-        torch.Size([2, 3136, 32])
-    """
-
-    def __init__(
-        self,
-        img_size: int = 224,
-        in_channels: int = 3,
-        out_channels: int = 768,
-        kernel: int = 7,
-        stride: int = 3,
-        padding: int = 3,
-    ) -> None:
-        super().__init__()
-        self.img_size = img_size
-        self.kernel = kernel
-        self.out_channels = out_channels
-        self.num_patches = (img_size // kernel) ** 2
-
-        self.proj = nn.Conv2d(
-            in_channels=in_channels,
-            out_channels=self.out_channels,
-            kernel_size=kernel,
-            stride=stride,
-            padding=padding,
-        )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # x: (B, C, H, W)
-        x = self.proj(x)
-        B, C, H, W = x.shape
-        x = x.flatten(2).transpose(1, 2)  # (B, H*W, C)
-        return x
-
-
-class SpatialReductionAttention(nn.Module):
-    """Spatial Reduction Attention (SRA) for efficient multi-head self-attention.
-
-    Downsamples Key and Value spatial sequences using 1D depthwise convolution to reduce
-    quadratic computational complexity in high-resolution vision transformer stages.
-
-    Constructor args:
-        embed_dim (int): Embedding channels dimension.
-        num_heads (int): Number of attention heads.
-        dropout (float, default=0.0): Dropout probability.
-        reduction (int, default=1): Spatial reduction ratio for Key/Value tokens.
-        device (torch.device | str, default='cpu'): Target device.
-        dtype (torch.dtype, default=torch.float32): Tensor data type.
-
-    Learnable parameters:
-        q_proj, k_proj, v_proj, out_proj: Linear projection layers.
-        kv_down: Conv1d depthwise reduction module (if reduction > 1).
-
-    Forward args:
-        x (torch.Tensor): Input feature tensor of shape ``(B, N, C)``.
-
-    Returns:
-        torch.Tensor: Output features tensor of shape ``(B, N, C)``.
-
-    Example:
-        >>> sra = SpatialReductionAttention(embed_dim=32, num_heads=1, reduction=8)
-        >>> x = torch.randn(2, 3136, 32)
-        >>> out = sra(x)
-        >>> out.shape
-        torch.Size([2, 3136, 32])
-    """
-
-    def __init__(
-        self,
-        embed_dim: int,
-        num_heads: int,
-        dropout: float = 0.0,
-        reduction: int = 1,
-        device: torch.device | str = "cpu",
-        dtype: torch.dtype = torch.float32,
-    ) -> None:
-        super().__init__()
-        assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
-
-        self.embed_dim = embed_dim
-        self.num_heads = num_heads
-        self.head_dim = embed_dim // num_heads
-        self.reduction = reduction
-
-        self.q_proj = nn.Linear(embed_dim, embed_dim, bias=True, device=device, dtype=dtype)
-        self.k_proj = nn.Linear(embed_dim, embed_dim, bias=True, device=device, dtype=dtype)
-        self.v_proj = nn.Linear(embed_dim, embed_dim, bias=True, device=device, dtype=dtype)
-
-        if reduction > 1:
-            self.kv_down = nn.Conv1d(
-                embed_dim, embed_dim, kernel_size=3, stride=reduction, padding=1, groups=embed_dim
-            )
-        else:
-            self.kv_down = nn.Identity()
-
-        self.out_proj = nn.Linear(embed_dim, embed_dim, bias=True, device=device, dtype=dtype)
-        self.dropout_p = dropout
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        B, N, C = x.shape
-
-        q = self.q_proj(x)  # (B, N, C)
-
-        if self.reduction > 1:
-            x_down = x.transpose(1, 2)  # (B, C, N)
-            x_down = self.kv_down(x_down).transpose(1, 2)  # (B, N_reduced, C)
-
-            k = self.k_proj(x_down)  # (B, N_reduced, C)
-            v = self.v_proj(x_down)  # (B, N_reduced, C)
-        else:
-            k = self.k_proj(x)  # (B, N, C)
-            v = self.v_proj(x)  # (B, N, C)
-
-        q = q.view(B, -1, self.num_heads, self.head_dim).transpose(1, 2)  # (B, H, N, D)
-        k = k.view(B, -1, self.num_heads, self.head_dim).transpose(1, 2)  # (B, H, N_red, D)
-        v = v.view(B, -1, self.num_heads, self.head_dim).transpose(1, 2)  # (B, H, N_red, D)
-        
-        out = _run_sdpa(
-                q, k, v,
-                attn_mask=None,
-                dropout_p=self.dropout_p
-        )
-
-        out = out.transpose(1, 2).contiguous().view(B, N, C)  # (B, N, C)
-
-        return self.out_proj(out)
-
-
-class TransformerBlock(nn.Module):
-    """Single SegFormer transformer block with Spatial Reduction Attention and Mix-FFN.
-
-    Constructor args:
-        embed_dim (int): Embedding dimension.
-        num_heads (int): Number of attention heads.
-        hidden_dim (int): Inner hidden dimension of feed-forward network.
-        dropout (float): Dropout probability.
-        reduction (int): Spatial reduction ratio for SRA.
-
-    Forward args:
-        x (torch.Tensor): Input token features of shape ``(B, N, C)``.
-
-    Returns:
-        torch.Tensor: Transformed token features of shape ``(B, N, C)``.
-    """
-
-    def __init__(
-        self,
-        embed_dim: int,
-        num_heads: int,
-        hidden_dim: int,
-        dropout: float,
-        reduction: int,
-    ) -> None:
-        super().__init__()
-        self.norm1 = nn.LayerNorm(embed_dim)
-        self.att = SpatialReductionAttention(
-            embed_dim=embed_dim, num_heads=num_heads, dropout=dropout, reduction=reduction
-        )
-        self.norm2 = nn.LayerNorm(embed_dim)
-        self.ff = FeedForwardGELU(embed_dim=embed_dim, hidden_dim=hidden_dim, dropout=dropout)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = x + self.att(self.norm1(x))
-        x = x + self.ff(self.norm2(x))
-        return x
-
-
-class TransformerEncoder(nn.Module):
-    """Stack of SegFormer transformer blocks for a single stage.
-
-    Constructor args:
-        num_layers (int): Number of transformer blocks in this stage.
-        embed_dim (int): Embedding dimension for this stage.
-        num_heads (int): Number of attention heads.
-        hidden_dim (int): Inner hidden dimension of FFN.
-        dropout (float): Dropout probability.
-        reduction (int): Spatial reduction ratio.
-
-    Forward args:
-        x (torch.Tensor): Input stage tokens tensor of shape ``(B, N, C)``.
-
-    Returns:
-        torch.Tensor: Output stage tokens tensor of shape ``(B, N, C)``.
-    """
-
-    def __init__(
-        self,
-        num_layers: int,
-        embed_dim: int,
-        num_heads: int,
-        hidden_dim: int,
-        dropout: float,
-        reduction: int,
-    ) -> None:
-        super().__init__()
-        self.layers = nn.ModuleList([
-            TransformerBlock(embed_dim, num_heads, hidden_dim, dropout, reduction)
-            for _ in range(num_layers)
-        ])
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        for layer in self.layers:
-            x = layer(x)
-        return x
-
-
-class Encoder(nn.Module):
-    """Hierarchical 4-stage SegFormer-B0 encoder.
-
-    Extracts multi-scale feature maps at resolutions 1/4, 1/8, 1/16, and 1/32 of input size.
-
-    Constructor args:
-        None (instantiates standard SegFormer-B0 stage parameters).
-
-    Forward args:
-        x (torch.Tensor): Input image tensor of shape ``(B, 3, 224, 224)``.
-
-    Returns:
-        tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]: 4 feature maps of shapes
-        ``(B, 32, 56, 56)``, ``(B, 64, 28, 28)``, ``(B, 160, 14, 14)``, ``(B, 256, 7, 7)``.
-    """
-
-    def __init__(self) -> None:
-        super().__init__()
-
-        # SegFormer B0 stage 1 configuration
-        self.s1 = Patch(img_size=224, in_channels=3, out_channels=32, kernel=7, stride=4, padding=3)
-        self.te1 = TransformerEncoder(
-            num_layers=2, embed_dim=32, num_heads=1, hidden_dim=32 * 8, dropout=0.0, reduction=8
-        )
-
-        # Stage 2
-        self.s2 = Patch(img_size=56, in_channels=32, out_channels=64, kernel=3, stride=2, padding=1)
-        self.te2 = TransformerEncoder(
-            num_layers=2, embed_dim=64, num_heads=2, hidden_dim=64 * 4, dropout=0.0, reduction=4
-        )
-
-        # Stage 3
-        self.s3 = Patch(img_size=28, in_channels=64, out_channels=160, kernel=3, stride=2, padding=1)
-        self.te3 = TransformerEncoder(
-            num_layers=2, embed_dim=160, num_heads=5, hidden_dim=160 * 4, dropout=0.0, reduction=2
-        )
-
-        # Stage 4
-        self.s4 = Patch(img_size=14, in_channels=160, out_channels=256, kernel=3, stride=2, padding=1)
-        self.te4 = TransformerEncoder(
-            num_layers=2, embed_dim=256, num_heads=8, hidden_dim=256 * 4, dropout=0.0, reduction=1
-        )
-
-    def forward(
-        self, x: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-
-        # ---------------- Stage 1 ----------------
-        x1 = self.s1(x)  # (B, N1, 32)
-        f1 = self.te1(x1)
-
-        B, N1, C1 = f1.shape
-        H1 = W1 = int(N1**0.5)
-        f1_spatial = f1.transpose(1, 2).reshape(B, C1, H1, W1)  # (B, 32, H1, W1)
-
-        # ---------------- Stage 2 ----------------
-        x2 = self.s2(f1_spatial)  # (B, N2, 64)
-        f2 = self.te2(x2)
-
-        B, N2, C2 = f2.shape
-        H2 = W2 = int(N2**0.5)
-        f2_spatial = f2.transpose(1, 2).reshape(B, C2, H2, W2)  # (B, 64, H2, W2)
-
-        # ---------------- Stage 3 ----------------
-        x3 = self.s3(f2_spatial)  # (B, N3, 160)
-        f3 = self.te3(x3)
-
-        B, N3, C3 = f3.shape
-        H3 = W3 = int(N3**0.5)
-        f3_spatial = f3.transpose(1, 2).reshape(B, C3, H3, W3)  # (B, 160, H3, W3)
-
-        # ---------------- Stage 4 ----------------
-        x4 = self.s4(f3_spatial)  # (B, N4, 256)
-        f4 = self.te4(x4)
-
-        B, N4, C4 = f4.shape
-        H4 = W4 = int(N4**0.5)
-        f4_spatial = f4.transpose(1, 2).reshape(B, C4, H4, W4)  # (B, 256, H4, W4)
-
-        return f1_spatial, f2_spatial, f3_spatial, f4_spatial
-
-
-class MLP(nn.Module):
-    """Lightweight All-MLP Decoder head for SegFormer feature fusion.
-
-    Constructor args:
-        out_dim (int, default=150): Number of output segmentation classes.
-
-    Forward args:
-        features (tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]): 4-stage encoder feature maps.
-
-    Returns:
-        torch.Tensor: Fused segmentation logits tensor of shape ``(B, out_dim, H1, W1)``.
-    """
-
-    def __init__(self, out_dim: int = 150) -> None:
-        super().__init__()
-
-        self.f1_proj = nn.Linear(32, 256)
-        self.f2_proj = nn.Linear(64, 256)
-        self.f3_proj = nn.Linear(160, 256)
-        self.f4_proj = nn.Linear(256, 256)
-
-        self.classifier = nn.Linear(256 * 4, out_dim)
-        self.dropout = nn.Dropout(0.1)
-
-    def forward(
-        self, features: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+try:
+    from stackformer.modules.attention_engine import _run_sdpa
+except ImportError:
+
+    def _run_sdpa(
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        attn_mask: torch.Tensor | None = None,
+        dropout_p: float = 0.0,
+        is_causal: bool = False,
     ) -> torch.Tensor:
-        f1, f2, f3, f4 = features
-        B = f1.shape[0]
+        return F.scaled_dot_product_attention(
+            q, k, v, attn_mask=attn_mask, dropout_p=dropout_p, is_causal=is_causal
+        )
 
-        target_size = f1.shape[2:]  # (H1, W1)
 
-        # Bilinear upsampling to target spatial size
-        f2_up = F.interpolate(f2, size=target_size, mode="bilinear", align_corners=False)
-        f3_up = F.interpolate(f3, size=target_size, mode="bilinear", align_corners=False)
-        f4_up = F.interpolate(f4, size=target_size, mode="bilinear", align_corners=False)
+MIT_CONFIGS = {
+    "b0": dict(embed_dims=[32, 64, 160, 256], depths=[2, 2, 2, 2], decoder_hidden_size=256),
+    "b1": dict(embed_dims=[64, 128, 320, 512], depths=[2, 2, 2, 2], decoder_hidden_size=768),
+    "b2": dict(embed_dims=[64, 128, 320, 512], depths=[3, 4, 6, 3], decoder_hidden_size=768),
+    "b3": dict(embed_dims=[64, 128, 320, 512], depths=[3, 4, 18, 3], decoder_hidden_size=768),
+    "b4": dict(embed_dims=[64, 128, 320, 512], depths=[3, 8, 27, 3], decoder_hidden_size=768),
+    "b5": dict(embed_dims=[64, 128, 320, 512], depths=[3, 6, 40, 3], decoder_hidden_size=768),
+}
 
-        # Flatten features for linear projection
-        f1_flat = f1.flatten(2).transpose(1, 2)  # (B, H*W, 32)
-        f2_flat = f2_up.flatten(2).transpose(1, 2)  # (B, H*W, 64)
-        f3_flat = f3_up.flatten(2).transpose(1, 2)  # (B, H*W, 160)
-        f4_flat = f4_up.flatten(2).transpose(1, 2)  # (B, H*W, 256)
+NUM_HEADS = [1, 2, 5, 8]
+SR_RATIOS = [8, 4, 2, 1]
+PATCH_SIZES = [7, 3, 3, 3]
+STRIDES = [4, 2, 2, 2]
+MLP_RATIO = 4
 
-        f1_proj = self.f1_proj(f1_flat)  # (B, H*W, 256)
-        f2_proj = self.f2_proj(f2_flat)  # (B, H*W, 256)
-        f3_proj = self.f3_proj(f3_flat)  # (B, H*W, 256)
-        f4_proj = self.f4_proj(f4_flat)  # (B, H*W, 256)
 
-        fused = torch.cat([f1_proj, f2_proj, f3_proj, f4_proj], dim=-1)  # (B, H*W, 1024)
+class OverlapPatchEmbeddings(nn.Module):
+    """Strided overlapping convolutional patch embedding layer for SegFormer.
 
+    Constructor args:
+        patch_size (int): Size of 2D kernel.
+        stride (int): Convolutional stride.
+        in_channels (int): Input feature channels.
+        hidden_size (int): Output embedding dimension.
+
+    Forward args:
+        pixel_values (torch.Tensor): Input image tensor of shape ``(B, C, H, W)``.
+
+    Returns:
+        tuple[torch.Tensor, int, int]: Tuple of patch tokens tensor ``(B, N, C)`` and spatial dimensions (H, W).
+    """
+
+    def __init__(self, patch_size: int, stride: int, in_channels: int, hidden_size: int) -> None:
+        super().__init__()
+        self.proj = nn.Conv2d(
+            in_channels, hidden_size, kernel_size=patch_size, stride=stride, padding=patch_size // 2
+        )
+        self.layer_norm = nn.LayerNorm(hidden_size)
+
+    def forward(self, pixel_values: torch.Tensor) -> tuple[torch.Tensor, int, int]:
+        x = self.proj(pixel_values)
+        _, _, h, w = x.shape
+        x = x.flatten(2).transpose(1, 2)
+        x = self.layer_norm(x)
+        return x, h, w
+
+
+class SequenceReduction(nn.Module):
+    """Strided Conv2d + LayerNorm used to downsample Key/Value tokens before attention."""
+
+    def __init__(self, hidden_size: int, sr_ratio: int) -> None:
+        super().__init__()
+        self.sequence_reduction = nn.Conv2d(hidden_size, hidden_size, kernel_size=sr_ratio, stride=sr_ratio)
+        self.layer_norm = nn.LayerNorm(hidden_size)
+
+    def forward(self, x: torch.Tensor, h: int, w: int) -> torch.Tensor:
+        b, n, c = x.shape
+        x = x.transpose(1, 2).reshape(b, c, h, w)
+        x = self.sequence_reduction(x)
+        x = x.reshape(b, c, -1).transpose(1, 2)
+        x = self.layer_norm(x)
+        return x
+
+
+class EfficientAttention(nn.Module):
+    """Multi-head self-attention with spatially-reduced Key/Value tokens (SRA)."""
+
+    def __init__(self, hidden_size: int, num_heads: int, sr_ratio: int) -> None:
+        super().__init__()
+        assert hidden_size % num_heads == 0, "hidden_size must be divisible by num_heads"
+        self.num_heads = num_heads
+        self.head_dim = hidden_size // num_heads
+        self.sr_ratio = sr_ratio
+
+        self.q_proj = nn.Linear(hidden_size, hidden_size)
+        self.k_proj = nn.Linear(hidden_size, hidden_size)
+        self.v_proj = nn.Linear(hidden_size, hidden_size)
+        self.o_proj = nn.Linear(hidden_size, hidden_size)
+
+        if sr_ratio > 1:
+            self.sequence_reduction = SequenceReduction(hidden_size, sr_ratio)
+
+    def forward(self, x: torch.Tensor, h: int, w: int) -> torch.Tensor:
+        b, n, c = x.shape
+        q = self.q_proj(x).view(b, n, self.num_heads, self.head_dim).transpose(1, 2)
+
+        kv_in = self.sequence_reduction(x, h, w) if self.sr_ratio > 1 else x
+        n_kv = kv_in.shape[1]
+        k = self.k_proj(kv_in).view(b, n_kv, self.num_heads, self.head_dim).transpose(1, 2)
+        v = self.v_proj(kv_in).view(b, n_kv, self.num_heads, self.head_dim).transpose(1, 2)
+
+        out = _run_sdpa(q, k, v, attn_mask=None, dropout_p=0.0)
+        out = out.transpose(1, 2).reshape(b, n, c)
+        return self.o_proj(out)
+
+
+class DepthWiseConv(nn.Module):
+    """3x3 depthwise conv that injects positional information into Mix-FFN."""
+
+    def __init__(self, dim: int) -> None:
+        super().__init__()
+        self.dwconv = nn.Conv2d(dim, dim, kernel_size=3, stride=1, padding=1, groups=dim)
+
+    def forward(self, x: torch.Tensor, h: int, w: int) -> torch.Tensor:
+        b, n, c = x.shape
+        x = x.transpose(1, 2).view(b, c, h, w)
+        x = self.dwconv(x)
+        return x.flatten(2).transpose(1, 2)
+
+
+class MixFFN(nn.Module):
+    """Mix-FFN module: fc1 -> depthwise 3x3 conv -> GELU -> fc2."""
+
+    def __init__(self, in_features: int, hidden_features: int, dropout: float = 0.0) -> None:
+        super().__init__()
+        self.fc1 = nn.Linear(in_features, hidden_features)
+        self.dwconv = DepthWiseConv(hidden_features)
+        self.act = nn.GELU()
+        self.fc2 = nn.Linear(hidden_features, in_features)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x: torch.Tensor, h: int, w: int) -> torch.Tensor:
+        x = self.fc1(x)
+        x = self.dwconv(x, h, w)
+        x = self.act(x)
+        x = self.dropout(x)
+        x = self.fc2(x)
+        return self.dropout(x)
+
+
+class Block(nn.Module):
+    """Pre-norm SegFormer encoder block with Spatial Reduction Attention (SRA) and Mix-FFN."""
+
+    def __init__(
+        self, hidden_size: int, num_heads: int, sr_ratio: int, mlp_ratio: int, dropout: float = 0.0
+    ) -> None:
+        super().__init__()
+        self.layernorm_before = nn.LayerNorm(hidden_size)
+        self.attention = EfficientAttention(hidden_size, num_heads, sr_ratio)
+        self.layernorm_after = nn.LayerNorm(hidden_size)
+        self.mlp = MixFFN(hidden_size, hidden_size * mlp_ratio, dropout=dropout)
+
+    def forward(self, x: torch.Tensor, h: int, w: int) -> torch.Tensor:
+        x = x + self.attention(self.layernorm_before(x), h, w)
+        x = x + self.mlp(self.layernorm_after(x), h, w)
+        return x
+
+
+class Stage(nn.Module):
+    """One SegFormer encoder stage: overlap patch embedding -> N blocks -> final LayerNorm."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        hidden_size: int,
+        depth: int,
+        num_heads: int,
+        sr_ratio: int,
+        patch_size: int,
+        stride: int,
+        mlp_ratio: int,
+        dropout: float = 0.0,
+    ) -> None:
+        super().__init__()
+        self.patch_embeddings = OverlapPatchEmbeddings(patch_size, stride, in_channels, hidden_size)
+        self.blocks = nn.ModuleList(
+            [Block(hidden_size, num_heads, sr_ratio, mlp_ratio, dropout) for _ in range(depth)]
+        )
+        self.layer_norm = nn.LayerNorm(hidden_size)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x, h, w = self.patch_embeddings(x)
+        for block in self.blocks:
+            x = block(x, h, w)
+        x = self.layer_norm(x)
+        b = x.shape[0]
+        return x.reshape(b, h, w, -1).permute(0, 3, 1, 2).contiguous()
+
+
+class MixVisionEncoder(nn.Module):
+    """4-stage hierarchical Mix Vision Transformer (MiT) encoder."""
+
+    def __init__(self, variant: str, dropout: float = 0.0) -> None:
+        super().__init__()
+        cfg = MIT_CONFIGS[variant]
+        embed_dims, depths = cfg["embed_dims"], cfg["depths"]
+        stages = []
+        for i in range(4):
+            in_ch = 3 if i == 0 else embed_dims[i - 1]
+            stages.append(
+                Stage(
+                    in_channels=in_ch,
+                    hidden_size=embed_dims[i],
+                    depth=depths[i],
+                    num_heads=NUM_HEADS[i],
+                    sr_ratio=SR_RATIOS[i],
+                    patch_size=PATCH_SIZES[i],
+                    stride=STRIDES[i],
+                    mlp_ratio=MLP_RATIO,
+                    dropout=dropout,
+                )
+            )
+        self.stages = nn.ModuleList(stages)
+
+    def forward(self, x: torch.Tensor) -> list[torch.Tensor]:
+        outs = []
+        for stage in self.stages:
+            x = stage(x)
+            outs.append(x)
+        return outs
+
+
+class MLPProj(nn.Module):
+    """Per-stage linear projection to decoder_hidden_size (HF's ``SegformerMLP``)."""
+
+    def __init__(self, in_dim: int, decoder_hidden_size: int) -> None:
+        super().__init__()
+        self.proj = nn.Linear(in_dim, decoder_hidden_size)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.proj(x.flatten(2).transpose(1, 2))
+
+
+class DecodeHead(nn.Module):
+    """All-MLP decode head: per-stage linear proj -> upsample -> concat -> conv fuse -> classifier."""
+
+    def __init__(self, variant: str, num_labels: int, dropout: float = 0.1) -> None:
+        super().__init__()
+        cfg = MIT_CONFIGS[variant]
+        embed_dims, dh = cfg["embed_dims"], cfg["decoder_hidden_size"]
+        self.linear_projections = nn.ModuleList([MLPProj(d, dh) for d in embed_dims])
+        self.linear_fuse = nn.Conv2d(dh * 4, dh, kernel_size=1, bias=False)
+        self.batch_norm = nn.BatchNorm2d(dh)
+        self.activation = nn.ReLU()
+        self.dropout = nn.Dropout(dropout)
+        self.classifier = nn.Conv2d(dh, num_labels, kernel_size=1)
+
+    def forward(self, features: list[torch.Tensor]) -> torch.Tensor:
+        b = features[0].shape[0]
+        target_hw = features[0].shape[2:]
+        projected = []
+        for feat, proj in zip(features, self.linear_projections):
+            h, w = feat.shape[2:]
+            t = proj(feat).transpose(1, 2).reshape(b, -1, h, w)
+            t = F.interpolate(t, size=target_hw, mode="bilinear", align_corners=False)
+            projected.append(t)
+
+        fused = self.linear_fuse(torch.cat(projected[::-1], dim=1))
+        fused = self.batch_norm(fused)
+        fused = self.activation(fused)
         fused = self.dropout(fused)
-        output = self.classifier(fused)  # (B, H*W, out_dim)
-
-        H, W = target_size
-        output = output.transpose(1, 2).reshape(B, -1, H, W)  # (B, out_dim, H, W)
-
-        return output
+        return self.classifier(fused)
 
 
-class SegFormerB0(nn.Module):
-    """SegFormer-B0 style model for semantic segmentation.
+class StackFormerSegformer(nn.Module):
+    """Full SegFormer semantic segmentation model (MixVisionEncoder + DecodeHead).
 
     Simple explanation:
-        SegFormer takes an input image and builds feature maps at multiple
-        scales (from high resolution to low resolution) using hierarchical
-        transformer stages. These features are fused by an MLP decoder to
-        produce per-pixel class predictions.
+        SegFormer processes input images through a 4-stage hierarchical Mix Vision Transformer
+        encoder with Spatial Reduction Attention (SRA) and Mix-FFN blocks, followed by an
+        all-MLP decode head that fuses multi-scale features for pixel-level classification.
 
     Architecture details (current implementation):
         - Task: semantic segmentation
-        - Encoder type: hierarchical transformer with 4 stages
-        - Stage channels: [32, 64, 160, 256]
-        - Attention: efficient multi-head self-attention with sequence
-          reduction factors [8, 4, 2, 1] across stages (``SpatialReductionAttention``)
-        - Masking: no causal mask (full bidirectional self-attention)
-        - Positional strategy: implicit positional cues from overlapping patch
-          embeddings (no explicit absolute position embedding tensor)
-        - Feed-forward block: GELU MLP per transformer block
-        - Normalization: Pre-Norm LayerNorm in each transformer block
-        - Decoder: MLP feature projection + multi-scale fusion + bilinear upsampling
+        - Attention: Spatial Reduction Attention (SRA) with dynamic sequence reduction
+        - Masking: none (bidirectional 2D spatial attention)
+        - Positional encoding: zero explicit positional embeddings (position encoded via Mix-FFN 3x3 depthwise convs)
+        - Feed-forward: Mix-FFN (FC -> 3x3 DWConv -> GELU -> FC)
+        - Normalization: Pre-Norm LayerNorm in encoder; BatchNorm2d in decode head
+        - Head: All-MLP decode head with 1x1 conv fusion and linear classifier
 
     Historical context:
-        - SegFormer was introduced by NVIDIA in 2021 as a simple and effective
-          transformer architecture for semantic segmentation.
-        - It avoids heavy decoder designs and explicit positional encodings
-          while keeping strong accuracy-speed trade-offs.
+        - Introduced by Xie et al. in 2021 ("SegFormer: Simple and Efficient Design for Semantic Segmentation").
+        - Demonstrated state-of-the-art segmentation efficiency by avoiding positional embeddings and complex decoders.
 
     Paper reference:
         - SegFormer paper: https://arxiv.org/abs/2105.15203
@@ -425,35 +312,46 @@ class SegFormerB0(nn.Module):
     Example:
         >>> import torch
         >>> from stackformer.vision import SegFormerB0
-        >>> model = SegFormerB0(num_classes=19)
-        >>> x = torch.randn(2, 3, 224, 224)
-        >>> y = model(x)
-        >>> y.shape
-        torch.Size([2, 19, 224, 224])
+        >>> model = SegFormerB0(num_labels=150)
+        >>> x = torch.randn(2, 3, 512, 512)
+        >>> logits = model(x)
+        >>> logits.shape
+        torch.Size([2, 150, 128, 128])
 
     Args:
-        num_classes (int, default=150): Number of segmentation classes in the output map.
+        variant (str, default="b4"): SegFormer model variant ("b0", "b1", "b2", "b3", "b4", "b5").
+        num_labels (int, default=150): Number of semantic segmentation target classes.
+        dropout (float, default=0.0): Encoder dropout probability.
     """
 
-    def __init__(self, num_classes: int = 150) -> None:
+    def __init__(self, variant: str = "b4", num_labels: int = 150, dropout: float = 0.0) -> None:
         super().__init__()
-        self.encoder = Encoder()
-        self.decoder = MLP(out_dim=num_classes)
+        self.segformer = MixVisionEncoder(variant, dropout=dropout)
+        self.decode_head = DecodeHead(variant, num_labels, dropout=0.1)
 
-        # Final projection layer: upsample to original input size
-        self.final_upsample = nn.Upsample(scale_factor=4, mode="bilinear", align_corners=False)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        H, W = x.shape[2:]
-        features = self.encoder(x)
-        output = self.decoder(features)  # (B, num_classes, H1, W1)
-
-        output = F.interpolate(output, size=(H, W), mode="bilinear", align_corners=False)
-        return output
+    def forward(self, pixel_values: torch.Tensor, upsample_to_input: bool = False) -> torch.Tensor:
+        features = self.segformer(pixel_values)
+        logits = self.decode_head(features)
+        if upsample_to_input:
+            logits = F.interpolate(
+                logits, size=pixel_values.shape[2:], mode="bilinear", align_corners=False
+            )
+        return logits
 
 
-# Backward compatibility aliases for internal test imports
+class SegFormerB0(StackFormerSegformer):
+    """SegFormer-B0 variant preset container."""
+
+    def __init__(self, num_labels: int = 150, dropout: float = 0.0) -> None:
+        super().__init__(variant="b0", num_labels=num_labels, dropout=dropout)
+
+
+# PascalCase renames per Section 5 of style guide
+Patch = OverlapPatchEmbeddings
+TransformerBlock = Block
+TransformerEncoder = MixVisionEncoder
+
+# Lowercase / snake_case aliases for backward compatibility
 patch = Patch
-Multi_Head_Attention = SpatialReductionAttention
 transformer_block = TransformerBlock
 transformer_encoder = TransformerEncoder

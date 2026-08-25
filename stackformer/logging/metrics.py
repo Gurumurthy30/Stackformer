@@ -69,6 +69,9 @@ def perplexity(loss: float | torch.Tensor) -> float:
 def precision_recall_f1(preds: torch.Tensor, targets: torch.Tensor) -> tuple[float, float, float]:
     """Compute binary classification precision, recall, and F1 score.
 
+    Note:
+        Assumes binary target labels (0 or 1). Multi-class targets are not supported.
+
     Args:
         preds (torch.Tensor): Predictions tensor.
         targets (torch.Tensor): Binary ground truth targets tensor.

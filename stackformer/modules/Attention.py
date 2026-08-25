@@ -1135,7 +1135,10 @@ class kv_cache_multihead(nn.Module):
             q = _apply_rotary_position_embedding(q, freq[start_pos:end_pos])
             k = _apply_rotary_position_embedding(k, freq[start_pos:end_pos])
 
-        # Cache owns detach/dtype-guard/grad-safety entirely — pass raw k, v
+        # Gradient flow rationale:
+        # self.cache.update handles detached storage for historical cached tokens while preserving live autograd
+        # computation graphs for the current input chunk. get_kv() splices live gradient nodes back over historical
+        # detached buffer slices so backpropagation flows correctly to q_proj/kv_proj during training.
         self.cache.update(k, v, start_pos)
         k_full, v_full = self.cache.get_kv(start_pos, end_pos)
         # (no further grad handling needed here — get_kv() already spliced it)
@@ -1277,7 +1280,9 @@ class kv_cache_group_query(nn.Module):
             q = _apply_rotary_position_embedding(q, freq[start_pos:end_pos])
             k = _apply_rotary_position_embedding(k, freq[start_pos:end_pos])
 
-        # Cache owns the detach/grad-safety decision entirely now — pass raw k, v
+        # Gradient flow rationale:
+        # self.cache.update stores detached historical KV states while maintaining live autograd graphs for the current step.
+        # get_kv() splices live autograd tensors over historical buffer slices, ensuring gradient backpropagation through k/v projections.
         self.cache.update(k, v, start_pos)
         k_full, v_full = self.cache.get_kv(start_pos, end_pos)   # <-- start_pos, not 0
         # (no further grad handling needed here — get_kv() already spliced it)

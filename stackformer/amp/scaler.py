@@ -19,6 +19,10 @@ class AMPScaler:
         `AMPScaler` safely manages float16/bfloat16 precision casting and loss scaling
         to prevent underflow during backpropagation on CUDA devices.
 
+    Note:
+        AMP acceleration requires CUDA support. If ``enabled=True`` but CUDA is unavailable
+        (e.g., CPU-only environment), ``self.enabled`` is automatically set to ``False``.
+
     Constructor args:
         enabled (bool, default=True): Whether AMP is enabled for training.
 

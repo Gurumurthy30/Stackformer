@@ -174,6 +174,16 @@ class RoPE(nn.Module):
     def _precompute_theta_position_frequency(
         self, head_dim: int, seq_len: int, theta: float
     ) -> torch.Tensor:
+        """Precompute complex rotary frequency spectrum tensor.
+
+        Args:
+            head_dim (int): Per-head feature dimension (D).
+            seq_len (int): Maximum sequence context length (T).
+            theta (float): Base frequency scaling parameter.
+
+        Returns:
+            torch.Tensor: Complex frequency tensor of shape ``(T, D // 2)``.
+        """
         if head_dim % 2 != 0:
             raise ValueError("head_dim must be even for RoPE")
         dim_half = head_dim // 2

@@ -37,7 +37,7 @@ class Trainer:
         val_dataloader (DataLoader | None, default=None): Validation DataLoader.
         optimizer (torch.optim.Optimizer | None, default=None): Optional custom optimizer.
         scheduler (Any | None, default=None): Optional custom learning rate scheduler.
-        criterion (Callable | None, default=None): Loss calculation callable (defaults to LM cross-entropy).
+        criterion (Callable | None, default=None): Loss calculation callable (defaults to language_modeling_cross_entropy, targeting language modeling tasks).
         device (str, default="auto"): Compute device selection ("auto", "cpu", "cuda").
         seed (int | None, default=None): Random seed for reproducibility.
         max_epochs (int, default=1): Total number of training epochs.

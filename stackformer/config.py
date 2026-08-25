@@ -13,7 +13,13 @@ from dataclasses import dataclass
 
 @dataclass(slots=True)
 class ModelConfig:
-    """Configuration container for Transformer model architectures.
+    """Configuration container for Transformer model architecture hyperparameters.
+
+    Note:
+        Model constructors (such as ``Gemma1_2B`` or ``Llama1``) accept individual
+        hyperparameter keyword arguments directly; ``ModelConfig`` serves as a
+        structured container for storing, serializing, or passing configuration dictionaries
+        via ``asdict(config)``.
 
     Args:
         vocab_size (int): Size of the token vocabulary.
