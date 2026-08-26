@@ -5,7 +5,7 @@ Exposes:
     - SegFormerB0: SegFormer semantic segmentation model architecture
 """
 
-from .segformer import SegFormerB0
+from .segformer import SegFormer
 from .vit import ViT
 
 __all__ = [

@@ -339,11 +339,11 @@ class StackFormerSegformer(nn.Module):
         return logits
 
 
-class SegFormerB0(StackFormerSegformer):
-    """SegFormer-B0 variant preset container."""
-
-    def __init__(self, num_labels: int = 150, dropout: float = 0.0) -> None:
-        super().__init__(variant="b0", num_labels=num_labels, dropout=dropout)
+class SegFormer(StackFormerSegformer):
+    """SegFormer variant preset container."""
+    
+    def __init__(self, variant: str = "b0", num_labels: int = 150, dropout: float = 0.0) -> None:
+        super().__init__(variant=variant, num_labels=num_labels, dropout=dropout)
 
 
 # PascalCase renames per Section 5 of style guide

@@ -87,7 +87,7 @@ from .modules import (
 )
 from .modules.attention_engine import _run_attention, _run_flex_attention, _run_sdpa
 from .modules.masks import make_mask
-from .vision import SegFormerB0, ViT
+from .vision import SegFormer, ViT
 
 __all__ = [
     "AbsolutePositionEmbedding",
