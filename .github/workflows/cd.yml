@@ -1,18 +1,24 @@
 # ---------------------------------------------------------------------------
-# Continuous Delivery — PyPI + GitHub Container Registry
+# Continuous Delivery — PyPI + GitHub Container Registry + GitHub Release
 # ---------------------------------------------------------------------------
 # Triggers:
 #   • Push of a version tag  (v*.*.*)
 #   • Manual dispatch        (optional: supply the tag name to re-run a failed publish)
 #
-# Jobs:
-#   1. test           — re-runs the full test suite on the tagged commit
-#   2. publish-pypi   — builds sdist + wheel and publishes via OIDC Trusted Publishing
-#   3. publish-container — builds a multi-arch Docker image and pushes to GHCR
+# Jobs (in dependency order):
+#   1. test               — full test suite on the tagged commit
+#   2. build              — builds sdist + wheel once, shared by later jobs
+#   3. publish-pypi       — publishes the built dist via OIDC Trusted Publishing
+#   4. publish-container  — builds a multi-arch Docker image and pushes to GHCR
+#                            (runs AFTER publish-pypi, since the image installs
+#                            stackformer FROM PyPI — see note in that job)
+#   5. github-release     — creates the GitHub Release, attaches dist/*,
+#                            auto-generates release notes from merged PRs
 #
 # Zero stored secrets are required:
-#   • PyPI  → OIDC Trusted Publishing  (id-token: write)
-#   • GHCR  → GITHUB_TOKEN             (packages: write)
+#   • PyPI            → OIDC Trusted Publishing  (id-token: write)
+#   • GHCR             → GITHUB_TOKEN             (packages: write)
+#   • GitHub Release   → GITHUB_TOKEN             (contents: write)
 # ---------------------------------------------------------------------------
 
 name: CD — Publish Release
@@ -27,18 +33,10 @@ on:
         description: "Tag / version to publish (e.g. v1.2.3) — used for re-running a failed publish"
         required: false
 
-# ---------------------------------------------------------------------------
-# Derive the release version string once and expose it as an output so all
-# downstream jobs can consume it without re-computing it.
-# ---------------------------------------------------------------------------
 jobs:
 
   # ──────────────────────────────────────────────────────────────────────────
   # JOB 1 ▶ test
-  # Re-run the full CPU test suite (mirrors core-tests, model-tests,
-  # integration-tests, and trainer-tests CI workflows) before any artifact
-  # is published.  GPU tests are excluded because they require Kaggle auth
-  # that is intentionally absent here.
   # ──────────────────────────────────────────────────────────────────────────
   test:
     name: Gate — Run Test Suite
@@ -77,24 +75,15 @@ jobs:
         run: pytest -q --maxfail=1 tests/trainer
 
   # ──────────────────────────────────────────────────────────────────────────
-  # JOB 2 ▶ publish-pypi
-  # Builds an sdist + wheel, validates them with twine, then publishes to
-  # PyPI using OIDC Trusted Publishing — no API token secret is stored.
-  #
-  # PyPI Trusted Publisher registration (one-time, manual):
-  #   Owner:    stackformer-labs
-  #   Repo:     Stackformer
-  #   Workflow: cd.yml
-  #   Env:      release
+  # JOB 2 ▶ build
+  # Builds the sdist + wheel ONCE and uploads them as a shared artifact so
+  # publish-pypi and github-release don't each rebuild (and can't drift from
+  # each other).
   # ──────────────────────────────────────────────────────────────────────────
-  publish-pypi:
-    name: Publish — PyPI (OIDC)
+  build:
+    name: Build — sdist + wheel
     needs: test
     runs-on: ubuntu-latest
-    environment: release          # ← must match the environment name registered on PyPI
-
-    permissions:
-      id-token: write             # required for OIDC Trusted Publishing
 
     steps:
       - name: Checkout tagged commit
@@ -118,15 +107,56 @@ jobs:
       - name: Validate distributions with twine
         run: twine check --strict dist/*
 
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/*
+          retention-days: 7
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # JOB 3 ▶ publish-pypi
+  # Publishes the already-built dist to PyPI using OIDC Trusted Publishing —
+  # no API token secret is stored.
+  #
+  # PyPI Trusted Publisher registration (one-time, manual):
+  #   Owner:    stackformer-labs
+  #   Repo:     Stackformer
+  #   Workflow: cd.yml
+  #   Env:      release
+  # ──────────────────────────────────────────────────────────────────────────
+  publish-pypi:
+    name: Publish — PyPI (OIDC)
+    needs: build
+    runs-on: ubuntu-latest
+    environment: release          # ← must match the environment name registered on PyPI
+
+    permissions:
+      id-token: write             # required for OIDC Trusted Publishing
+
+    steps:
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
       - name: Publish to PyPI (OIDC Trusted Publishing)
         uses: pypa/gh-action-pypi-publish@v1.12.4
         # No 'password:' or 'repository-url:' overrides needed for production PyPI.
         # The action uses the OIDC token minted by the id-token: write permission above.
 
   # ──────────────────────────────────────────────────────────────────────────
-  # JOB 3 ▶ publish-container
+  # JOB 4 ▶ publish-container
   # Builds a multi-arch Docker image (linux/amd64 + linux/arm64) and pushes
   # it to ghcr.io/<owner>/<repo>.
+  #
+  # NOTE ON ORDERING: the Dockerfile runs
+  #     pip install stackformer==${STACKFORMER_VERSION}
+  # i.e. it installs the package FROM PyPI at build time. That's why this job
+  # needs publish-pypi to have finished first — building it in parallel with
+  # publish-pypi (as before) meant the version being requested didn't exist
+  # on PyPI yet, and the build would fail.
   #
   # Tags applied:
   #   • <version>      e.g. 1.2.3  (leading 'v' stripped from the git tag)
@@ -141,7 +171,7 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────────
   publish-container:
     name: Publish — GHCR Container
-    needs: test
+    needs: [test, publish-pypi]   # ← was just `test`; see NOTE above
     runs-on: ubuntu-latest
 
     permissions:
@@ -205,3 +235,32 @@ jobs:
             STACKFORMER_VERSION=${{ steps.meta.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # JOB 5 ▶ github-release
+  # Creates the GitHub Release for the pushed tag, attaches the sdist/wheel,
+  # and auto-generates release notes from merged PRs since the last tag.
+  # ──────────────────────────────────────────────────────────────────────────
+  github-release:
+    name: Publish — GitHub Release
+    needs: [publish-pypi, publish-container]
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write            # required to create a release
+
+    steps:
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: dist/*
+          generate_release_notes: true
+          draft: false
+          # Mark as a pre-release if the tag has an rc/beta/alpha suffix, e.g. v1.2.3-rc1
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
