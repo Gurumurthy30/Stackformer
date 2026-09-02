@@ -140,7 +140,7 @@ jobs:
               find kaggle-output -maxdepth 2 -type f -print
               while IFS= read -r file; do
                 echo "----- ${file} (first 200 lines) -----"
-                sed -n '1,200p' "${file}" || true
+                cat "${file}" || true
               done < <(find kaggle-output -maxdepth 2 -type f)
             fi
           }
