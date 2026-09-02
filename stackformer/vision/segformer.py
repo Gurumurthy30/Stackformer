@@ -350,6 +350,8 @@ class SegFormer(StackFormerSegformer):
 Patch = OverlapPatchEmbeddings
 TransformerBlock = Block
 TransformerEncoder = MixVisionEncoder
+Encoder = MixVisionEncoder
+Multi_Head_Attention = EfficientAttention
 
 # Lowercase / snake_case aliases for backward compatibility
 patch = Patch

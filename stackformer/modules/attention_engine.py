@@ -77,6 +77,8 @@ def _run_flex_attention(
     kernel_options: Optional[Dict[str, Any]] = None,
 ) -> torch.Tensor:
     """Wrapper around PyTorch FlexAttention backend."""
+    if flex_attention is None:
+        raise RuntimeError("PyTorch FlexAttention is not available in this environment.")
     return flex_attention(
         query=query,
         key=key,

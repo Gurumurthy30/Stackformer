@@ -53,7 +53,13 @@ class AbsolutePositionEmbedding(nn.Module):
         self.embedding = nn.Embedding(seq_len, embed_dim, **factory_kwargs)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # x: (B, T, C)
+        # If x is integer position_ids tensor of shape (B, T) or (T,) where max index < self.seq_len
+        if x.dtype in (torch.int32, torch.int64, torch.long) and x.max() < self.seq_len:
+            if x.dim() == 1:
+                return self.embedding(x).unsqueeze(0)
+            return self.embedding(x)
+
+        # x: (B, T, C) or token_ids (B, T)
         batch_size, seq_len = x.shape[0], x.shape[1]
         if seq_len > self.seq_len:
             raise ValueError(

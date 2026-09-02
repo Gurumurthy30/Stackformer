@@ -233,15 +233,20 @@ def dilated_causal_mask_mod(dilation: int) -> MaskMod:
     return and_masks(causal_mask_mod, dilated_mask_mod(dilation))
 
 
-def global_mask_mod(seq_len: int, global_index: List[int]) -> MaskMod:
+def global_mask_mod(
+    seq_len: int,
+    global_index: List[int],
+    device: torch.device | str | None = None,
+) -> MaskMod:
     """Factory for a global-attention mask_mod."""
     if len(global_index) == 0:
         raise ValueError("global_index must contain at least one index")
     if any(i < 0 or i >= seq_len for i in global_index):
         raise ValueError("global_index contains invalid token indices")
 
-    is_global = torch.zeros(seq_len, dtype=torch.bool, device="cuda")
-    is_global[torch.tensor(global_index, device="cuda")] = True
+    dev = device if device is not None else "cpu"
+    is_global = torch.zeros(seq_len, dtype=torch.bool, device=dev)
+    is_global[torch.tensor(global_index, device=dev)] = True
 
     def global_fn(b, h, q_idx, kv_idx):
         return is_global[q_idx] | is_global[kv_idx]
@@ -253,14 +258,16 @@ def random_mask_mod(
     seq_len: int,
     num_random: int,
     generator: Optional[torch.Generator] = None,
+    device: torch.device | str | None = None,
 ) -> MaskMod:
     """Factory for a random sparse causal mask_mod."""
     if num_random < 0 or num_random > seq_len:
         raise ValueError("num_random must be between 0 and seq_len")
 
-    scores = torch.rand(seq_len, seq_len, device="cuda", generator=generator).tril()
+    dev = device if device is not None else "cpu"
+    scores = torch.rand(seq_len, seq_len, device=dev, generator=generator).tril()
     cols = scores.topk(num_random, dim=1).indices
-    pattern = torch.zeros(seq_len, seq_len, dtype=torch.bool, device="cuda")
+    pattern = torch.zeros(seq_len, seq_len, dtype=torch.bool, device=dev)
     pattern.scatter_(1, cols, True)
 
     def random_fn(b, h, q_idx, kv_idx):
@@ -305,13 +312,13 @@ def _dilated_causal_builder(seq_len: int, *, dilation: int, **kwargs) -> MaskMod
 
 
 def _random_mask_builder(
-    seq_len: int, *, num_random: int, generator: Optional[torch.Generator] = None, **kwargs
+    seq_len: int, *, num_random: int, generator: Optional[torch.Generator] = None, device: torch.device | str | None = None, **kwargs
 ) -> MaskMod:
-    return random_mask_mod(seq_len, num_random, generator=generator)
+    return random_mask_mod(seq_len, num_random, generator=generator, device=device)
 
 
-def _global_mask_builder(seq_len: int, *, global_index: List[int], **kwargs) -> MaskMod:
-    return global_mask_mod(seq_len, global_index)
+def _global_mask_builder(seq_len: int, *, global_index: List[int], device: torch.device | str | None = None, **kwargs) -> MaskMod:
+    return global_mask_mod(seq_len, global_index, device=device)
 
 
 def _document_mask_builder(seq_len: int, *, document_ids: torch.Tensor, **kwargs) -> MaskMod:

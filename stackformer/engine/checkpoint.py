@@ -362,9 +362,12 @@ class CheckpointManager:
         model_state: Dict[str, Any],
         broadcast_from_rank0: bool = False,
     ) -> None:
-        if _DCP_AVAILABLE:
+        if _DCP_AVAILABLE and broadcast_from_rank0:
             options = StateDictOptions(full_state_dict=True, broadcast_from_rank0=broadcast_from_rank0)
             set_model_state_dict(model=model, model_state_dict=model_state, options=options)
+            return
+
+        if not model_state:
             return
 
         unwrapped = self._unwrap_model(model)
@@ -468,8 +471,11 @@ class CheckpointManager:
             os.replace(tmp, path)
 
         finally:
-            if tmp.exists():
-                tmp.unlink(missing_ok=True)
+            try:
+                if tmp.exists():
+                    tmp.unlink(missing_ok=True)
+            except Exception:
+                pass
 
     @staticmethod
     def _safe_save_safetensors(
@@ -483,5 +489,8 @@ class CheckpointManager:
             os.replace(tmp, path)
 
         finally:
-            if tmp.exists():
-                tmp.unlink(missing_ok=True)
+            try:
+                if tmp.exists():
+                    tmp.unlink(missing_ok=True)
+            except Exception:
+                pass

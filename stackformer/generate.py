@@ -249,7 +249,7 @@ def text_generate(
 
         generated = torch.cat((generated, next_token), dim=-1)  # (B, T_curr) -> (B, T_curr + 1)
 
-        if finished.all():
+        if finished.all() or _ == config.max_new_tokens - 1:
             break
 
         if use_cache:

@@ -13,6 +13,8 @@ Paper references:
 
 from __future__ import annotations
 
+from typing import Any
+
 import torch
 import torch.nn as nn
 
@@ -335,14 +337,14 @@ class Llama2(nn.Module):
         for layer in self.layers:
             layer.attn.reset_cache()
         
-    def prefill(self, prompt_ids: torch.Tensor) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
-        """Prefill the KV-cache for models that support it.
+    def prefill(self, prompt_ids: torch.Tensor) -> tuple[torch.Tensor, dict[str, Any]]:
+        """Prefill the KV-cache with prompt tokens and return initial logits and cache state.
 
         Args:
-            prompt_ids (torch.Tensor): Prompt token IDs of shape ``(B, T)``.
+            prompt_ids (torch.Tensor): Input prompt token IDs of shape ``(B, T)``.
 
         Returns:
-            tuple[torch.Tensor, dict[str, torch.Tensor]]: Logits tensor of shape ``(B, T, V)`` and KV-cache dictionary.
+            tuple[torch.Tensor, dict[str, Any]]: Logits tensor of shape ``(B, T, V)`` and KV-cache dictionary.
         """
         B, T = prompt_ids.shape
         if T > self.seq_len:
@@ -355,15 +357,15 @@ class Llama2(nn.Module):
         cache = {"start_pos": T}
         return logits, cache
     
-    def decode(self, next_token: torch.Tensor, cache: dict[str, torch.Tensor]) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+    def decode(self, next_token: torch.Tensor, cache: dict[str, Any]) -> tuple[torch.Tensor, dict[str, Any]]:
         """Decode the next token using the KV-cache for models that support it.
 
         Args:
             next_token (torch.Tensor): Next token IDs of shape ``(B, 1)``.
-            cache (dict[str, torch.Tensor]): KV-cache dictionary from prefill.
+            cache (dict[str, Any]): KV-cache dictionary from prefill.
 
         Returns:
-            tuple[torch.Tensor, dict[str, torch.Tensor]]: Logits tensor of shape ``(B, 1, V)`` and updated KV-cache dictionary.
+            tuple[torch.Tensor, dict[str, Any]]: Logits tensor of shape ``(B, 1, V)`` and updated KV-cache dictionary.
         """
         start_pos = cache["start_pos"]
         end_pos = start_pos + next_token.shape[1]

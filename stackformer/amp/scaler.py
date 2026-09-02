@@ -33,12 +33,18 @@ class AMPScaler:
         >>> scaler.scale(loss).backward()
     """
 
-    def __init__(self, enabled: bool = True) -> None:
-        self.enabled = bool(enabled and torch.cuda.is_available())
+    def __init__(self, enabled: bool = True, device_type: str = "cuda") -> None:
+        self.device_type = device_type
+        if device_type == "cuda":
+            self.enabled = bool(enabled and torch.cuda.is_available())
+        elif device_type == "mps":
+            self.enabled = bool(enabled and hasattr(torch.backends, "mps") and torch.backends.mps.is_available())
+        else:
+            self.enabled = bool(enabled)
 
         if hasattr(torch, "amp") and hasattr(torch.amp, "GradScaler"):
-            self.scaler = torch.amp.GradScaler("cuda", enabled=self.enabled)
-            self._autocast = lambda: torch.amp.autocast(device_type="cuda", enabled=self.enabled)
+            self.scaler = torch.amp.GradScaler(self.device_type, enabled=self.enabled)
+            self._autocast = lambda: torch.amp.autocast(device_type=self.device_type, enabled=self.enabled)
         else:
             self.scaler = torch.cuda.amp.GradScaler(enabled=self.enabled)
             self._autocast = lambda: torch.cuda.amp.autocast(enabled=self.enabled)
@@ -103,7 +109,7 @@ class AMPScaler:
         Args:
             state_dict (Dict[str, Any]): Saved scaler state dictionary.
         """
-        if self.enabled:
+        if self.enabled and state_dict:
             self.scaler.load_state_dict(state_dict)
 
     @property
@@ -112,16 +118,17 @@ class AMPScaler:
         return self.enabled
 
 
-def initialize_scaler(enabled: bool = True) -> AMPScaler:
+def initialize_scaler(enabled: bool = True, device_type: str = "cuda") -> AMPScaler:
     """Factory helper to construct an AMPScaler instance.
 
     Args:
         enabled (bool, default=True): Enable AMP scaling.
+        device_type (str, default="cuda"): Target compute device type ("cuda", "cpu", "mps").
 
     Returns:
         AMPScaler: Constructed AMPScaler instance.
     """
-    return AMPScaler(enabled=enabled)
+    return AMPScaler(enabled=enabled, device_type=device_type)
 
 
 def scale_loss(loss: torch.Tensor, scaler: AMPScaler | None) -> torch.Tensor:

@@ -74,7 +74,17 @@ def get_parameter_groups(model: nn.Module, weight_decay: float = 0.0) -> List[Di
             if not param.requires_grad:
                 continue
 
-            if param_name.endswith("bias"):
+            if param_name.endswith("bias") or module.__class__.__name__.lower() in (
+                "layernorm",
+                "rmsnorm",
+                "rmsnormalization",
+                "batchnorm1d",
+                "batchnorm2d",
+                "batchnorm3d",
+                "embedding",
+                "absolutepositionembedding",
+                "sinusoidalpositionalembedding",
+            ):
                 no_decay.append(param)
             elif isinstance(module, whitelist_weight_modules):
                 decay.append(param)

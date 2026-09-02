@@ -6,7 +6,7 @@ Exposes:
     - GPT1, GPT2, GPT_1, GPT_2, Transformer: GPT-family and vanilla Transformer model architectures
     - Gemma1_2B, Gemma1_7B, Gemma_1_2B, Gemma_1_7B (gemma_1_2b, gemma_1_7b): Google Gemma model architectures
     - Llama1, Llama2, Llama_1, Llama_2 (llama_1, llama_2): Meta LLaMA model architectures
-    - ViT, SegFormerB0: Vision Transformer and SegFormer vision models
+    - ViT, SegFormer: Vision Transformer and SegFormer vision models
     - BERT, RoBERTa: Encoder-based language models
     - MultiHeadAttention, GroupQueryAttention, MultiQueryAttention, SelfAttention, CrossMultiHeadAttention: Attention modules
     - LayerNorm, RMSNorm: Normalization layers
@@ -143,7 +143,7 @@ __all__ = [
     "RMSNormalization",
     "RoBERTa",
     "RoPE",
-    "SegFormerB0",
+    "SegFormer",
     "SelfAttention",
     "Self_Attention",
     "SinusoidalPositionalEmbedding",

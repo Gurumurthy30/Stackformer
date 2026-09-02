@@ -60,6 +60,8 @@ def perplexity(loss: float | torch.Tensor) -> float:
         float: Perplexity exp(loss).
     """
     value = float(loss.item() if torch.is_tensor(loss) else loss)
+    if math.isnan(value) or value < 0:
+        return float("nan")
     try:
         return float(math.exp(value))
     except OverflowError:
@@ -191,7 +193,9 @@ class MetricTracker:
         elapsed = time.time() - self.start_time
         if elapsed > 0:
             tokens_per_sec = self.metrics["tokens"].sum / elapsed
-            self.update("tokens_per_sec", tokens_per_sec)
+            self.metrics["tokens_per_sec"].sum = tokens_per_sec
+            self.metrics["tokens_per_sec"].count = 1
+            self.metrics["tokens_per_sec"].last = tokens_per_sec
 
     def update_perplexity(self, loss: float | torch.Tensor) -> None:
         """Update perplexity metric from cross-entropy loss."""

@@ -125,10 +125,10 @@ class BlockConfig:
                 f"embed_dim ({self.embed_dim}) must be divisible by " f"num_heads ({self.num_heads})"
             )
 
-        if "gqa" in self.attention and self.num_heads % self.num_kv_heads != 0:
+        if ("gqa" in self.attention or "mqa" in self.attention) and self.num_heads % self.num_kv_heads != 0:
             raise ValueError(
                 f"num_heads ({self.num_heads}) must be divisible by "
-                f"num_kv_heads ({self.num_kv_heads}) for GQA"
+                f"num_kv_heads ({self.num_kv_heads}) for {self.attention}"
             )
 
 

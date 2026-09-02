@@ -1140,7 +1140,7 @@ class kv_cache_multihead(nn.Module):
         # computation graphs for the current input chunk. get_kv() splices live gradient nodes back over historical
         # detached buffer slices so backpropagation flows correctly to q_proj/kv_proj during training.
         self.cache.update(k, v, start_pos)
-        k_full, v_full = self.cache.get_kv(start_pos, end_pos)
+        k_full, v_full = self.cache.get_kv(0, end_pos)
         # (no further grad handling needed here — get_kv() already spliced it)
 
         # Rectangular causal mask (T, S)
@@ -1284,8 +1284,7 @@ class kv_cache_group_query(nn.Module):
         # self.cache.update stores detached historical KV states while maintaining live autograd graphs for the current step.
         # get_kv() splices live autograd tensors over historical buffer slices, ensuring gradient backpropagation through k/v projections.
         self.cache.update(k, v, start_pos)
-        k_full, v_full = self.cache.get_kv(start_pos, end_pos)   # <-- start_pos, not 0
-        # (no further grad handling needed here — get_kv() already spliced it)
+        k_full, v_full = self.cache.get_kv(0, end_pos)
 
         # k_full/v_full stay at num_kv_heads heads -- NOT expanded to
         # num_query_heads. enable_gqa=True below lets SDPA broadcast the
@@ -1318,4 +1317,4 @@ MultiQueryAttentionWithRoPE = Multi_query_Attention_With_RoPE
 GroupQueryAttention = Group_query_Attention
 GroupQueryAttentionWithRoPE = Group_query_Attention_With_RoPE
 KVCacheMultiHead = kv_cache_multihead
-KVCacheGroupQuery = kv_cache_group_query
+KVCacheGroupQuery = kv_cache_group_query

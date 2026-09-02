@@ -11,6 +11,8 @@ from typing import Any, Callable, Dict, Optional, Tuple
 import torch
 import torch.nn.functional as F
 
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+
 from stackformer.amp import step_optimizer, update_scaler
 from stackformer.logging.metrics import MetricTracker
 from stackformer.training.loops import eval_epoch, train_epoch
@@ -85,6 +87,11 @@ class Engine:
             epoch (int): Current epoch index.
         """
         eval_epoch(self, dataloader, epoch)
+        scheduler = self.state.scheduler
+        if scheduler is not None and isinstance(scheduler, ReduceLROnPlateau):
+            val_loss = self.metrics.compute_epoch_metrics().get("val_loss")
+            if val_loss is not None:
+                scheduler.step(val_loss)
 
     def _train_step(self, batch: Any) -> Dict[str, Any]:
         """Execute a single training step (forward, loss calculation, backward, accumulation step).
@@ -137,8 +144,15 @@ class Engine:
             self.metrics.update("lr", lr)
         if step_time is not None:
             self.metrics.update("step_time", step_time)
+        num_tokens = 0
         if torch.is_tensor(inputs) and inputs.dim() >= 2:
-            self.metrics.update_tokens(inputs.numel())
+            num_tokens = inputs.numel()
+        elif isinstance(inputs, dict):
+            input_tensor = inputs.get("input_ids", inputs.get("x"))
+            if torch.is_tensor(input_tensor) and input_tensor.dim() >= 2:
+                num_tokens = input_tensor.numel()
+        if num_tokens > 0:
+            self.metrics.update_tokens(num_tokens)
 
         self.metrics.update_perplexity(loss_value)
         if grad_norm is not None:
@@ -184,7 +198,7 @@ class Engine:
         scheduler = self.state.scheduler
         if scheduler is None:
             return
-        if scheduler.__class__.__name__.lower() == "reducelronplateau":
+        if isinstance(scheduler, ReduceLROnPlateau):
             return
         scheduler.step()
 
@@ -233,22 +247,29 @@ class Engine:
     def _prepare_batch(self, batch: Any) -> Tuple[Any, Any]:
         if self.batch_parser is not None:
             inputs, targets = self.batch_parser(batch)
-            return move_to_device(inputs, self.state.device), move_to_device(targets, self.state.device)
+            return move_to_device(inputs, self.state.device), move_to_device(targets, self.state.device) if targets is not None else None
 
-        if isinstance(batch, (list, tuple)) and len(batch) == 2:
-            inputs, targets = batch
-            return move_to_device(inputs, self.state.device), move_to_device(targets, self.state.device)
+        if torch.is_tensor(batch):
+            return move_to_device(batch, self.state.device), None
+
+        if isinstance(batch, (list, tuple)):
+            if len(batch) == 2:
+                inputs, targets = batch
+                return move_to_device(inputs, self.state.device), move_to_device(targets, self.state.device) if targets is not None else None
+            if len(batch) == 1:
+                return move_to_device(batch[0], self.state.device), None
 
         if isinstance(batch, dict):
             targets = batch.get("targets", batch.get("labels"))
-            if targets is None:
-                raise ValueError("Dictionary batch must include `targets` or `labels`.")
             model_inputs = {k: v for k, v in batch.items() if k not in {"targets", "labels"}}
             if "inputs" in model_inputs and len(model_inputs) == 1:
                 model_inputs = model_inputs["inputs"]
-            return move_to_device(model_inputs, self.state.device), move_to_device(targets, self.state.device)
+            return (
+                move_to_device(model_inputs, self.state.device),
+                move_to_device(targets, self.state.device) if targets is not None else None,
+            )
 
-        raise ValueError("Unsupported batch format. Use (inputs, targets) or dict with labels/targets.")
+        return move_to_device(batch, self.state.device), None
 
     def _forward_model(self, inputs: Any) -> Any:
         if isinstance(inputs, dict):
@@ -284,7 +305,10 @@ class Engine:
         try:
             return criterion(outputs, targets)
         except TypeError:
-            return criterion(outputs.view(-1, outputs.size(-1)), targets.view(-1), ignore_index=-100)
+            try:
+                return criterion(outputs.view(-1, outputs.size(-1)), targets.view(-1), ignore_index=-100)
+            except TypeError:
+                return criterion(outputs.view(-1, outputs.size(-1)), targets.view(-1))
 
     @staticmethod
     def _get_autocast_context(scaler: Any) -> Any:

@@ -60,7 +60,6 @@ class EncoderDecoder(nn.Module):
 
     def forward(self, encoder_input_ids: torch.Tensor, decoder_input_ids: torch.Tensor) -> torch.Tensor:
         # encoder_input_ids: (B, S), decoder_input_ids: (B, T)
-        enc_x = self.shared_embed(encoder_input_ids)  # (B, S, C)
         dec_x = self.shared_embed(decoder_input_ids)  # (B, T, C)
         # Placeholder forward pass returns linear logits over decoder tokens
         return self.lm_head(dec_x)  # (B, T, V)

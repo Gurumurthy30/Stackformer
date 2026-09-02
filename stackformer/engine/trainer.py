@@ -223,6 +223,11 @@ class Trainer:
                         "Move the model before creating the optimizer, or let Trainer create the optimizer."
                     )
 
+        for state_dict in self.optimizer.state.values():
+            for k, v in state_dict.items():
+                if torch.is_tensor(v) and v.device != model_device:
+                    state_dict[k] = v.to(model_device)
+
     def _setup_scaler(self) -> None:
         if self.scaler is not None:
             return
@@ -355,6 +360,13 @@ class Trainer:
         """Run full model training loop across configured epochs."""
         if self.train_loader is None:
             raise ValueError("train_dataloader is required to call fit().")
+
+        if self.state.epoch >= self.max_epochs:
+            print_once(
+                f"[Trainer] Warning: Resumed at epoch {self.state.epoch}, but max_epochs is {self.max_epochs}. "
+                "Training skipped. Increase max_epochs to continue training."
+            )
+            return
 
         for epoch in range(self.state.epoch, self.max_epochs):
             train_loader = (

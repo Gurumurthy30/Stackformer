@@ -46,6 +46,11 @@ def init_distributed(backend: str | None = None) -> bool:
     if world_size <= 1:
         return False
 
+    if "MASTER_ADDR" not in os.environ:
+        os.environ["MASTER_ADDR"] = "127.0.0.1"
+    if "MASTER_PORT" not in os.environ:
+        os.environ["MASTER_PORT"] = "29500"
+
     if backend is None:
         backend = "nccl" if torch.cuda.is_available() else "gloo"
 

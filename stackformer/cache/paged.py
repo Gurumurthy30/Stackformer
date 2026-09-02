@@ -197,14 +197,14 @@ class PagedKVCache(nn.Module):
         """
         assert self._live is not None, "update() must be called before get_kv()"
         k_live, v_live, sp, ep = self._live
-        assert sp == start_pos and ep == end_pos, (
+        assert ep == end_pos, (
             "get_kv() span doesn't match the most recent update() call — "
             "call update() then get_kv() with the same (start_pos, end_pos) each step."
         )
 
         k_full, v_full = self._gather(end_pos)
-        k_full = _grad_safe_splice(k_full, k_live, start_pos, end_pos)
-        v_full = _grad_safe_splice(v_full, v_live, start_pos, end_pos)
+        k_full = _grad_safe_splice(k_full, k_live, sp, ep)
+        v_full = _grad_safe_splice(v_full, v_live, sp, ep)
         return k_full, v_full
 
     def peek_kv(
@@ -231,6 +231,9 @@ class PagedKVCache(nn.Module):
             seq_idx (int): Target sequence index to free.
         """
         table = self.block_tables[seq_idx]
+        if table:
+            self.pool_keys[table] = 0
+            self.pool_values[table] = 0
         self.free_blocks.extend(table)
         self.block_tables[seq_idx] = []
 

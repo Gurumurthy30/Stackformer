@@ -31,6 +31,8 @@ class CSVLogger:
 
         os.makedirs(log_dir, exist_ok=True)
         self.path = os.path.join(log_dir, filename)
+        if os.path.exists(self.path) and os.path.getsize(self.path) > 0:
+            self.headers_written = True
         self.file = open(self.path, mode="a", newline="", encoding="utf-8")
 
     def log(self, metrics: Dict[str, float]) -> None:
@@ -44,14 +46,17 @@ class CSVLogger:
         if self.file is None:
             return
 
+        clean = {k: v for k, v in metrics.items() if isinstance(v, (int, float))}
+        if not clean:
+            return
+
         if self.writer is None:
-            self.writer = csv.DictWriter(self.file, fieldnames=list(metrics.keys()))
+            self.writer = csv.DictWriter(self.file, fieldnames=list(clean.keys()), extrasaction="ignore")
 
         if not self.headers_written:
             self.writer.writeheader()
             self.headers_written = True
 
-        clean = {k: v for k, v in metrics.items() if isinstance(v, (int, float))}
         self.writer.writerow(clean)
 
     def flush(self) -> None:

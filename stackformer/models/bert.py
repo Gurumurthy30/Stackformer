@@ -110,6 +110,7 @@ class BERT(nn.Module):
         self,
         input_ids: torch.Tensor,
         token_type_ids: torch.Tensor | None = None,
+        pad_token_id: int = 0,
     ) -> torch.Tensor:
         B, T = input_ids.shape
 
@@ -122,5 +123,6 @@ class BERT(nn.Module):
         x = self.embed_norm(x)
         x = self.embed_dropout(x)
 
-        x = self.backbone(x, mask=False)  # (B, T, C)
+        padding_mask = (input_ids != pad_token_id).unsqueeze(1).unsqueeze(2) if (input_ids == pad_token_id).any() else False
+        x = self.backbone(x, mask=padding_mask)  # (B, T, C)
         return self.lm_head(x)  # (B, T, V)

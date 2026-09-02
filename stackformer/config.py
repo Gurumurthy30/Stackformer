@@ -64,7 +64,7 @@ class TrainingConfig:
         max_grad_norm (float | None, default=None): Maximum gradient norm for clipping.
         lr (float, default=3e-4): Peak learning rate.
         weight_decay (float, default=0.01): Weight decay coefficient.
-        optimizer_name (str, default="adamw"): Name of the optimizer ("adamw", "adam", "sgdf").
+        optimizer_name (str, default="adamw"): Name of the optimizer ("adamw", "adam", "sgd").
         scheduler_name (str, default="none"): Name of the LR scheduler ("cosine", "linear", "none").
         warmup_steps (int, default=0): Number of warmup steps for LR scheduling.
         total_steps (int | None, default=None): Total training steps for scheduling calculation.

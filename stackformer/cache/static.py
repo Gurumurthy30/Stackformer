@@ -106,7 +106,7 @@ class StaticKVCache(nn.Module):
         """
         assert self._live is not None, "update() must be called before get_kv()"
         k_live, v_live, sp, ep = self._live
-        assert sp == start_pos and ep == end_pos, (
+        assert ep == end_pos, (
             "get_kv() span doesn't match the most recent update() call — "
             "call update() then get_kv() with the same (start_pos, end_pos) each step."
         )
@@ -114,8 +114,8 @@ class StaticKVCache(nn.Module):
         k_full = self.cache_keys[: self._B, :, :end_pos]
         v_full = self.cache_values[: self._B, :, :end_pos]
 
-        k_full = _grad_safe_splice(k_full, k_live, start_pos, end_pos)
-        v_full = _grad_safe_splice(v_full, v_live, start_pos, end_pos)
+        k_full = _grad_safe_splice(k_full, k_live, sp, ep)
+        v_full = _grad_safe_splice(v_full, v_live, sp, ep)
         return k_full, v_full
 
     def peek_kv(
