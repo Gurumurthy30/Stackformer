@@ -136,12 +136,17 @@ jobs:
 
           dump_logs() {
             kaggle kernels output "${KERNEL_REF}" -p kaggle-output || true
-            if [ -d kaggle-output ]; then
-              find kaggle-output -maxdepth 2 -type f -print
-              while IFS= read -r file; do
-                echo "----- ${file} (first 200 lines) -----"
-                cat "${file}" || true
-              done < <(find kaggle-output -maxdepth 2 -type f)
+
+            echo "[gpu-ci] ----- Files downloaded from Kaggle output -----"
+            find kaggle-output -maxdepth 1 -type f -print || true
+
+            log_file=$(find kaggle-output -maxdepth 1 -type f -name '*.log' | head -n1)
+
+            if [ -n "$log_file" ]; then
+              echo "[gpu-ci] ----- Full kernel log: ${log_file} -----"
+              cat "$log_file"
+            else
+              echo "[gpu-ci] WARNING: no top-level .log file found in kaggle-output"
             fi
           }
 
