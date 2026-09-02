@@ -1,0 +1,207 @@
+# ---------------------------------------------------------------------------
+# Continuous Delivery — PyPI + GitHub Container Registry
+# ---------------------------------------------------------------------------
+# Triggers:
+#   • Push of a version tag  (v*.*.*)
+#   • Manual dispatch        (optional: supply the tag name to re-run a failed publish)
+#
+# Jobs:
+#   1. test           — re-runs the full test suite on the tagged commit
+#   2. publish-pypi   — builds sdist + wheel and publishes via OIDC Trusted Publishing
+#   3. publish-container — builds a multi-arch Docker image and pushes to GHCR
+#
+# Zero stored secrets are required:
+#   • PyPI  → OIDC Trusted Publishing  (id-token: write)
+#   • GHCR  → GITHUB_TOKEN             (packages: write)
+# ---------------------------------------------------------------------------
+
+name: CD — Publish Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag / version to publish (e.g. v1.2.3) — used for re-running a failed publish"
+        required: false
+
+# ---------------------------------------------------------------------------
+# Derive the release version string once and expose it as an output so all
+# downstream jobs can consume it without re-computing it.
+# ---------------------------------------------------------------------------
+jobs:
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # JOB 1 ▶ test
+  # Re-run the full CPU test suite (mirrors core-tests, model-tests,
+  # integration-tests, and trainer-tests CI workflows) before any artifact
+  # is published.  GPU tests are excluded because they require Kaggle auth
+  # that is intentionally absent here.
+  # ──────────────────────────────────────────────────────────────────────────
+  test:
+    name: Gate — Run Test Suite
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: ["3.10", "3.11"]
+
+    steps:
+      - name: Checkout tagged commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install package + dev dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ".[dev]"
+
+      - name: Run module and utility tests
+        run: pytest -q --maxfail=1 tests/modules tests/utils
+
+      - name: Run model tests
+        run: pytest -q --maxfail=1 tests/models
+
+      - name: Run integration tests
+        run: pytest -q --maxfail=1 tests/integration
+
+      - name: Run trainer tests
+        run: pytest -q --maxfail=1 tests/trainer
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # JOB 2 ▶ publish-pypi
+  # Builds an sdist + wheel, validates them with twine, then publishes to
+  # PyPI using OIDC Trusted Publishing — no API token secret is stored.
+  #
+  # PyPI Trusted Publisher registration (one-time, manual):
+  #   Owner:    stackformer-labs
+  #   Repo:     Stackformer
+  #   Workflow: cd.yml
+  #   Env:      release
+  # ──────────────────────────────────────────────────────────────────────────
+  publish-pypi:
+    name: Publish — PyPI (OIDC)
+    needs: test
+    runs-on: ubuntu-latest
+    environment: release          # ← must match the environment name registered on PyPI
+
+    permissions:
+      id-token: write             # required for OIDC Trusted Publishing
+
+    steps:
+      - name: Checkout tagged commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build toolchain
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Build sdist and wheel
+        run: python -m build
+
+      - name: Validate distributions with twine
+        run: twine check --strict dist/*
+
+      - name: Publish to PyPI (OIDC Trusted Publishing)
+        uses: pypa/gh-action-pypi-publish@v1.12.4
+        # No 'password:' or 'repository-url:' overrides needed for production PyPI.
+        # The action uses the OIDC token minted by the id-token: write permission above.
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # JOB 3 ▶ publish-container
+  # Builds a multi-arch Docker image (linux/amd64 + linux/arm64) and pushes
+  # it to ghcr.io/<owner>/<repo>.
+  #
+  # Tags applied:
+  #   • <version>      e.g. 1.2.3  (leading 'v' stripped from the git tag)
+  #   • latest
+  #   • <short-sha>    first 7 chars of the commit SHA
+  #
+  # Authentication via GITHUB_TOKEN — no extra secrets required.
+  #
+  # NOTE: The first push will create the package as *private* on GHCR.
+  #       Change visibility to public in:
+  #       GitHub → your account / org → Packages → stackformer → Package settings
+  # ──────────────────────────────────────────────────────────────────────────
+  publish-container:
+    name: Publish — GHCR Container
+    needs: test
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write             # required to push to GHCR
+
+    steps:
+      - name: Checkout tagged commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      # ── Derive version strings ────────────────────────────────────────────
+      - name: Compute image tags
+        id: meta
+        run: |
+          # Strip leading 'v' from the git tag (e.g. v1.2.3 → 1.2.3)
+          # Fall back to the manually supplied input tag on workflow_dispatch
+          RAW_TAG="${{ github.ref_name }}"
+          if [ -z "$RAW_TAG" ] || [ "$RAW_TAG" = "refs/heads/main" ]; then
+            RAW_TAG="${{ github.event.inputs.tag }}"
+          fi
+          VERSION="${RAW_TAG#v}"
+          SHORT_SHA="${{ github.sha }}"
+          SHORT_SHA="${SHORT_SHA:0:7}"
+          IMAGE="ghcr.io/${{ github.repository_owner }}/$(echo '${{ github.repository }}' | cut -d'/' -f2 | tr '[:upper:]' '[:lower:]')"
+          echo "version=${VERSION}"         >> "$GITHUB_OUTPUT"
+          echo "short_sha=${SHORT_SHA}"     >> "$GITHUB_OUTPUT"
+          echo "image=${IMAGE}"             >> "$GITHUB_OUTPUT"
+
+      # ── Multi-arch build prerequisites ───────────────────────────────────
+      - name: Set up QEMU (cross-arch emulation)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ── Authenticate to GHCR ─────────────────────────────────────────────
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Build and push ────────────────────────────────────────────────────
+      - name: Build and push multi-arch image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.version }}
+            ${{ steps.meta.outputs.image }}:latest
+            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.short_sha }}
+          # Pass the version into the image as a build-arg so it can be
+          # inspected at runtime via `python -c "import stackformer; print(stackformer.__version__)"`.
+          build-args: |
+            STACKFORMER_VERSION=${{ steps.meta.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
