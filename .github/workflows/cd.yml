@@ -5,15 +5,24 @@
 #   • Push of a version tag  (v*.*.*)
 #   • Manual dispatch        (optional: supply the tag name to re-run a failed publish)
 #
-# Jobs (in dependency order):
-#   1. test               — full test suite on the tagged commit
-#   2. build              — builds sdist + wheel once, shared by later jobs
-#   3. publish-pypi       — publishes the built dist via OIDC Trusted Publishing
-#   4. publish-container  — builds a multi-arch Docker image and pushes to GHCR
-#                            (runs AFTER publish-pypi, since the image installs
-#                            stackformer FROM PyPI — see note in that job)
-#   5. github-release     — creates the GitHub Release, attaches dist/*,
-#                            auto-generates release notes from merged PRs
+# Job graph (only real dependencies are wired up — everything else runs in
+# parallel to keep wall-clock time down):
+#
+#   test ──────┐
+#              ├──▶ publish-pypi ──▶ publish-container
+#   build ─────┘         │
+#                        └────────▶ github-release   (parallel with publish-container)
+#
+#   • test & build have no relationship to each other → parallel.
+#   • publish-pypi needs BOTH: can't publish untested code or a missing artifact.
+#   • publish-container needs publish-pypi: the Dockerfile installs stackformer
+#     FROM PyPI at build time, so the version must already be live — this is a
+#     real technical dependency, not just pipeline ordering.
+#   • github-release only needs the dist files + a successful PyPI publish, so
+#     it runs ALONGSIDE publish-container rather than after it. Trade-off: if
+#     publish-container fails, the Release page can go live briefly before the
+#     matching container image exists. Add `publish-container` to its `needs`
+#     if you'd rather wait for full confirmation instead.
 #
 # Zero stored secrets are required:
 #   • PyPI            → OIDC Trusted Publishing  (id-token: write)
@@ -78,11 +87,12 @@ jobs:
   # JOB 2 ▶ build
   # Builds the sdist + wheel ONCE and uploads them as a shared artifact so
   # publish-pypi and github-release don't each rebuild (and can't drift from
-  # each other).
+  # each other). No `needs` — packaging doesn't require the test suite to
+  # have finished, so this runs in PARALLEL with the `test` job. The test
+  # gate is enforced at publish-pypi instead, which needs both.
   # ──────────────────────────────────────────────────────────────────────────
   build:
     name: Build — sdist + wheel
-    needs: test
     runs-on: ubuntu-latest
 
     steps:
@@ -127,7 +137,7 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────────
   publish-pypi:
     name: Publish — PyPI (OIDC)
-    needs: build
+    needs: [test, build]        # real gate: tests must pass AND dist must exist
     runs-on: ubuntu-latest
     environment: release          # ← must match the environment name registered on PyPI
 
@@ -154,9 +164,11 @@ jobs:
   # NOTE ON ORDERING: the Dockerfile runs
   #     pip install stackformer==${STACKFORMER_VERSION}
   # i.e. it installs the package FROM PyPI at build time. That's why this job
-  # needs publish-pypi to have finished first — building it in parallel with
-  # publish-pypi (as before) meant the version being requested didn't exist
-  # on PyPI yet, and the build would fail.
+  # needs publish-pypi to have finished first — this is the one edge in the
+  # whole graph that can't be parallelized away, because it's a genuine
+  # runtime dependency, not just a pipeline-ordering preference. (`needs:
+  # publish-pypi` alone is enough — test's success is already guaranteed
+  # transitively, since publish-pypi itself needs test.)
   #
   # Tags applied:
   #   • <version>      e.g. 1.2.3  (leading 'v' stripped from the git tag)
@@ -171,7 +183,7 @@ jobs:
   # ──────────────────────────────────────────────────────────────────────────
   publish-container:
     name: Publish — GHCR Container
-    needs: [test, publish-pypi]   # ← was just `test`; see NOTE above
+    needs: publish-pypi          # the one edge that can't be parallelized — see NOTE above
     runs-on: ubuntu-latest
 
     permissions:
@@ -240,10 +252,17 @@ jobs:
   # JOB 5 ▶ github-release
   # Creates the GitHub Release for the pushed tag, attaches the sdist/wheel,
   # and auto-generates release notes from merged PRs since the last tag.
+  #
+  # Needs only publish-pypi — it doesn't technically require the container
+  # image to exist, so it runs IN PARALLEL with publish-container rather than
+  # after it. Trade-off: if publish-container fails, this release can still
+  # go live without a matching image on GHCR for a while. If you'd rather the
+  # release wait for full confirmation, change `needs` to:
+  #     needs: [publish-pypi, publish-container]
   # ──────────────────────────────────────────────────────────────────────────
   github-release:
     name: Publish — GitHub Release
-    needs: [publish-pypi, publish-container]
+    needs: publish-pypi
     runs-on: ubuntu-latest
 
     permissions:
