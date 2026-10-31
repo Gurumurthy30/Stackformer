@@ -11,7 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 - **Modern `src/` Layout**: Relocated core package to `src/stackformer/` to prevent packaging bugs and working directory import pollution.
 - **Lowercase Module Names (PEP 8)**: Standardized `modules/attention.py`, `modules/feed_forward.py`, and `modules/normalization.py`.
-- **Test Suite Expansion**: Comprehensive unit and integration test coverage expanded to **153 verified tests** across modules, models, caching, trainer, distributed, and vision targets.
+- **Test Suite Expansion**: Comprehensive unit and integration test coverage expanded to **153 verified tests** across modules, models, caching, and vision targets.
 - **Distributed & Vision Test Folders**: Organized tests into `tests/distributed/` and `tests/vision/`.
 - **Complete MkDocs Documentation Website**: Comprehensive documentation ecosystem powered by Material for MkDocs, Mermaid diagrams, MathJax, and `mkdocstrings`.
 
@@ -32,7 +32,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 - Standardized `BlockConfig` parameter validation in `layer.py`.
-- Refactored `Trainer` engine loop with gradient accumulation and AMP scaling.
+- Standalone trainer engine decoupling and architecture focus.
 
 ---
 
@@ -42,5 +42,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Initial public release of StackFormer.
 - Core `BlockConfig` layer composition.
 - Model zoo implementations: GPT-1, GPT-2, LLaMA-1, Gemma-1, BERT, RoBERTa, Vaswani Transformer, ViT, SegFormer.
-- Basic `Trainer` and optimizer factories.
+- Initial modular Transformer core blocks.
 

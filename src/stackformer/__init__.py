@@ -1,7 +1,7 @@
 """Stackformer — top-level public API for the StackFormer library.
 
 Exposes:
-    - ModelConfig, GenerationConfig, TrainingConfig: Core configuration classes
+    - ModelConfig, GenerationConfig: Core configuration classes
     - text_generate: Text generation inference utility
     - GPT1, GPT2, GPT_1, GPT_2, Transformer: GPT-family and vanilla Transformer model architectures
     - Gemma1_2B, Gemma1_7B, Gemma_1_2B, Gemma_1_7B (gemma_1_2b, gemma_1_7b): Google Gemma model architectures
@@ -12,11 +12,9 @@ Exposes:
     - LayerNorm, RMSNorm: Normalization layers
     - AbsolutePositionEmbedding, SinusoidalPositionalEmbedding, RoPE: Positional embeddings
     - TransformerEncoder, TransformerDecoder, BlockConfig: Layer building blocks
-    - Trainer: High-level engine trainer
 """
 
-from .config import GenerationConfig, ModelConfig, TrainingConfig
-from .engine import Trainer
+from .config import GenerationConfig, ModelConfig
 from .generate import text_generate
 from .models import (
     BERT,
@@ -147,11 +145,9 @@ __all__ = [
     "SelfAttention",
     "Self_Attention",
     "SinusoidalPositionalEmbedding",
-    "Trainer",
     "Transformer",
     "TransformerDecoder",
     "TransformerEncoder",
-    "TrainingConfig",
     "ViT",
     "_run_attention",
     "_run_flex_attention",

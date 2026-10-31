@@ -7,5 +7,4 @@ This page documents the configuration dataclasses provided by `stackformer.confi
       show_root_heading: true
       members:
         - ModelConfig
-        - TrainingConfig
         - GenerationConfig

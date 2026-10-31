@@ -1,12 +1,11 @@
 # Configuration Guide
 
-StackFormer provides three structured dataclasses under `stackformer.config` to manage hyperparameters across model definitions, training loops, and sequence decoding:
+StackFormer provides structured dataclasses under `stackformer.config` to manage hyperparameters across model definitions and sequence decoding:
 
 1. **`ModelConfig`**: Architectural hyperparameters (embedding dimensions, layer counts, heads, context lengths).
-2. **`TrainingConfig`**: Optimization parameters (epochs, learning rates, gradient accumulation, schedulers).
-3. **`GenerationConfig`**: Decoding parameters (max tokens, temperature, top-k, top-p, EOS tokens).
+2. **`GenerationConfig`**: Decoding parameters (max tokens, temperature, top-k, top-p, EOS tokens).
 
-All three classes use Python `slots=True` for reduced memory overhead and attribute access speed.
+Both classes use Python `slots=True` for reduced memory overhead and fast attribute access speed.
 
 ---
 
@@ -51,56 +50,7 @@ print(f"Instantiated GPT-2 with {cfg.num_layers} layers and {cfg.embed_dim} embe
 
 ---
 
-## 2. `TrainingConfig`
-
-`TrainingConfig` centralizes all hyperparameters governing the training execution loop.
-
-### Field Definitions
-
-| Field | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `max_epochs` | `int` | `1` | Maximum number of training epochs to run. |
-| `max_train_steps` | `int \| None` | `None` | Optional hard limit on total training steps. |
-| `max_eval_steps` | `int \| None` | `None` | Optional limit on evaluation batches per validation phase. |
-| `eval_every_n_epochs` | `int` | `1` | Validation frequency in epochs. |
-| `save_every_n_epochs` | `int` | `1` | Checkpoint save frequency in epochs. |
-| `grad_accumulation_step` | `int` | `1` | Number of batches to accumulate before optimizer step. |
-| `max_grad_norm` | `float \| None` | `None` | Threshold for gradient norm clipping (e.g. `1.0`). |
-| `lr` | `float` | `3e-4` | Peak learning rate. |
-| `weight_decay` | `float` | `0.01` | Weight decay coefficient for decoupled AdamW. |
-| `optimizer_name` | `str` | `"adamw"` | Name of optimizer (`"adamw"`, `"adam"`, `"sgd"`, `"adafactor"`). |
-| `scheduler_name` | `str` | `"none"` | LR schedule policy (`"cosine"`, `"linear"`, `"step"`, `"none"`). |
-| `warmup_steps` | `int` | `0` | Number of linear learning rate warmup steps. |
-| `total_steps` | `int \| None` | `None` | Total steps used to compute cosine/linear decay schedules. |
-
-### Usage Example
-
-```python
-from stackformer.config import TrainingConfig
-from stackformer.engine import Trainer
-
-train_cfg = TrainingConfig(
-    max_epochs=5,
-    lr=1e-4,
-    grad_accumulation_step=4,
-    max_grad_norm=1.0,
-    optimizer_name="adamw",
-    scheduler_name="cosine",
-    warmup_steps=100,
-    total_steps=1000,
-)
-
-# Pass directly to Trainer via training_config
-trainer = Trainer(
-    model=model,
-    train_dataloader=dataloader,
-    training_config=train_cfg,
-)
-```
-
----
-
-## 3. `GenerationConfig`
+## 2. `GenerationConfig`
 
 `GenerationConfig` controls sequence decoding behavior when invoking `text_generate()`.
 

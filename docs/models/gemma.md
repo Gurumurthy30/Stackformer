@@ -85,20 +85,20 @@ print("Gemma logits shape:", logits.shape)  # torch.Size([2, 16, 32000])
 
 ---
 
-## 4. Training with `Trainer`
+## 4. Training with PyTorch
 
 ```python
 import torch
+import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
-from stackformer.engine import Trainer
 from stackformer.models import Gemma1_2B
 
 # 1. Synthetic training batch
 inputs = torch.randint(0, 5000, (32, 16))
-targets = torch.randint(0, 5000, (32, 16))
+targets = inputs.clone()
 loader = DataLoader(TensorDataset(inputs, targets), batch_size=4)
 
-# 2. Initialize model
+# 2. Initialize model, optimizer, and loss criterion
 model = Gemma1_2B(
     vocab_size=5000,
     num_layers=2,
@@ -106,18 +106,19 @@ model = Gemma1_2B(
     num_heads=4,
     seq_len=64,
 )
+optimizer = torch.optim.AdamW(model.parameters(), lr=2e-4)
+criterion = nn.CrossEntropyLoss()
 
-# 3. Execute training step with Trainer
-trainer = Trainer(
-    model=model,
-    train_dataloader=loader,
-    device="cpu",
-    max_epochs=1,
-    max_train_steps=3,
-    lr=2e-4,
-    checkpoint_dir="checkpoints/gemma_run",
-)
-trainer.fit()
+# 3. Execute training loop
+model.train()
+for epoch in range(1):
+    for batch_x, batch_y in loader:
+        optimizer.zero_grad()
+        logits = model(batch_x)
+        loss = criterion(logits.view(-1, 5000), batch_y.view(-1))
+        loss.backward()
+        optimizer.step()
+    print(f"Loss: {loss.item():.4f}")
 ```
 
 ---

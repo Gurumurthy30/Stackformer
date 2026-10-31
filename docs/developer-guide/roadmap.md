@@ -55,7 +55,7 @@ Development on StackFormer follows a linear, sequential engineering execution or
 - **Deliverables**:
   - Standardize quantization on `torchao` (`int8_weight_only`, `int4_weight_only`, `float8`, `nf4`).
   - Build native `LoRALinear` and `DoRALinear` modules into `BlockConfig` (`src/stackformer/peft/`).
-  - Implement `DPOTrainer` and `GRPOTrainer` for alignment post-training.
+  - Implement DPO and GRPO algorithms for alignment post-training.
 
 ---
 

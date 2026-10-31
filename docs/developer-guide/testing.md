@@ -34,9 +34,6 @@ pytest tests/models/
 # Vision models (ViT, SegFormer)
 pytest tests/vision/
 
-# Training engine, checkpointing, and state management
-pytest tests/trainer/
-
 # Utility functions and device helpers
 pytest tests/utils/
 ```

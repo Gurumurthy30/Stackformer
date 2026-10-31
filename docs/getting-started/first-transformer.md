@@ -143,13 +143,12 @@ Model initialized and forward pass verified!
 
 ---
 
-### Step 3: Train with the `Trainer` Engine
+### Step 3: Train with Standard PyTorch
 
-You can plug your custom model directly into StackFormer's `Trainer`:
+You can plug your custom model directly into any standard PyTorch training pipeline:
 
 ```python
 from torch.utils.data import DataLoader, TensorDataset
-from stackformer.engine import Trainer
 
 # 1. Create synthetic dataset
 x_train = torch.randint(0, 8000, (64, 32))
@@ -157,21 +156,20 @@ y_train = torch.randint(0, 4, (64,))
 dataset = TensorDataset(x_train, y_train)
 loader = DataLoader(dataset, batch_size=8, shuffle=True)
 
-# 2. Configure loss function for classification
+# 2. Configure loss function and optimizer
 criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
 
 # 3. Train
-trainer = Trainer(
-    model=model,
-    train_dataloader=loader,
-    criterion=criterion,
-    device="cpu",
-    max_epochs=2,
-    max_train_steps=5,
-    lr=1e-3,
-    checkpoint_dir="checkpoints/custom_classifier",
-)
-trainer.fit()
+model.train()
+for epoch in range(2):
+    for batch_x, batch_y in loader:
+        optimizer.zero_grad()
+        logits = model(batch_x)
+        loss = criterion(logits, batch_y)
+        loss.backward()
+        optimizer.step()
+    print(f"Epoch {epoch + 1} finished with loss: {loss.item():.4f}")
 ```
 
 ---

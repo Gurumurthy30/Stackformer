@@ -11,7 +11,7 @@ StackFormer is positioned as a **composable PyTorch Transformer framework** desi
 ### Core Value Proposition
 - **One Config, Any Block Variant**: Swapping attention variants (MHA vs GQA vs MQA), feed-forward functions (GELU vs SwiGLU vs GeGLU), normalization layers, or positional embeddings requires changing parameters in `BlockConfig`, not rewriting model files.
 - **Pure PyTorch Architecture Zoo**: Standardized implementations of 10 canonical architectures (GPT-1/2, LLaMA-1/2, Gemma-1, BERT, RoBERTa, Vaswani Transformer, ViT, SegFormer-B0) that serve as runnable baselines and research starting points.
-- **Zero-Bloat Training Engine**: High-level `Trainer` providing essential training primitives (AMP, DDP, gradient accumulation, clipping, SafeTensors checkpointing) without pulling in massive framework ecosystems.
+- **Lightweight & Decoupled Modeling**: Focuses strictly on composable architectures, layer blocks, and fast sequence generation without forcing rigid training engine opinions, allowing seamless integration with any PyTorch training loop or external framework.
 
 ---
 

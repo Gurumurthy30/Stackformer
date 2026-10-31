@@ -1,6 +1,6 @@
 # StackFormer Developer Architecture Specification
 
-This document details the internal software architecture of StackFormer, covering module hierarchy, `BlockConfig` resolution, engine/trainer mechanics, checkpoint serialization, and KV-cache generation contracts.
+This document details the internal software architecture of StackFormer, covering module hierarchy, `BlockConfig` resolution, pure PyTorch interoperability, and KV-cache generation contracts.
 
 ---
 
@@ -45,32 +45,13 @@ When `TransformerEncoder(config, num_layers=N)` is instantiated:
 
 ---
 
-## 3. Training & Engine Subsystem (`stackformer.engine`)
+## 3. Training Interoperability
 
-The training engine splits responsibilities between state management, step execution, and high-level training loops:
+StackFormer focuses on composable architecture blocks, positional encodings, attention mechanisms, and generation caches. All models are standard `torch.nn.Module` objects:
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│                          Trainer                            │
-│  (Manages epochs, DDP setup, AMP scaling, LR scheduling)    │
-└──────────────────────────────┬──────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│                          Engine                             │
-│  (Executes _train_step, _eval_step, computes loss & metrics)│
-└──────────────────────────────┬──────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      TrainingState                          │
-│  (Tracks global steps, current epoch, loss history, device) │
-└─────────────────────────────────────────────────────────────┘
-```
-
-- **AMP Integration (`stackformer.amp.scaler`)**: `AMPScaler` wraps `torch.cuda.amp.GradScaler` (or `torch.amp.GradScaler` on PyTorch 2.1+), auto-disabling silently when CUDA is unavailable.
-- **Distributed Data Parallel (`stackformer.distributed.ddp`)**: `wrap_model_ddp()` wraps models with `DistributedDataParallel`, creating standard PyTorch process groups via `init_distributed()`.
-- **SafeTensors Checkpointing (`stackformer.engine.checkpoint`)**: `CheckpointManager` serializes model weights to `.safetensors` format alongside a JSON file containing optimizer state, scheduler state, and training configuration.
+1. **Standard PyTorch Loops**: Can be optimized using standard PyTorch optimizers (`torch.optim.AdamW`, `torch.optim.SGD`) and standard training loops.
+2. **Third-Party Trainer Ecosystem**: Designed to interoperate cleanly with external training frameworks such as Hugging Face Trainer, PyTorch Lightning, Accelerate, and torchtune.
+3. **Standalone Trainer Library**: Specialized high-level training orchestrator logic is maintained separately, keeping the core StackFormer modeling library clean and lightweight.
 
 ---
 

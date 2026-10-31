@@ -99,12 +99,12 @@ print("Logits shape:", logits.shape)  # torch.Size([2, 16, 50257])
 
 ---
 
-## 5. Training Example with `Trainer`
+## 5. Training Example with PyTorch
 
 ```python
 import torch
+import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
-from stackformer.engine import Trainer
 from stackformer.models import GPT2
 
 # 1. Create token data and shift-by-one targets for next-token prediction
@@ -112,19 +112,21 @@ x = torch.randint(0, 1000, (64, 16))
 y = torch.randint(0, 1000, (64, 16))
 loader = DataLoader(TensorDataset(x, y), batch_size=8)
 
-# 2. Initialize model
+# 2. Initialize model, optimizer, and loss criterion
 model = GPT2(vocab_size=1000, num_layers=2, embed_dim=128, num_heads=4, seq_len=32)
+optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
+criterion = nn.CrossEntropyLoss()
 
-# 3. Configure Trainer
-trainer = Trainer(
-    model=model,
-    train_dataloader=loader,
-    device="cpu",
-    max_epochs=2,
-    lr=3e-4,
-    checkpoint_dir="checkpoints/gpt2_training",
-)
-trainer.fit()
+# 3. Train
+model.train()
+for epoch in range(2):
+    for batch_x, batch_y in loader:
+        optimizer.zero_grad()
+        logits = model(batch_x)
+        loss = criterion(logits.view(-1, 1000), batch_y.view(-1))
+        loss.backward()
+        optimizer.step()
+    print(f"Epoch {epoch + 1} finished with loss: {loss.item():.4f}")
 ```
 
 ---

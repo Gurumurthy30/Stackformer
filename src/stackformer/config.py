@@ -2,7 +2,6 @@
 
 Provides structured configuration containers for:
 - Model architecture hyperparameter definitions (`ModelConfig`)
-- Optimization, scheduling, and training loop parameters (`TrainingConfig`)
 - Text generation decoding parameters (`GenerationConfig`)
 """
 
@@ -48,44 +47,6 @@ class ModelConfig:
     seq_len: int
     hidden_dim: int
     dropout: float = 0.0
-
-
-@dataclass(slots=True)
-class TrainingConfig:
-    """Configuration container for training loop hyper-parameters.
-
-    Args:
-        max_epochs (int, default=1): Maximum number of training epochs.
-        max_train_steps (int | None, default=None): Optional maximum train steps.
-        max_eval_steps (int | None, default=None): Optional maximum evaluation steps.
-        eval_every_n_epochs (int, default=1): Frequency of evaluation passes.
-        save_every_n_epochs (int, default=1): Frequency of checkpoint saves.
-        grad_accumulation_step (int, default=1): Gradient accumulation steps before optimizer step.
-        max_grad_norm (float | None, default=None): Maximum gradient norm for clipping.
-        lr (float, default=3e-4): Peak learning rate.
-        weight_decay (float, default=0.01): Weight decay coefficient.
-        optimizer_name (str, default="adamw"): Name of the optimizer ("adamw", "adam", "sgd").
-        scheduler_name (str, default="none"): Name of the LR scheduler ("cosine", "linear", "none").
-        warmup_steps (int, default=0): Number of warmup steps for LR scheduling.
-        total_steps (int | None, default=None): Total training steps for scheduling calculation.
-
-    Example:
-        >>> train_cfg = TrainingConfig(max_epochs=5, lr=1e-4, optimizer_name="adamw")
-    """
-
-    max_epochs: int = 1
-    max_train_steps: int | None = None
-    max_eval_steps: int | None = None
-    eval_every_n_epochs: int = 1
-    save_every_n_epochs: int = 1
-    grad_accumulation_step: int = 1
-    max_grad_norm: float | None = None
-    lr: float = 3e-4
-    weight_decay: float = 0.01
-    optimizer_name: str = "adamw"
-    scheduler_name: str = "none"
-    warmup_steps: int = 0
-    total_steps: int | None = None
 
 
 @dataclass(slots=True)

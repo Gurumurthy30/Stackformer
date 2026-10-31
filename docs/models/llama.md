@@ -122,20 +122,20 @@ print("LLaMA-2 logits shape:", logits.shape)  # torch.Size([1, 16, 32000])
 
 ---
 
-## 5. Training with `Trainer`
+## 5. Training with PyTorch
 
 ```python
 import torch
+import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
-from stackformer.engine import Trainer
 from stackformer.models import Llama2
 
 # Prepare synthetic dataset
 inputs = torch.randint(0, 32000, (64, 16))
-targets = torch.randint(0, 32000, (64, 16))
+targets = inputs.clone()
 loader = DataLoader(TensorDataset(inputs, targets), batch_size=8)
 
-# Initialize model
+# Initialize model, optimizer, and loss criterion
 model = Llama2(
     vocab_size=32000,
     num_layers=2,
@@ -144,18 +144,19 @@ model = Llama2(
     num_kv_heads=2,
     seq_len=64,
 )
+optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
+criterion = nn.CrossEntropyLoss()
 
-# Train with Trainer
-trainer = Trainer(
-    model=model,
-    train_dataloader=loader,
-    device="cpu",
-    max_epochs=1,
-    max_train_steps=5,
-    lr=3e-4,
-    checkpoint_dir="checkpoints/llama2_run",
-)
-trainer.fit()
+# Training loop
+model.train()
+for epoch in range(1):
+    for batch_x, batch_y in loader:
+        optimizer.zero_grad()
+        logits = model(batch_x)
+        loss = criterion(logits.view(-1, 32000), batch_y.view(-1))
+        loss.backward()
+        optimizer.step()
+    print(f"Loss: {loss.item():.4f}")
 ```
 
 ---

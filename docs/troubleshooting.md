@@ -133,17 +133,12 @@ torch.cuda.OutOfMemoryError: CUDA out of memory. Tried to allocate 1.2 GiB...
 **Solutions**:
 1. **Enable Automatic Mixed Precision (AMP)**:
    ```python
-   trainer = Trainer(model=model, train_dataloader=loader, use_amp=True, device="cuda")
+   with torch.autocast(device_type="cuda", dtype=torch.float16):
+       outputs = model(inputs)
    ```
-2. **Increase Gradient Accumulation**:
-   Reduce `batch_size` in your `DataLoader` by 2x or 4x, and set `grad_accumulation_step` proportionally:
-   ```python
-   trainer = Trainer(
-       model=model,
-       train_dataloader=loader,
-       grad_accumulation_step=4,  # Effective batch size = batch_size * 4
-   )
-   ```
+2. **Accumulate Gradients**:
+   Reduce `batch_size` in your `DataLoader` by 2x or 4x and accumulate gradients over micro-steps before calling `optimizer.step()`.
+
 3. **Use Grouped-Query Attention (GQA)**:
    GQA reduces KV cache memory footprint by 4x to 8x compared to standard Multi-Head Attention.
 
@@ -165,13 +160,6 @@ Script hangs indefinitely at `init_distributed()` or `wrap_model_ddp()`.
    ```bash
    torchrun --nproc_per_node=2 examples/train_ddp.py
    ```
-2. On CPU or Windows environments, specify `ddp_backend="gloo"`:
-   ```python
-   trainer = Trainer(model=model, train_dataloader=loader, use_ddp=True, ddp_backend="gloo")
-   ```
-3. Always clean up process groups on termination:
-   ```python
-   from stackformer.distributed import cleanup_distributed
-   cleanup_distributed()
-   ```
+2. On CPU or Windows environments, specify `backend="gloo"` when initializing process groups.
+3. Always destroy process groups on termination via `torch.distributed.destroy_process_group()`.
 

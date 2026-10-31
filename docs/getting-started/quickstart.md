@@ -3,7 +3,7 @@
 This 5-minute guide walks through StackFormer's core capabilities:
 1. Building custom architectures with `BlockConfig`.
 2. Initializing pre-built models from the architecture zoo.
-3. Training a model with the high-level `Trainer`.
+3. Training a model with standard PyTorch.
 4. Generating text with the autoregressive decoding engine.
 
 ---
@@ -91,40 +91,36 @@ print("GPT-2 logits shape:", logits.shape)
 
 ---
 
-## 3. Training with the `Trainer` Engine
+## 3. Training with Standard PyTorch
 
-The `Trainer` class encapsulates model optimization, evaluation loops, device placement, mixed precision, and SafeTensors checkpointing:
+StackFormer models are 100% standard `torch.nn.Module` instances, integrating seamlessly into standard PyTorch loops, Hugging Face Accelerate, or custom training engines:
 
 ```python
 import torch
+import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
-from stackformer.engine import Trainer
 from stackformer.models import GPT2
 
 # 1. Prepare synthetic dataset (tokens and labels)
 inputs = torch.randint(0, 10000, (128, 16))
-targets = torch.randint(0, 10000, (128, 16))
+targets = inputs.clone()
 dataloader = DataLoader(TensorDataset(inputs, targets), batch_size=16)
 
-# 2. Instantiate model
+# 2. Instantiate model and optimizer
 model = GPT2(vocab_size=10000, num_layers=2, embed_dim=128, num_heads=4, seq_len=64)
+optimizer = torch.optim.AdamW(model.parameters(), lr=5e-4)
+criterion = nn.CrossEntropyLoss()
 
-# 3. Configure Trainer engine
-trainer = Trainer(
-    model=model,
-    train_dataloader=dataloader,
-    val_dataloader=dataloader,
-    device="cpu",             # Use "cuda" if GPU is available
-    use_amp=False,            # Set True for CUDA FP16/BF16 AMP
-    max_epochs=2,
-    max_train_steps=10,
-    lr=5e-4,
-    checkpoint_dir="checkpoints/quickstart_run",
-)
-
-# 4. Execute training fit loop
-trainer.fit()
-print("Training completed successfully!")
+# 3. Execute training loop
+model.train()
+for epoch in range(2):
+    for batch_x, batch_y in dataloader:
+        optimizer.zero_grad()
+        logits = model(batch_x)
+        loss = criterion(logits.view(-1, 10000), batch_y.view(-1))
+        loss.backward()
+        optimizer.step()
+    print(f"Epoch {epoch + 1} complete. Step Loss: {loss.item():.4f}")
 ```
 
 ---
