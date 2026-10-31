@@ -1,35 +1,3 @@
-# ---------------------------------------------------------------------------
-# Continuous Delivery — PyPI + GitHub Container Registry + GitHub Release
-# ---------------------------------------------------------------------------
-# Triggers:
-#   • Push of a version tag  (v*.*.*)
-#   • Manual dispatch        (optional: supply the tag name to re-run a failed publish)
-#
-# Job graph (only real dependencies are wired up — everything else runs in
-# parallel to keep wall-clock time down):
-#
-#   test ──────┐
-#              ├──▶ publish-pypi ──▶ publish-container
-#   build ─────┘         │
-#                        └────────▶ github-release   (parallel with publish-container)
-#
-#   • test & build have no relationship to each other → parallel.
-#   • publish-pypi needs BOTH: can't publish untested code or a missing artifact.
-#   • publish-container needs publish-pypi: the Dockerfile installs stackformer
-#     FROM PyPI at build time, so the version must already be live — this is a
-#     real technical dependency, not just pipeline ordering.
-#   • github-release only needs the dist files + a successful PyPI publish, so
-#     it runs ALONGSIDE publish-container rather than after it. Trade-off: if
-#     publish-container fails, the Release page can go live briefly before the
-#     matching container image exists. Add `publish-container` to its `needs`
-#     if you'd rather wait for full confirmation instead.
-#
-# Zero stored secrets are required:
-#   • PyPI            → OIDC Trusted Publishing  (id-token: write)
-#   • GHCR             → GITHUB_TOKEN             (packages: write)
-#   • GitHub Release   → GITHUB_TOKEN             (contents: write)
-# ---------------------------------------------------------------------------
-
 name: CD — Publish Release
 
 on:
@@ -43,10 +11,6 @@ on:
         required: false
 
 jobs:
-
-  # ──────────────────────────────────────────────────────────────────────────
-  # JOB 1 ▶ test
-  # ──────────────────────────────────────────────────────────────────────────
   test:
     name: Gate — Run Test Suite
     runs-on: ubuntu-latest
@@ -54,154 +18,70 @@ jobs:
       fail-fast: true
       matrix:
         python-version: ["3.10", "3.11"]
-
     steps:
-      - name: Checkout tagged commit
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-
-      - name: Install package + dev dependencies
-        run: |
+      - run: |
           python -m pip install --upgrade pip
           pip install ".[dev]"
+      - run: pytest -q --maxfail=1 tests/modules tests/utils
+      - run: pytest -q --maxfail=1 tests/models
+      - run: pytest -q --maxfail=1 tests/integration
+      - run: pytest -q --maxfail=1 tests/trainer
 
-      - name: Run module and utility tests
-        run: pytest -q --maxfail=1 tests/modules tests/utils
-
-      - name: Run model tests
-        run: pytest -q --maxfail=1 tests/models
-
-      - name: Run integration tests
-        run: pytest -q --maxfail=1 tests/integration
-
-      - name: Run trainer tests
-        run: pytest -q --maxfail=1 tests/trainer
-
-  # ──────────────────────────────────────────────────────────────────────────
-  # JOB 2 ▶ build
-  # Builds the sdist + wheel ONCE and uploads them as a shared artifact so
-  # publish-pypi and github-release don't each rebuild (and can't drift from
-  # each other). No `needs` — packaging doesn't require the test suite to
-  # have finished, so this runs in PARALLEL with the `test` job. The test
-  # gate is enforced at publish-pypi instead, which needs both.
-  # ──────────────────────────────────────────────────────────────────────────
   build:
     name: Build — sdist + wheel
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout tagged commit
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
-      - name: Install build toolchain
-        run: |
+      - run: |
           python -m pip install --upgrade pip
           pip install build twine
-
-      - name: Build sdist and wheel
-        run: python -m build
-
-      - name: Validate distributions with twine
-        run: twine check --strict dist/*
-
-      - name: Upload dist artifact
-        uses: actions/upload-artifact@v4
+      - run: python -m build
+      - run: twine check --strict dist/*
+      - uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/*
           retention-days: 7
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # JOB 3 ▶ publish-pypi
-  # Publishes the already-built dist to PyPI using OIDC Trusted Publishing —
-  # no API token secret is stored.
-  #
-  # PyPI Trusted Publisher registration (one-time, manual):
-  #   Owner:    stackformer-labs
-  #   Repo:     Stackformer
-  #   Workflow: cd.yml
-  #   Env:      release
-  # ──────────────────────────────────────────────────────────────────────────
   publish-pypi:
     name: Publish — PyPI (OIDC)
-    needs: [test, build]        # real gate: tests must pass AND dist must exist
+    needs: [test, build]
     runs-on: ubuntu-latest
-    environment: release          # ← must match the environment name registered on PyPI
-
+    environment: release
     permissions:
-      id-token: write             # required for OIDC Trusted Publishing
-
+      id-token: write
     steps:
-      - name: Download dist artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist
+      - uses: pypa/gh-action-pypi-publish@v1.12.4
 
-      - name: Publish to PyPI (OIDC Trusted Publishing)
-        uses: pypa/gh-action-pypi-publish@v1.12.4
-        # No 'password:' or 'repository-url:' overrides needed for production PyPI.
-        # The action uses the OIDC token minted by the id-token: write permission above.
-
-  # ──────────────────────────────────────────────────────────────────────────
-  # JOB 4 ▶ publish-container
-  # Builds a multi-arch Docker image (linux/amd64 + linux/arm64) and pushes
-  # it to ghcr.io/<owner>/<repo>.
-  #
-  # NOTE ON ORDERING: the Dockerfile runs
-  #     pip install stackformer==${STACKFORMER_VERSION}
-  # i.e. it installs the package FROM PyPI at build time. That's why this job
-  # needs publish-pypi to have finished first — this is the one edge in the
-  # whole graph that can't be parallelized away, because it's a genuine
-  # runtime dependency, not just a pipeline-ordering preference. (`needs:
-  # publish-pypi` alone is enough — test's success is already guaranteed
-  # transitively, since publish-pypi itself needs test.)
-  #
-  # Tags applied:
-  #   • <version>      e.g. 1.2.3  (leading 'v' stripped from the git tag)
-  #   • latest
-  #   • <short-sha>    first 7 chars of the commit SHA
-  #
-  # Authentication via GITHUB_TOKEN — no extra secrets required.
-  #
-  # NOTE: The first push will create the package as *private* on GHCR.
-  #       Change visibility to public in:
-  #       GitHub → your account / org → Packages → stackformer → Package settings
-  # ──────────────────────────────────────────────────────────────────────────
   publish-container:
     name: Publish — GHCR Container
-    needs: publish-pypi          # the one edge that can't be parallelized — see NOTE above
+    needs: publish-pypi
     runs-on: ubuntu-latest
-
     permissions:
       contents: read
-      packages: write             # required to push to GHCR
-
+      packages: write
     steps:
-      - name: Checkout tagged commit
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
-
-      # ── Derive version strings ────────────────────────────────────────────
       - name: Compute image tags
         id: meta
         run: |
-          # Strip leading 'v' from the git tag (e.g. v1.2.3 → 1.2.3)
-          # Fall back to the manually supplied input tag on workflow_dispatch
           RAW_TAG="${{ github.ref_name }}"
           if [ -z "$RAW_TAG" ] || [ "$RAW_TAG" = "refs/heads/main" ]; then
             RAW_TAG="${{ github.event.inputs.tag }}"
@@ -210,28 +90,17 @@ jobs:
           SHORT_SHA="${{ github.sha }}"
           SHORT_SHA="${SHORT_SHA:0:7}"
           IMAGE="ghcr.io/${{ github.repository_owner }}/$(echo '${{ github.repository }}' | cut -d'/' -f2 | tr '[:upper:]' '[:lower:]')"
-          echo "version=${VERSION}"         >> "$GITHUB_OUTPUT"
-          echo "short_sha=${SHORT_SHA}"     >> "$GITHUB_OUTPUT"
-          echo "image=${IMAGE}"             >> "$GITHUB_OUTPUT"
-
-      # ── Multi-arch build prerequisites ───────────────────────────────────
-      - name: Set up QEMU (cross-arch emulation)
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      # ── Authenticate to GHCR ─────────────────────────────────────────────
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      # ── Build and push ────────────────────────────────────────────────────
-      - name: Build and push multi-arch image
-        uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
@@ -241,45 +110,25 @@ jobs:
             ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.version }}
             ${{ steps.meta.outputs.image }}:latest
             ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.short_sha }}
-          # Pass the version into the image as a build-arg so it can be
-          # inspected at runtime via `python -c "import stackformer; print(stackformer.__version__)"`.
           build-args: |
             STACKFORMER_VERSION=${{ steps.meta.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # JOB 5 ▶ github-release
-  # Creates the GitHub Release for the pushed tag, attaches the sdist/wheel,
-  # and auto-generates release notes from merged PRs since the last tag.
-  #
-  # Needs only publish-pypi — it doesn't technically require the container
-  # image to exist, so it runs IN PARALLEL with publish-container rather than
-  # after it. Trade-off: if publish-container fails, this release can still
-  # go live without a matching image on GHCR for a while. If you'd rather the
-  # release wait for full confirmation, change `needs` to:
-  #     needs: [publish-pypi, publish-container]
-  # ──────────────────────────────────────────────────────────────────────────
   github-release:
     name: Publish — GitHub Release
     needs: publish-pypi
     runs-on: ubuntu-latest
-
     permissions:
-      contents: write            # required to create a release
-
+      contents: write
     steps:
-      - name: Download dist artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
+      - uses: softprops/action-gh-release@v3
         with:
           files: dist/*
           generate_release_notes: true
           draft: false
-          # Mark as a pre-release if the tag has an rc/beta/alpha suffix, e.g. v1.2.3-rc1
           prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
