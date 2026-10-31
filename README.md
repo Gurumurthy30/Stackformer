@@ -1,11 +1,14 @@
 <p align="center">
-  <img src="assets/logo.png" alt="StackFormer logo" width="560" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/stackformer-labs/Stackformer/main/assets/logo-dark.png">
+    <img alt="Stackformer" src="https://raw.githubusercontent.com/stackformer-labs/Stackformer/main/assets/logo-light.png" width="800">
+  </picture>
 </p>
 
 <p align="center">
   <a href="https://pypi.org/project/stackformer/"><img src="https://img.shields.io/pypi/v/stackformer.svg" alt="PyPI version" /></a>
   <a href="https://pypi.org/project/stackformer/"><img src="https://img.shields.io/pypi/pyversions/stackformer.svg" alt="Python versions" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License" /></a>
+  <a href="https://github.com/stackformer-labs/Stackformer/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License" /></a>
   <a href="https://github.com/stackformer-labs/Stackformer/actions">
     <img src="https://img.shields.io/github/actions/workflow/status/stackformer-labs/Stackformer/core-tests.yml?branch=main&label=CI" alt="CI status" />
   </a>

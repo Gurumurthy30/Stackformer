@@ -19,7 +19,7 @@ import torch
 import torch.nn as nn
 
 from stackformer.generate import text_generate
-from stackformer.modules.Attention import kv_cache_group_query
+from stackformer.modules.Attention import Group_query_Attention_With_RoPE
 from stackformer.modules.layer import BlockConfig, TransformerEncoder, _build_ffn, _build_norm
 
 
@@ -148,30 +148,27 @@ class Llama1(nn.Module):
 
 
 class _Llama2Block(nn.Module):
-    """Single LLaMA 2 decoder block with GQA and stateful KV cache.
+    """Single LLaMA 2 decoder block with GQA.
 
     Constructor args:
         cfg (BlockConfig): Configuration instance.
-        batch_size (int): Pre-allocated cache batch size.
-        kv_seq_len (int): Pre-allocated cache sequence length.
 
     Forward args:
         x (torch.Tensor): Input token features of shape ``(B, T, C)``.
-        start_pos (int): Starting position offset in KV cache.
+        mask (bool, default=True): Causal mask flag.
 
     Returns:
         torch.Tensor: Output token features of shape ``(B, T, C)``.
     """
 
-    def __init__(self, cfg: BlockConfig, batch_size: int, kv_seq_len: int) -> None:
+    def __init__(self, cfg: BlockConfig) -> None:
         super().__init__()
         self.norm1 = _build_norm(cfg)
-        self.attn = kv_cache_group_query(
+        self.attn = Group_query_Attention_With_RoPE(
             embed_dim=cfg.embed_dim,
             num_query_heads=cfg.num_heads,
             num_kv_heads=cfg.num_kv_heads,
-            batch_size=batch_size,
-            kv_seq_len=kv_seq_len,
+            qkv_bias=cfg.qkv_bias,
             dropout=cfg.dropout,
             device=cfg.device,
             dtype=cfg.dtype,
@@ -179,23 +176,23 @@ class _Llama2Block(nn.Module):
         self.norm2 = _build_norm(cfg)
         self.ffn = _build_ffn(cfg)
 
-    def forward(self, x: torch.Tensor, start_pos: int) -> torch.Tensor:
-        x = x + self.attn(self.norm1(x), start_pos, rope=True)
+    def forward(self, x: torch.Tensor, mask: bool = True) -> torch.Tensor:
+        x = x + self.attn(self.norm1(x), mask=mask)
         x = x + self.ffn(self.norm2(x))
         return x
 
 
 class Llama2(nn.Module):
-    """LLaMA 2 style decoder-only causal language model with GQA and persistent KV cache.
+    """LLaMA 2 style decoder-only causal language model with GQA.
 
     Simple explanation:
-        Autoregressively generates text using Grouped-Query Attention (GQA) and persistent
-        KV caching. The stateful cache allows fast generation by reusing previous Key and Value
-        tensors across decoding steps.
+        Autoregressively generates text using Grouped-Query Attention (GQA).
+        Designed for scalable distributed training with RoPE position encoding
+        and SwiGLU feed-forward blocks.
 
     Architecture details (current implementation):
         - Task: causal language modeling
-        - Attention: Grouped-Query Attention (GQA) with stateful KV cache
+        - Attention: Grouped-Query Attention (GQA) with RoPE
         - Masking: causal mask
         - Positional encoding: RoPE (rotary positional embeddings)
         - Feed-forward: SwiGLU FFN
@@ -218,11 +215,10 @@ class Llama2(nn.Module):
         ...     embed_dim=512,
         ...     num_query_heads=8,
         ...     num_kv_heads=2,
-        ...     batch_size=1,
-        ...     kv_seq_len=128,
+        ...     seq_len=128,
         ... )
         >>> input_ids = torch.randint(0, 32000, (1, 16))
-        >>> logits = model(input_ids, start_pos=0)
+        >>> logits = model(input_ids)
         >>> logits.shape
         torch.Size([1, 16, 32000])
 
@@ -232,8 +228,7 @@ class Llama2(nn.Module):
         embed_dim (int): Hidden state embedding dimension.
         num_query_heads (int): Number of Query attention heads.
         num_kv_heads (int): Number of Key/Value attention heads.
-        batch_size (int): Pre-allocated batch size for KV cache tensor.
-        kv_seq_len (int): Pre-allocated sequence length limit for KV cache tensor.
+        seq_len (int, default=2048): Maximum sequence context length.
         hidden_dim (int, default=0): Inner hidden FFN dimension (0 defaults to 8/3 expansion).
         dropout (float, default=0.0): Dropout probability.
         eps (float, default=1e-5): RMSNorm epsilon.
@@ -248,8 +243,7 @@ class Llama2(nn.Module):
         embed_dim: int,
         num_query_heads: int,
         num_kv_heads: int,
-        batch_size: int,
-        kv_seq_len: int,
+        seq_len: int = 2048,
         hidden_dim: int = 0,
         dropout: float = 0.0,
         eps: float = 1e-5,
@@ -260,7 +254,7 @@ class Llama2(nn.Module):
         assert embed_dim % num_query_heads == 0, "embed_dim must be divisible by num_query_heads"
         assert num_query_heads % num_kv_heads == 0, "num_query_heads must be divisible by num_kv_heads"
 
-        self.seq_len = kv_seq_len
+        self.seq_len = seq_len
 
         if hidden_dim == 0:
             hidden_dim = int(int(8 / 3 * embed_dim) / 256) * 256
@@ -282,18 +276,18 @@ class Llama2(nn.Module):
         self.embedding = nn.Embedding(vocab_size, embed_dim, dtype=dtype, device=device)
 
         self.layers = nn.ModuleList([
-            _Llama2Block(cfg, batch_size=batch_size, kv_seq_len=kv_seq_len)
+            _Llama2Block(cfg)
             for _ in range(num_layers)
         ])
 
         self.final_norm = _build_norm(cfg)
         self.lm_head = nn.Linear(embed_dim, vocab_size, bias=False, dtype=dtype, device=device)
 
-    def forward(self, input_ids: torch.Tensor, start_pos: int = 0) -> torch.Tensor:
+    def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
         # input_ids: (B, T)
         x = self.embedding(input_ids)  # (B, T, C)
         for layer in self.layers:
-            x = layer(x, start_pos)
+            x = layer(x, mask=True)
         x = self.final_norm(x)  # (B, T, C)
         return self.lm_head(x)  # (B, T, V)
 
@@ -332,52 +326,6 @@ class Llama2(nn.Module):
             top_p=top_p,
             eos_token_id=eos_token_id,
         )
-        
-    def reset_cache(self):
-        for layer in self.layers:
-            layer.attn.reset_cache()
-        
-    def prefill(self, prompt_ids: torch.Tensor) -> tuple[torch.Tensor, dict[str, Any]]:
-        """Prefill the KV-cache with prompt tokens and return initial logits and cache state.
-
-        Args:
-            prompt_ids (torch.Tensor): Input prompt token IDs of shape ``(B, T)``.
-
-        Returns:
-            tuple[torch.Tensor, dict[str, Any]]: Logits tensor of shape ``(B, T, V)`` and KV-cache dictionary.
-        """
-        B, T = prompt_ids.shape
-        if T > self.seq_len:
-            raise ValueError(
-                f"Prompt length {T} exceeds KV cache capacity {self.seq_len}. "
-                f"Truncate the prompt or rebuild the model with a larger kv_seq_len."
-            )
-        self.reset_cache()
-        logits = self.forward(prompt_ids, start_pos=0)
-        cache = {"start_pos": T}
-        return logits, cache
-    
-    def decode(self, next_token: torch.Tensor, cache: dict[str, Any]) -> tuple[torch.Tensor, dict[str, Any]]:
-        """Decode the next token using the KV-cache for models that support it.
-
-        Args:
-            next_token (torch.Tensor): Next token IDs of shape ``(B, 1)``.
-            cache (dict[str, Any]): KV-cache dictionary from prefill.
-
-        Returns:
-            tuple[torch.Tensor, dict[str, Any]]: Logits tensor of shape ``(B, 1, V)`` and updated KV-cache dictionary.
-        """
-        start_pos = cache["start_pos"]
-        end_pos = start_pos + next_token.shape[1]
-        if end_pos > self.seq_len:
-            raise ValueError(
-                f"KV cache capacity exceeded: start_pos={start_pos} + new_tokens={next_token.shape[1]} "
-                f"= {end_pos} > cache length {self.seq_len}. Generation must stop or the model must be "
-                f"rebuilt with a larger kv_seq_len."
-            )
-        logits = self.forward(next_token, start_pos=start_pos)
-        cache["start_pos"] = end_pos
-        return logits, cache
 
 
 # Backward compatibility aliases

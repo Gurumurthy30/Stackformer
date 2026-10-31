@@ -25,8 +25,8 @@ def test_model_save_and_load_roundtrip(tmp_path, model_name, torch_device):
         model = llama_1(vocab_size=32, num_layers=1, embed_dim=8, num_heads=2, seq_len=6, dropout=0.0, hidden_dim=16, device=torch_device)
         new_model = llama_1(vocab_size=32, num_layers=1, embed_dim=8, num_heads=2, seq_len=6, dropout=0.0, hidden_dim=16, device=torch_device)
     else:
-        model = llama_2(vocab_size=32, num_layers=1, embed_dim=8, num_query_heads=2, num_kv_heads=1, batch_size=2, kv_seq_len=6, hidden_dim=16, dropout=0.0, device=torch_device)
-        new_model = llama_2(vocab_size=32, num_layers=1, embed_dim=8, num_query_heads=2, num_kv_heads=1, batch_size=2, kv_seq_len=6, hidden_dim=16, dropout=0.0, device=torch_device)
+        model = llama_2(vocab_size=32, num_layers=1, embed_dim=8, num_query_heads=2, num_kv_heads=1, seq_len=6, hidden_dim=16, dropout=0.0, device=torch_device)
+        new_model = llama_2(vocab_size=32, num_layers=1, embed_dim=8, num_query_heads=2, num_kv_heads=1, seq_len=6, hidden_dim=16, dropout=0.0, device=torch_device)
 
     model.eval()
     new_model.eval()
