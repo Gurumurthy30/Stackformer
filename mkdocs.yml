@@ -1,0 +1,164 @@
+site_name: StackFormer
+site_description: Composable PyTorch Transformer building blocks, modular architecture zoo, and lightweight training engine.
+site_author: Stackformer Labs
+site_url: https://stackformer-labs.github.io/Stackformer/
+repo_name: stackformer-labs/Stackformer
+repo_url: https://github.com/stackformer-labs/Stackformer
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  language: en
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+  logo: assets/logo-light.png
+  favicon: assets/logo-light.png
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            docstring_options:
+              warn_missing_types: false
+            show_root_heading: true
+            show_source: true
+            show_category_heading: true
+            show_signature_annotations: true
+            separate_signature: true
+            merge_init_into_class: true
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.tilde
+  - pymdownx.arithmatex:
+      generic: true
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+extra_css:
+  - stylesheets/extra.css
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Overview: getting-started/index.md
+      - Installation: getting-started/installation.md
+      - Quickstart: getting-started/quickstart.md
+      - First Transformer: getting-started/first-transformer.md
+      - Configuration: getting-started/configuration.md
+  - Fundamentals:
+      - Overview: fundamentals/index.md
+      - Architecture Overview: fundamentals/architecture-overview.md
+      - Block Composition: fundamentals/block-composition.md
+      - Attention Mechanisms: fundamentals/attention-mechanisms.md
+      - Positional Embeddings: fundamentals/positional-embeddings.md
+      - Normalization: fundamentals/normalization.md
+      - Feed-Forward Networks: fundamentals/feed-forward-networks.md
+  - Models:
+      - Model Zoo Overview: models/index.md
+      - GPT-1 & GPT-2: models/gpt.md
+      - LLaMA-1 & LLaMA-2: models/llama.md
+      - Gemma-1 (2B & 7B): models/gemma.md
+      - BERT: models/bert.md
+      - RoBERTa: models/roberta.md
+      - Vaswani Transformer: models/transformer.md
+      - Vision Transformer (ViT): models/vit.md
+      - SegFormer: models/segformer.md
+  - Training:
+      - Training Overview: training/index.md
+      - Trainer API: training/trainer.md
+      - Engine Core: training/engine.md
+      - Mixed Precision (AMP): training/mixed-precision.md
+      - Distributed Training (DDP): training/distributed-training.md
+      - Gradient Accumulation: training/gradient-accumulation.md
+      - Optimizers & Schedulers: training/optimizers-and-schedulers.md
+      - Checkpointing & SafeTensors: training/checkpointing.md
+      - Logging & Metrics: training/logging.md
+  - Generation:
+      - Generation Overview: generation/index.md
+      - Text Generation: generation/text-generation.md
+      - KV-Cache Acceleration: generation/kv-cache.md
+      - Prefill & Decode Interface: generation/prefill-and-decode.md
+      - Sampling Strategies: generation/sampling-strategies.md
+  - API Reference:
+      - API Directory: api-reference/index.md
+      - Configuration: api-reference/config.md
+      - Modules & Layers: api-reference/modules.md
+      - Models: api-reference/models.md
+      - Training Engine: api-reference/engine.md
+      - Text Generation: api-reference/generation.md
+      - Key-Value Cache: api-reference/cache.md
+      - Distributed Training: api-reference/distributed.md
+      - Optimization & Losses: api-reference/optim.md
+      - Logging & Metrics: api-reference/logging.md
+      - Utilities: api-reference/utilities.md
+  - Examples:
+      - Examples Overview: examples/index.md
+      - Custom Transformer: examples/custom-transformer.md
+      - Language Model Training: examples/language-model-training.md
+      - Text Generation: examples/text-generation.md
+      - Distributed DDP: examples/distributed-training.md
+  - Developer Guide:
+      - Developer Overview: developer-guide/index.md
+      - Project Structure: developer-guide/project-structure.md
+      - Architecture Deep Dive: developer-guide/architecture.md
+      - Design Principles: developer-guide/design-principles.md
+      - Testing: developer-guide/testing.md
+      - Contributing: developer-guide/contributing.md
+      - Technical Roadmap: developer-guide/roadmap.md
+  - Troubleshooting: troubleshooting.md
+  - FAQ: faq.md
+  - Changelog: changelog.md
+  - License: license.md
