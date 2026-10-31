@@ -127,6 +127,7 @@ nav:
       - Configuration: api-reference/config.md
       - Modules & Layers: api-reference/modules.md
       - Models: api-reference/models.md
+      - Initialization: api-reference/initialization.md
       - Text Generation: api-reference/generation.md
       - Key-Value Cache: api-reference/cache.md
       - Utilities: api-reference/utilities.md

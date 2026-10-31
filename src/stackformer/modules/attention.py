@@ -208,7 +208,7 @@ class Self_Attention(nn.Module):
             seq_len=T,
             device=x.device,
             cache=self._causal_mask_cache,
-            dropout_p=self.dropout_p,
+            dropout_p=self.dropout_p if self.training else 0.0,
             combine=self.combine,
             mask_kwargs=self.mask_kwargs,
         )
@@ -319,7 +319,7 @@ class Multi_Head_Attention(nn.Module):
             seq_len=T,
             device=x.device,
             cache=self._causal_mask_cache,
-            dropout_p=self.dropout_p,
+            dropout_p=self.dropout_p if self.training else 0.0,
             combine=self.combine,
             mask_kwargs=self.mask_kwargs,
         )
@@ -429,7 +429,7 @@ class Multi_Head_Attention_With_RoPE(nn.Module):
             seq_len=T,
             device=x.device,
             cache=self._causal_mask_cache,
-            dropout_p=self.dropout_p,
+            dropout_p=self.dropout_p if self.training else 0.0,
             combine=self.combine,
             mask_kwargs=self.mask_kwargs,
         )
@@ -546,7 +546,7 @@ class Cross_MultiHead_Attention(nn.Module):
             seq_len=T,
             device=x.device,
             cache=self._causal_mask_cache,
-            dropout_p=self.dropout_p,
+            dropout_p=self.dropout_p if self.training else 0.0,
             combine=self.combine,
             mask_kwargs=self.mask_kwargs,
         )
@@ -661,7 +661,7 @@ class Multi_query_Attention(nn.Module):
             seq_len=T,
             device=x.device,
             cache=self._causal_mask_cache,
-            dropout_p=self.dropout_p,
+            dropout_p=self.dropout_p if self.training else 0.0,
             combine=self.combine,
             enable_gqa=True,
             mask_kwargs=self.mask_kwargs,
@@ -779,7 +779,7 @@ class Multi_query_Attention_With_RoPE(nn.Module):
             seq_len=T,
             device=x.device,
             cache=self._causal_mask_cache,
-            dropout_p=self.dropout_p,
+            dropout_p=self.dropout_p if self.training else 0.0,
             combine=self.combine,
             enable_gqa=True,
             mask_kwargs=self.mask_kwargs,
@@ -896,7 +896,7 @@ class Group_query_Attention(nn.Module):
             seq_len=T,
             device=x.device,
             cache=self._causal_mask_cache,
-            dropout_p=self.dropout_p,
+            dropout_p=self.dropout_p if self.training else 0.0,
             combine=self.combine,
             enable_gqa=True,
             mask_kwargs=self.mask_kwargs,
@@ -1013,7 +1013,7 @@ class Group_query_Attention_With_RoPE(nn.Module):
             seq_len=T,
             device=x.device,
             cache=self._causal_mask_cache,
-            dropout_p=self.dropout_p,
+            dropout_p=self.dropout_p if self.training else 0.0,
             combine=self.combine,
             enable_gqa=True,
             mask_kwargs=self.mask_kwargs,
@@ -1154,7 +1154,7 @@ class kv_cache_multihead(nn.Module):
             k=k_full,
             v=v_full,
             attn_mask=attn_mask,
-            dropout_p=self.dropout_p,
+            dropout_p=self.dropout_p if self.training else 0.0,
         )
 
         # Merge heads + output projection
@@ -1299,7 +1299,7 @@ class kv_cache_group_query(nn.Module):
             backend=self.backend,
             q=q, k=k_full, v=v_full,
             attn_mask=attn_mask,
-            dropout_p=self.dropout_p,
+            dropout_p=self.dropout_p if self.training else 0.0,
             enable_gqa=True,
         )
 

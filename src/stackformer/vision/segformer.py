@@ -14,6 +14,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from stackformer.models.base import BaseModel, resolve_model_config
+
 try:
     from stackformer.modules.attention_engine import _run_sdpa
 except ImportError:
@@ -285,7 +287,7 @@ class DecodeHead(nn.Module):
         return self.classifier(fused)
 
 
-class StackFormerSegformer(nn.Module):
+class StackFormerSegformer(BaseModel):
     """Full SegFormer semantic segmentation model (MixVisionEncoder + DecodeHead).
 
     Simple explanation:
@@ -322,12 +324,53 @@ class StackFormerSegformer(nn.Module):
         variant (str, default="b4"): SegFormer model variant ("b0", "b1", "b2", "b3", "b4", "b5").
         num_labels (int, default=150): Number of semantic segmentation target classes.
         dropout (float, default=0.0): Encoder dropout probability.
+        config (Any | None, default=None): Optional configuration object.
     """
 
-    def __init__(self, variant: str = "b4", num_labels: int = 150, dropout: float = 0.0) -> None:
-        super().__init__()
+    def __init__(
+        self,
+        variant: str = "b4",
+        num_labels: int = 150,
+        dropout: float = 0.0,
+        config: Any = None,
+        **kwargs: Any,
+    ) -> None:
+        cfg, resolved = resolve_model_config(
+            first_arg=variant,
+            explicit_config=config,
+            variant=variant,
+            num_labels=num_labels,
+            dropout=dropout,
+            **kwargs,
+        )
+        resolved_config = cfg or config
+        super().__init__(config=resolved_config)
+
+        variant = resolved.get("variant", variant)
+        num_labels = resolved.get("num_labels", num_labels)
+        dropout = resolved.get("dropout", dropout)
+
         self.segformer = MixVisionEncoder(variant, dropout=dropout)
         self.decode_head = DecodeHead(variant, num_labels, dropout=0.1)
+
+        self.create_weights()
+
+    def _init_weights(self, m: nn.Module) -> None:
+        if isinstance(m, nn.Linear):
+            if not m.weight.is_meta:
+                nn.init.trunc_normal_(m.weight, std=0.02)
+            if m.bias is not None and not m.bias.is_meta:
+                nn.init.zeros_(m.bias)
+        elif isinstance(m, nn.Conv2d):
+            if not m.weight.is_meta:
+                nn.init.kaiming_normal_(m.weight, mode="fan_out")
+            if m.bias is not None and not m.bias.is_meta:
+                nn.init.zeros_(m.bias)
+        elif isinstance(m, (nn.LayerNorm, nn.BatchNorm2d)):
+            if m.weight is not None and not m.weight.is_meta:
+                nn.init.ones_(m.weight)
+            if m.bias is not None and not m.bias.is_meta:
+                nn.init.zeros_(m.bias)
 
     def forward(self, pixel_values: torch.Tensor, upsample_to_input: bool = False) -> torch.Tensor:
         features = self.segformer(pixel_values)
@@ -341,9 +384,16 @@ class StackFormerSegformer(nn.Module):
 
 class SegFormer(StackFormerSegformer):
     """SegFormer variant preset container."""
-    
-    def __init__(self, variant: str = "b0", num_labels: int = 150, dropout: float = 0.0) -> None:
-        super().__init__(variant=variant, num_labels=num_labels, dropout=dropout)
+
+    def __init__(
+        self,
+        variant: str = "b0",
+        num_labels: int = 150,
+        dropout: float = 0.0,
+        config: Any = None,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(variant=variant, num_labels=num_labels, dropout=dropout, config=config, **kwargs)
 
 
 # PascalCase renames per Section 5 of style guide

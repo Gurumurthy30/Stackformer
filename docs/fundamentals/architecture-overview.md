@@ -99,3 +99,78 @@ The top tier bundles backbones with task-specific embeddings and projection head
 - Vision Models: Patch Embedding Conv/Linear + Encoder Stack + Classifier head.
 - Sequence-to-Sequence: Source Embedding + `TransformerEncoder` + Target Embedding + `TransformerDecoder` + Generation head.
 
+---
+
+## 5. Model Lifecycle & `BaseModel`
+
+All foundation and vision models in StackFormer inherit from `BaseModel`, establishing a clean separation of concerns for large-scale model workflows:
+
+```mermaid
+graph TD
+    M["Model(config)<br><i>Define architecture and register modules</i>"]
+    CW["create_weights()<br><i>Initialization strategies</i>"]
+    LW["load_weights()<br><i>Checkpoint loading</i>"]
+    SW["save_weights()<br><i>Checkpoint saving (.pt / .safetensors)</i>"]
+    MAT["materialize()<br><i>Meta-device to allocated memory</i>"]
+    DP["Distributed Preparation<br><i>FSDP / DDP / Device placement</i>"]
+    OPT["Optimizer + Training<br><i>Training lifecycle</i>"]
+
+    M --> CW
+    M --> LW
+    CW --> SW
+    LW --> SW
+    M --> MAT
+    MAT --> CW
+    MAT --> LW
+    SW --> DP
+    CW --> DP
+    LW --> DP
+    DP --> OPT
+```
+
+### Standard Model Lifecycle Methods
+
+| Method | Role | Description |
+| :--- | :--- | :--- |
+| `__init__(config)` | Architecture definition | Declares submodules and backbone blocks without requiring immediate GPU memory. |
+| `create_weights(method="default")` | Weight initialization | Initializes parameters using architecture defaults or mathematical strategies (`xavier`, `kaiming`, `normal`, `orthogonal`). |
+| `materialize(device="cpu")` | Memory allocation | Converts meta-device tensors (`torch.device("meta")`) into physical allocated memory on target compute devices. |
+| `load_weights(path=None)` | Checkpoint loading | Loads weights from local `.pt` or `.safetensors` files, or fetches canonical pretrained model weights. |
+| `save_weights(path)` | Checkpoint saving | Serializes state dictionaries in PyTorch or SafeTensors format with duplicate memory protection. |
+| `parameter_count(trainable_only=False)` | Parameter accounting | Returns the total or trainable parameter count across all submodules. |
+
+### Example Workflow
+
+```python
+import torch
+from stackformer.config import ModelConfig
+from stackformer.models import GPT2
+
+config = ModelConfig(
+    vocab_size=50257,
+    embed_dim=768,
+    num_layers=12,
+    num_heads=12,
+    seq_len=1024,
+    hidden_dim=3072,
+)
+
+# 1. Instantiate on meta-device (zero RAM allocation)
+with torch.device("meta"):
+    model = GPT2(config)
+
+# 2. Materialize onto compute device
+model.materialize(device="cpu")
+
+# 3. Initialize weights with Xavier or architecture default
+model.create_weights(method="default")
+
+# 4. Save and load checkpoints (.pt or .safetensors)
+model.save_weights("checkpoints/gpt2.safetensors")
+model.load_weights("checkpoints/gpt2.safetensors")
+
+# 5. Inspect parameter count
+print(f"Total parameters: {model.parameter_count():,}")
+```
+
+

@@ -1,7 +1,7 @@
 """Original Encoder-Decoder Transformer model implementation.
 
 Rebuilds the canonical sequence-to-sequence Transformer architecture on top of StackFormer
-block components (BlockConfig, TransformerEncoder, TransformerDecoder).
+block components (BlockConfig, TransformerEncoder, TransformerDecoder) and inheriting from BaseModel.
 
 Paper reference:
     Attention Is All You Need (Vaswani et al., 2017)
@@ -11,13 +11,16 @@ Paper reference:
 from __future__ import annotations
 
 import math
+from typing import Any
+
 import torch
 import torch.nn as nn
 
+from stackformer.models.base import BaseModel, resolve_model_config
 from stackformer.modules.layer import BlockConfig, TransformerDecoder, TransformerEncoder
 
 
-class Transformer(nn.Module):
+class Transformer(BaseModel):
     """Vaswani et al. style encoder-decoder Transformer.
 
     Simple explanation:
@@ -62,9 +65,9 @@ class Transformer(nn.Module):
         torch.Size([2, 30, 32000])
 
     Args:
-        vocab_size (int): Token vocabulary size.
-        embed_dim (int): Model embedding dimension.
-        num_heads (int): Number of attention heads.
+        vocab_size (int | Any, default=32000): Token vocabulary size or ModelConfig instance.
+        embed_dim (int, default=512): Model embedding dimension.
+        num_heads (int, default=8): Number of attention heads.
         dropout (float, default=0.1): Dropout probability.
         hidden_dim (int, default=0): Inner hidden FFN dimension (0 defaults to 4 * embed_dim).
         encoder_layers (int, default=6): Number of encoder layers.
@@ -73,13 +76,14 @@ class Transformer(nn.Module):
         eps (float, default=1e-5): LayerNorm epsilon.
         device (torch.device | str, default="cpu"): Compute device.
         dtype (torch.dtype, default=torch.float32): Model data type.
+        config (Any | None, default=None): Optional configuration object.
     """
 
     def __init__(
         self,
-        vocab_size: int,
-        embed_dim: int,
-        num_heads: int,
+        vocab_size: int | Any = 32000,
+        embed_dim: int = 512,
+        num_heads: int = 8,
         dropout: float = 0.1,
         hidden_dim: int = 0,
         encoder_layers: int = 6,
@@ -88,13 +92,47 @@ class Transformer(nn.Module):
         eps: float = 1e-5,
         device: torch.device | str = "cpu",
         dtype: torch.dtype = torch.float32,
+        config: Any = None,
+        **kwargs: Any,
     ) -> None:
-        super().__init__()
+        cfg, resolved = resolve_model_config(
+            first_arg=vocab_size,
+            explicit_config=config,
+            embed_dim=embed_dim,
+            num_heads=num_heads,
+            dropout=dropout,
+            hidden_dim=hidden_dim,
+            encoder_layers=encoder_layers,
+            decoder_layers=decoder_layers,
+            seq_len=seq_len,
+            eps=eps,
+            device=device,
+            dtype=dtype,
+            **kwargs,
+        )
+        resolved_config = cfg or config
+        super().__init__(config=resolved_config)
+
+        if isinstance(vocab_size, int):
+            resolved["vocab_size"] = vocab_size
+        vocab_size = resolved.get("vocab_size", 32000)
+        embed_dim = resolved.get("embed_dim", embed_dim)
+        num_heads = resolved.get("num_heads", num_heads)
+        dropout = resolved.get("dropout", dropout)
+        hidden_dim = resolved.get("hidden_dim", hidden_dim)
+        encoder_layers = resolved.get("encoder_layers", encoder_layers)
+        decoder_layers = resolved.get("decoder_layers", decoder_layers)
+        seq_len = resolved.get("seq_len", seq_len)
+        eps = resolved.get("eps", eps)
+        device = resolved.get("device", device)
+        dtype = resolved.get("dtype", dtype)
+
         assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
 
+        self.seq_len = seq_len
         self.embed_scale = math.sqrt(embed_dim)
 
-        cfg = BlockConfig(
+        cfg_block = BlockConfig(
             embed_dim=embed_dim,
             num_heads=num_heads,
             hidden_dim=hidden_dim,
@@ -111,20 +149,37 @@ class Transformer(nn.Module):
         self.token_emb = nn.Embedding(vocab_size, embed_dim, device=device, dtype=dtype)
 
         self.encoder_stack = TransformerEncoder(
-            cfg,
+            cfg_block,
             num_layers=encoder_layers,
             pos_embedding="sinusoidal",
             max_seq_len=seq_len,
         )
 
         self.decoder_stack = TransformerDecoder(
-            cfg,
+            cfg_block,
             num_layers=decoder_layers,
             pos_embedding="sinusoidal",
             max_seq_len=seq_len,
         )
 
         self.out_proj = nn.Linear(embed_dim, vocab_size, device=device, dtype=dtype)
+
+        self.create_weights()
+
+    def _init_weights(self, module: nn.Module) -> None:
+        if isinstance(module, nn.Linear):
+            if not module.weight.is_meta:
+                nn.init.xavier_uniform_(module.weight)
+            if module.bias is not None and not module.bias.is_meta:
+                nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            if not module.weight.is_meta:
+                nn.init.normal_(module.weight, mean=0.0, std=0.02)
+        elif isinstance(module, nn.LayerNorm):
+            if module.weight is not None and not module.weight.is_meta:
+                nn.init.ones_(module.weight)
+            if module.bias is not None and not module.bias.is_meta:
+                nn.init.zeros_(module.bias)
 
     def encode(self, src: torch.Tensor) -> torch.Tensor:
         """Encode source sequence into hidden representations tensor.

@@ -1,7 +1,7 @@
 """OpenAI GPT-family decoder-only language model implementations.
 
 Provides GPT-1 (Post-LayerNorm) and GPT-2 (Pre-LayerNorm) causal language models built on
-StackFormer block components.
+StackFormer block components and inheriting from BaseModel.
 
 Paper references:
     GPT-1: Improving Language Understanding by Generative Pre-Training (2018)
@@ -13,15 +13,18 @@ Paper references:
 
 from __future__ import annotations
 
+from typing import Any
+
 import torch
 import torch.nn as nn
 
 from stackformer.generate import text_generate
+from stackformer.models.base import BaseModel, resolve_model_config
 from stackformer.modules.layer import BlockConfig, TransformerEncoder
 from stackformer.modules.position_embedding import AbsolutePositionEmbedding
 
 
-class GPT1(nn.Module):
+class GPT1(BaseModel):
     """GPT-1 style decoder-only causal language model.
 
     Simple explanation:
@@ -55,38 +58,72 @@ class GPT1(nn.Module):
         torch.Size([2, 32, 50257])
 
     Args:
-        vocab_size (int): Size of token vocabulary.
-        num_layers (int): Number of transformer decoder layers.
-        embed_dim (int): Hidden embedding dimension.
-        num_heads (int): Number of attention heads.
-        seq_len (int): Maximum sequence context length.
+        vocab_size (int | Any, default=50257): Size of token vocabulary or ModelConfig instance.
+        num_layers (int, default=12): Number of transformer decoder layers.
+        embed_dim (int, default=768): Hidden embedding dimension.
+        num_heads (int, default=12): Number of attention heads.
+        seq_len (int, default=1024): Maximum sequence context length.
         dropout (float, default=0.1): Dropout probability.
         hidden_dim (int, default=0): Inner hidden FFN dimension (0 defaults to 4 * embed_dim).
         qkv_bias (bool, default=True): Enable bias terms in linear projections.
         eps (float, default=1e-5): LayerNorm epsilon.
         device (torch.device | str, default="cpu"): Target compute device.
         dtype (torch.dtype, default=torch.float32): Tensor data type.
+        config (Any | None, default=None): Optional configuration object.
     """
 
     def __init__(
         self,
-        vocab_size: int,
-        num_layers: int,
-        embed_dim: int,
-        num_heads: int,
-        seq_len: int,
+        vocab_size: int | Any = 50257,
+        num_layers: int = 12,
+        embed_dim: int = 768,
+        num_heads: int = 12,
+        seq_len: int = 1024,
         dropout: float = 0.1,
         hidden_dim: int = 0,
         qkv_bias: bool = True,
         eps: float = 1e-5,
         device: torch.device | str = "cpu",
         dtype: torch.dtype = torch.float32,
+        config: Any = None,
+        **kwargs: Any,
     ) -> None:
-        super().__init__()
+        cfg, resolved = resolve_model_config(
+            first_arg=vocab_size,
+            explicit_config=config,
+            num_layers=num_layers,
+            embed_dim=embed_dim,
+            num_heads=num_heads,
+            seq_len=seq_len,
+            dropout=dropout,
+            hidden_dim=hidden_dim,
+            qkv_bias=qkv_bias,
+            eps=eps,
+            device=device,
+            dtype=dtype,
+            **kwargs,
+        )
+        resolved_config = cfg or config
+        super().__init__(config=resolved_config)
+
+        if isinstance(vocab_size, int):
+            resolved["vocab_size"] = vocab_size
+        vocab_size = resolved.get("vocab_size", 50257)
+        num_layers = resolved.get("num_layers", num_layers)
+        embed_dim = resolved.get("embed_dim", embed_dim)
+        num_heads = resolved.get("num_heads", num_heads)
+        seq_len = resolved.get("seq_len", seq_len)
+        dropout = resolved.get("dropout", dropout)
+        hidden_dim = resolved.get("hidden_dim", hidden_dim)
+        qkv_bias = resolved.get("qkv_bias", qkv_bias)
+        eps = resolved.get("eps", eps)
+        device = resolved.get("device", device)
+        dtype = resolved.get("dtype", dtype)
+
         assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
         self.seq_len = seq_len
 
-        cfg = BlockConfig(
+        cfg_block = BlockConfig(
             embed_dim=embed_dim,
             num_heads=num_heads,
             hidden_dim=hidden_dim,
@@ -96,6 +133,7 @@ class GPT1(nn.Module):
             pre_norm=False,
             dropout=dropout,
             qkv_bias=qkv_bias,
+            eps=eps,
             device=device,
             dtype=dtype,
         )
@@ -103,8 +141,25 @@ class GPT1(nn.Module):
         self.embedding = nn.Embedding(vocab_size, embed_dim, device=device, dtype=dtype)
         self.position_embedding = AbsolutePositionEmbedding(seq_len, embed_dim, device=device, dtype=dtype)
 
-        self.backbone = TransformerEncoder(cfg, num_layers=num_layers, pos_embedding=None)
+        self.backbone = TransformerEncoder(cfg_block, num_layers=num_layers, pos_embedding=None)
         self.lm_head = nn.Linear(embed_dim, vocab_size, bias=False, device=device, dtype=dtype)
+
+        self.create_weights()
+
+    def _init_weights(self, module: nn.Module) -> None:
+        if isinstance(module, nn.Linear):
+            if not module.weight.is_meta:
+                nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if module.bias is not None and not module.bias.is_meta:
+                nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            if not module.weight.is_meta:
+                nn.init.normal_(module.weight, mean=0.0, std=0.02)
+        elif isinstance(module, nn.LayerNorm):
+            if module.weight is not None and not module.weight.is_meta:
+                nn.init.ones_(module.weight)
+            if module.bias is not None and not module.bias.is_meta:
+                nn.init.zeros_(module.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x: (B, T)
@@ -148,7 +203,8 @@ class GPT1(nn.Module):
             eos_token_id=eos_token_id,
         )
 
-class GPT2(nn.Module):
+
+class GPT2(BaseModel):
     """GPT-2 style decoder-only causal language model.
 
     Simple explanation:
@@ -180,38 +236,72 @@ class GPT2(nn.Module):
         torch.Size([1, 24, 50257])
 
     Args:
-        vocab_size (int): Size of token vocabulary.
-        num_layers (int): Number of transformer decoder layers.
-        embed_dim (int): Hidden embedding dimension.
-        num_heads (int): Number of attention heads.
-        seq_len (int): Maximum sequence context length.
+        vocab_size (int | Any, default=50257): Size of token vocabulary or ModelConfig instance.
+        num_layers (int, default=12): Number of transformer decoder layers.
+        embed_dim (int, default=768): Hidden embedding dimension.
+        num_heads (int, default=12): Number of attention heads.
+        seq_len (int, default=1024): Maximum sequence context length.
         dropout (float, default=0.1): Dropout probability.
         hidden_dim (int, default=0): Inner hidden FFN dimension (0 defaults to 4 * embed_dim).
         qkv_bias (bool, default=True): Enable bias terms in linear projections.
         eps (float, default=1e-5): LayerNorm epsilon.
         device (torch.device | str, default="cpu"): Target compute device.
         dtype (torch.dtype, default=torch.float32): Tensor data type.
+        config (Any | None, default=None): Optional configuration object.
     """
 
     def __init__(
         self,
-        vocab_size: int,
-        num_layers: int,
-        embed_dim: int,
-        num_heads: int,
-        seq_len: int,
+        vocab_size: int | Any = 50257,
+        num_layers: int = 12,
+        embed_dim: int = 768,
+        num_heads: int = 12,
+        seq_len: int = 1024,
         dropout: float = 0.1,
         hidden_dim: int = 0,
         qkv_bias: bool = True,
         eps: float = 1e-5,
         device: torch.device | str = "cpu",
         dtype: torch.dtype = torch.float32,
+        config: Any = None,
+        **kwargs: Any,
     ) -> None:
-        super().__init__()
+        cfg, resolved = resolve_model_config(
+            first_arg=vocab_size,
+            explicit_config=config,
+            num_layers=num_layers,
+            embed_dim=embed_dim,
+            num_heads=num_heads,
+            seq_len=seq_len,
+            dropout=dropout,
+            hidden_dim=hidden_dim,
+            qkv_bias=qkv_bias,
+            eps=eps,
+            device=device,
+            dtype=dtype,
+            **kwargs,
+        )
+        resolved_config = cfg or config
+        super().__init__(config=resolved_config)
+
+        if isinstance(vocab_size, int):
+            resolved["vocab_size"] = vocab_size
+        vocab_size = resolved.get("vocab_size", 50257)
+        num_layers = resolved.get("num_layers", num_layers)
+        embed_dim = resolved.get("embed_dim", embed_dim)
+        num_heads = resolved.get("num_heads", num_heads)
+        seq_len = resolved.get("seq_len", seq_len)
+        dropout = resolved.get("dropout", dropout)
+        hidden_dim = resolved.get("hidden_dim", hidden_dim)
+        qkv_bias = resolved.get("qkv_bias", qkv_bias)
+        eps = resolved.get("eps", eps)
+        device = resolved.get("device", device)
+        dtype = resolved.get("dtype", dtype)
+
         assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
         self.seq_len = seq_len
 
-        cfg = BlockConfig(
+        cfg_block = BlockConfig(
             embed_dim=embed_dim,
             num_heads=num_heads,
             hidden_dim=hidden_dim,
@@ -221,6 +311,7 @@ class GPT2(nn.Module):
             pre_norm=True,
             dropout=dropout,
             qkv_bias=qkv_bias,
+            eps=eps,
             device=device,
             dtype=dtype,
         )
@@ -228,8 +319,25 @@ class GPT2(nn.Module):
         self.embedding = nn.Embedding(vocab_size, embed_dim, device=device, dtype=dtype)
         self.position_embedding = AbsolutePositionEmbedding(seq_len, embed_dim, device=device, dtype=dtype)
 
-        self.backbone = TransformerEncoder(cfg, num_layers=num_layers, pos_embedding=None)
+        self.backbone = TransformerEncoder(cfg_block, num_layers=num_layers, pos_embedding=None)
         self.lm_head = nn.Linear(embed_dim, vocab_size, bias=False, device=device, dtype=dtype)
+
+        self.create_weights()
+
+    def _init_weights(self, module: nn.Module) -> None:
+        if isinstance(module, nn.Linear):
+            if not module.weight.is_meta:
+                nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if module.bias is not None and not module.bias.is_meta:
+                nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            if not module.weight.is_meta:
+                nn.init.normal_(module.weight, mean=0.0, std=0.02)
+        elif isinstance(module, nn.LayerNorm):
+            if module.weight is not None and not module.weight.is_meta:
+                nn.init.ones_(module.weight)
+            if module.bias is not None and not module.bias.is_meta:
+                nn.init.zeros_(module.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x: (B, T)
@@ -277,4 +385,3 @@ class GPT2(nn.Module):
 # Backward compatibility aliases
 GPT_1 = GPT1
 GPT_2 = GPT2
-

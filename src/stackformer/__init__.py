@@ -16,7 +16,9 @@ Exposes:
 
 from .config import GenerationConfig, ModelConfig
 from .generate import text_generate
+from .initialization import Initializer, init_weights
 from .models import (
+    BaseModel,
     BERT,
     GPT1,
     GPT2,
@@ -89,6 +91,7 @@ from .vision import SegFormer, ViT
 
 __all__ = [
     "AbsolutePositionEmbedding",
+    "BaseModel",
     "BERT",
     "BlockConfig",
     "CrossMultiHeadAttention",
@@ -120,6 +123,7 @@ __all__ = [
     "GroupQueryAttentionWithRoPE",
     "Group_query_Attention",
     "Group_query_Attention_With_RoPE",
+    "Initializer",
     "KVCacheGroupQuery",
     "KVCacheMultiHead",
     "LayerNorm",
@@ -154,6 +158,7 @@ __all__ = [
     "_run_sdpa",
     "gemma_1_2b",
     "gemma_1_7b",
+    "init_weights",
     "kv_cache_group_query",
     "kv_cache_multihead",
     "llama_1",

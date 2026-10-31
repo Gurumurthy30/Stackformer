@@ -16,6 +16,7 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
+from stackformer.models.base import BaseModel, resolve_model_config
 from stackformer.modules.attention import MultiHeadAttention
 from stackformer.modules.feed_forward import FeedForwardGELU
 
@@ -200,7 +201,7 @@ class Encoder(nn.Module):
         return x
 
 
-class ViT(nn.Module):
+class ViT(BaseModel):
     """Vision Transformer for image classification.
 
     Simple explanation:
@@ -238,7 +239,7 @@ class ViT(nn.Module):
         torch.Size([2, 1000])
 
     Args:
-        img_size (int, default=224): Input image height/width (square expected).
+        img_size (int | Any, default=224): Input image height/width (square expected) or config object.
         patch_size (int, default=16): Patch size used for tokenization.
         num_layers (int, default=12): Number of transformer encoder layers.
         embed_dim (int, default=768): Embedding dimension for patch tokens.
@@ -249,11 +250,12 @@ class ViT(nn.Module):
         eps (float, default=1e-5): Epsilon used by layer normalization.
         in_channels (int, default=3): Number of input image channels.
         Emb_dim (int | None, default=None): Deprecated alias for embed_dim.
+        config (Any | None, default=None): Optional configuration object.
     """
 
     def __init__(
         self,
-        img_size: int = 224,
+        img_size: int | Any = 224,
         patch_size: int = 16,
         num_layers: int = 12,
         embed_dim: int = 768,
@@ -264,8 +266,41 @@ class ViT(nn.Module):
         eps: float = 1e-5,
         in_channels: int = 3,
         Emb_dim: int | None = None,
+        config: Any = None,
+        **kwargs: Any,
     ) -> None:
-        super().__init__()
+        cfg, resolved = resolve_model_config(
+            first_arg=img_size,
+            explicit_config=config,
+            patch_size=patch_size,
+            num_layers=num_layers,
+            embed_dim=embed_dim,
+            num_classes=num_classes,
+            num_heads=num_heads,
+            dropout=dropout,
+            hidden_dim=hidden_dim,
+            eps=eps,
+            in_channels=in_channels,
+            Emb_dim=Emb_dim,
+            **kwargs,
+        )
+        resolved_config = cfg or config
+        super().__init__(config=resolved_config)
+
+        if isinstance(img_size, int):
+            resolved["img_size"] = img_size
+        img_size = resolved.get("img_size", 224)
+        patch_size = resolved.get("patch_size", patch_size)
+        num_layers = resolved.get("num_layers", num_layers)
+        embed_dim = resolved.get("embed_dim", embed_dim)
+        num_classes = resolved.get("num_classes", num_classes)
+        num_heads = resolved.get("num_heads", num_heads)
+        dropout = resolved.get("dropout", dropout)
+        hidden_dim = resolved.get("hidden_dim", hidden_dim)
+        eps = resolved.get("eps", eps)
+        in_channels = resolved.get("in_channels", in_channels)
+        Emb_dim = resolved.get("Emb_dim", Emb_dim)
+
         if Emb_dim is not None:
             embed_dim = Emb_dim
         self.patch_embedding = PatchEmbedding(img_size, patch_size, embed_dim, in_channels)
@@ -281,22 +316,32 @@ class ViT(nn.Module):
             nn.Linear(embed_dim, num_classes),
         )
 
-        self.apply(self._init_weights)
-        nn.init.trunc_normal_(self.cls_token, std=0.02)
-        nn.init.trunc_normal_(self.pos_embed, std=0.02)
+        self.create_weights()
+
+    def create_weights(self, method: str = "default", **kwargs: Any) -> ViT:
+        super().create_weights(method=method, **kwargs)
+        if not self.cls_token.is_meta:
+            nn.init.trunc_normal_(self.cls_token, std=0.02)
+        if not self.pos_embed.is_meta:
+            nn.init.trunc_normal_(self.pos_embed, std=0.02)
+        return self
 
     def _init_weights(self, m: nn.Module) -> None:
         if isinstance(m, nn.Linear):
-            nn.init.trunc_normal_(m.weight, std=0.02)
-            if m.bias is not None:
+            if not m.weight.is_meta:
+                nn.init.trunc_normal_(m.weight, std=0.02)
+            if m.bias is not None and not m.bias.is_meta:
                 nn.init.zeros_(m.bias)
         elif isinstance(m, nn.Conv2d):
-            nn.init.kaiming_normal_(m.weight, mode="fan_out")
-            if m.bias is not None:
+            if not m.weight.is_meta:
+                nn.init.kaiming_normal_(m.weight, mode="fan_out")
+            if m.bias is not None and not m.bias.is_meta:
                 nn.init.zeros_(m.bias)
         elif isinstance(m, nn.LayerNorm):
-            nn.init.ones_(m.weight)
-            nn.init.zeros_(m.bias)
+            if m.weight is not None and not m.weight.is_meta:
+                nn.init.ones_(m.weight)
+            if m.bias is not None and not m.bias.is_meta:
+                nn.init.zeros_(m.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         B = x.size(0)

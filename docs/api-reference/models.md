@@ -4,6 +4,17 @@ This page documents the canonical language and vision architectures implemented 
 
 ---
 
+## Base Model Lifecycle
+
+::: stackformer.models.base
+    options:
+      show_root_heading: true
+      members:
+        - BaseModel
+        - resolve_model_config
+
+---
+
 ## Language Models
 
 ### GPT Architectures
