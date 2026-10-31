@@ -206,25 +206,25 @@ Stackformer/
 │   ├── simple_trainer.py         # Trainer engine execution demo
 │   └── train_ddp.py              # Multi-GPU DistributedDataParallel (DDP) demo
 ├── reviews/                      # Internal engineering reviews and roadmap specifications
-├── stackformer/                  # Core library package
-│   ├── __init__.py               # Top-level API exports
-│   ├── config.py                 # ModelConfig, TrainingConfig, GenerationConfig dataclasses
-│   ├── generate.py               # Autoregressive decoding engine and KV-cache dispatcher
-│   ├── metrics.py                # Public metric utilities
-│   ├── py.typed                  # PEP 561 inline typing indicator
-│   ├── amp/                      # Automatic Mixed Precision (AMPScaler)
-│   ├── cache/                    # KV-cache strategies (StaticKVCache, PagedKVCache scaffold)
-│   ├── distributed/              # DistributedDataParallel (DDP) wrappers and process helpers
-│   ├── engine/                   # High-level Trainer, Engine, State, and CheckpointManager
-│   ├── language/                 # Abstract decoder and encoder-decoder bases
-│   ├── logging/                  # Metrics tracking, CSV, TensorBoard, WandB loggers
-│   ├── models/                   # GPT-1/2, LLaMA-1/2, Gemma-1, BERT, RoBERTa, Transformer
-│   ├── modules/                  # Attention, FFN, Norm, Positional Embedding, BlockConfig, Layer
-│   ├── optim/                    # Optimizer and scheduler factory constructors and loss functions
-│   ├── training/                 # Engine loop helper routines
-│   ├── utils/                    # Device helpers, seed utility, shape formatting
-│   └── vision/                   # ViT and SegFormer-B0 architectures
-└── tests/                        # 136 passing tests across unit, integration, and model suites
+├── src/
+│   └── stackformer/              # Core library package
+│       ├── __init__.py           # Top-level API exports
+│       ├── config.py             # ModelConfig, TrainingConfig, GenerationConfig dataclasses
+│       ├── generate.py           # Autoregressive decoding engine and KV-cache dispatcher
+│       ├── metrics.py            # Public metric utilities
+│       ├── amp/                  # Automatic Mixed Precision (AMPScaler)
+│       ├── cache/                # KV-cache strategies (StaticKVCache, PagedKVCache scaffold)
+│       ├── distributed/          # DistributedDataParallel (DDP) wrappers and process helpers
+│       ├── engine/               # High-level Trainer, Engine, State, and CheckpointManager
+│       ├── language/             # Abstract decoder and encoder-decoder bases
+│       ├── logging/              # Metrics tracking, CSV, TensorBoard, WandB loggers
+│       ├── models/               # GPT-1/2, LLaMA-1/2, Gemma-1, BERT, RoBERTa, Transformer
+│       ├── modules/              # Attention, FFN, Norm, Positional Embedding, BlockConfig, Layer
+│       ├── optim/                # Optimizer and scheduler factory constructors and loss functions
+│       ├── training/             # Engine loop helper routines
+│       ├── utils/                # Device helpers, seed utility, shape formatting
+│       └── vision/               # ViT and SegFormer-B0 architectures
+└── tests/                        # 153 passing tests across unit, integration, and model suites
 ```
 
 ---
@@ -253,7 +253,7 @@ StackFormer ships verified implementations of canonical language and vision mode
 Development is structured into linear engineering phases per [`reviews/00_FUTURE_PLAN.md`](docs/roadmap.md):
 
 - **Phase 0 — Unblock Core Generation (Current):** Standardize `prefill()` and `decode()` KV-cache contracts across decoder architectures, update `text_generate()`, and enforce cache parity testing. *(Completed for LLaMA-2).*
-- **Phase 1 — Attention Engine & Compiler Integration (Planned):** Unified `AttentionEngine` kernel dispatcher (`stackformer/modules/attention_engine.py`) routing between SDPA, FlexAttention, `flash-attn` v2/v4, and custom Triton fallbacks with zero `torch.compile` graph breaks.
+- **Phase 1 — Attention Engine & Compiler Integration (Planned):** Unified `AttentionEngine` kernel dispatcher (`src/stackformer/modules/attention_engine.py`) routing between SDPA, FlexAttention, `flash-attn` v2/v4, and custom Triton fallbacks with zero `torch.compile` graph breaks.
 - **Phase 2 — Budget Planner & PyTorch Native FSDP2 Scaling (Planned):** Analytical and empirical execution planner (`plan_training()`), native PyTorch FSDP2 sharding (`torch.distributed.fsdp.fully_shard`) + `DTensor` + Distributed Checkpoint (`DCP`).
 - **Phase 3 — `torchao` Quantization & Native Adapters (Planned):** Native low-precision quantization via `torchao` (INT8, INT4, FP8, NF4) and zero-bloat `LoRALinear` / `DoRALinear` modules on `BlockConfig`.
 - **Phase 4 — Multimodal Vision-Language & Document AI (Planned):** Unified vision-text backbone combining SegFormer/ViT patch encoders with LLaMA decoder stacks via cross-attention and projection adapters.
