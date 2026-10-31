@@ -47,6 +47,7 @@ Discussions = "https://github.com/stackformer-labs/Stackformer/discussions"
 Documentation = "https://github.com/stackformer-labs/Stackformer/tree/main/docs"
 
 [tool.setuptools.packages.find]
+where = ["src"]
 include = ["stackformer*"]
 exclude = ["assets*"]
 
