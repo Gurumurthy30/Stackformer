@@ -2,8 +2,8 @@ import pytest
 import torch
 from tests._test_utils import _checkpoint
 from stackformer.models.transformer import Transformer
-from stackformer.modules.Attention import Multi_Head_Attention
-from stackformer.modules.Feed_forward import FF_ReLU
+from stackformer.modules.attention import Multi_Head_Attention
+from stackformer.modules.feed_forward import FF_ReLU
 from stackformer.modules.position_embedding import SinusoidalPositionalEmbedding
 
 @pytest.mark.parametrize("batch,seq,embed_dim,heads", [(1, 4, 8, 1), (2, 6, 16, 4)])

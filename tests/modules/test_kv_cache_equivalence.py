@@ -1,6 +1,6 @@
 import torch
 from tests._test_utils import _checkpoint
-from stackformer.modules.Attention import (
+from stackformer.modules.attention import (
     Group_query_Attention,
     Multi_Head_Attention,
     kv_cache_group_query,

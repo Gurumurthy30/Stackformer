@@ -19,7 +19,7 @@ import torch
 import torch.nn as nn
 
 from stackformer.generate import text_generate
-from stackformer.modules.Attention import Group_query_Attention_With_RoPE
+from stackformer.modules.attention import Group_query_Attention_With_RoPE
 from stackformer.modules.layer import BlockConfig, TransformerEncoder, _build_ffn, _build_norm
 
 

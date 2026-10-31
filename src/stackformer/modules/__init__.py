@@ -10,7 +10,7 @@ Exposes:
     - BlockConfig, TransformerEncoder, TransformerDecoder: High-level block and backbone layers
 """
 
-from .Attention import (
+from .attention import (
     Cross_MultiHead_Attention,
     Group_query_Attention,
     Group_query_Attention_With_RoPE,
@@ -33,7 +33,7 @@ from .Attention import (
     KVCacheMultiHead,
     KVCacheGroupQuery,
 )
-from .Feed_forward import (
+from .feed_forward import (
     FF_GELU,
     FF_GeGLU,
     FF_LeakyReLU,
@@ -50,7 +50,7 @@ from .Feed_forward import (
     FeedForwardGeGLU,
 )
 
-from .Normalization import LayerNorm, RMSNorm
+from .normalization import LayerNorm, RMSNorm
 # Backward-compat aliases
 LayerNormalization = LayerNorm
 RMSNormalization = RMSNorm

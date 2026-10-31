@@ -1,6 +1,6 @@
 import torch
 from tests._test_utils import _checkpoint
-from stackformer.modules.Attention import Multi_Head_Attention, Self_Attention
+from stackformer.modules.attention import Multi_Head_Attention, Self_Attention
 
 
 def test_self_attention_equivalent_to_single_head_mha_when_weights_are_shared(torch_device):

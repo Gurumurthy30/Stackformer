@@ -2,7 +2,7 @@ import pytest
 import torch
 from tests._test_utils import _checkpoint
 
-from stackformer.modules.Attention import (
+from stackformer.modules.attention import (
     Cross_MultiHead_Attention,
     Group_query_Attention,
     Group_query_Attention_With_RoPE,

@@ -16,8 +16,8 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
-from stackformer.modules.Attention import MultiHeadAttention
-from stackformer.modules.Feed_forward import FeedForwardGELU
+from stackformer.modules.attention import MultiHeadAttention
+from stackformer.modules.feed_forward import FeedForwardGELU
 
 
 class PatchEmbedding(nn.Module):

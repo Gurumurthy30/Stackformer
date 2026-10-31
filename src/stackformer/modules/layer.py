@@ -23,7 +23,7 @@ from typing import Literal
 import torch
 from torch import nn
 
-from stackformer.modules.Attention import (
+from stackformer.modules.attention import (
     Cross_MultiHead_Attention,
     Group_query_Attention,
     Group_query_Attention_With_RoPE,
@@ -33,7 +33,7 @@ from stackformer.modules.Attention import (
     Multi_query_Attention_With_RoPE,
     Self_Attention,
 )
-from stackformer.modules.Feed_forward import (
+from stackformer.modules.feed_forward import (
     FF_GELU,
     FF_GeGLU,
     FF_LeakyReLU,
@@ -42,7 +42,7 @@ from stackformer.modules.Feed_forward import (
     FF_SiLU,
     FF_SwiGLU,
 )
-from stackformer.modules.Normalization import (
+from stackformer.modules.normalization import (
     LayerNorm,
     RMSNorm,
 )

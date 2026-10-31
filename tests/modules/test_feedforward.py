@@ -1,6 +1,6 @@
 import torch
 from tests._test_utils import _checkpoint
-from stackformer.modules.Feed_forward import (
+from stackformer.modules.feed_forward import (
     FF_GELU,
     FF_GeGLU,
     FF_LeakyReLU,

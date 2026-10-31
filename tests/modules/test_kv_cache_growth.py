@@ -1,7 +1,7 @@
 import pytest
 import torch
 from tests._test_utils import _checkpoint
-from stackformer.modules.Attention import kv_cache_group_query, kv_cache_multihead
+from stackformer.modules.attention import kv_cache_group_query, kv_cache_multihead
 
 BATCH = 2
 SEQ = 6
