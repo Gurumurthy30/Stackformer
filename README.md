@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/stackformer-labs/Stackformer/main/assets/logo-dark.png">
-    <img alt="Stackformer" src="https://raw.githubusercontent.com/stackformer-labs/Stackformer/main/assets/logo-light.png" width="800">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.png">
+    <img src="assets/logo-light.png" alt="StackFormer logo" width="560">
   </picture>
 </p>
 
