@@ -220,10 +220,13 @@ class Transformer(BaseModel):
         out = self.decode(target, memory)  # (B, T, C)
         return self.out_proj(out)  # (B, T, V)
 
-    def get_sharding_blocks(self) -> tuple[list[nn.Module], list[nn.Module]]:
-        """Return encoder and decoder blocks separately for sequence-to-sequence sharding.
+    def get_sharding_blocks(self) -> list[nn.Module]:
+        """Return flat repeating layer blocks (encoder blocks followed by decoder blocks)."""
+        return list(self.encoder_stack.layers) + list(self.decoder_stack.layers)
 
-        Returns:
-            tuple[list[nn.Module], list[nn.Module]]: (encoder_blocks, decoder_blocks)
-        """
-        return list(self.encoder_stack.layers), list(self.decoder_stack.layers)
+    def get_block_groups(self) -> dict[str, list[nn.Module]]:
+        """Return named groups of repeating blocks for sequence-to-sequence architecture."""
+        return {
+            "encoder": list(self.encoder_stack.layers),
+            "decoder": list(self.decoder_stack.layers),
+        }

@@ -228,7 +228,7 @@ class BaseModel(nn.Module):
             return sum(p.numel() for p in self.parameters() if p.requires_grad)
         return sum(p.numel() for p in self.parameters())
 
-    def get_sharding_blocks(self) -> list[nn.Module] | tuple[list[nn.Module], ...]:
+    def get_sharding_blocks(self) -> list[nn.Module]:
         """Return the repeating layer blocks for distributed sharding, activation checkpointing, and compile.
 
         Default behavior auto-detects repeating block structures (such as `backbone.layers`,
@@ -236,7 +236,7 @@ class BaseModel(nn.Module):
         block sequences or split encoder/decoder stacks.
 
         Returns:
-            list[nn.Module] | tuple[list[nn.Module], ...]: Non-empty sequence of repeating blocks.
+            list[nn.Module]: Non-empty sequence of repeating blocks.
 
         Raises:
             ValueError: If no repeating block structure could be auto-detected.
@@ -291,5 +291,21 @@ class BaseModel(nn.Module):
 
         Returns:
             Any | None: Architecture-specific PP pipeline stages or None if unsupported.
+        """
+        return None
+
+    def get_block_groups(self) -> dict[str, list[nn.Module]]:
+        """Return named groups of repeating blocks (e.g. encoder/decoder or stages).
+
+        Returns:
+            dict[str, list[nn.Module]]: Mapping from group name to list of block modules.
+        """
+        return {"blocks": self.get_sharding_blocks()}
+
+    def get_tied_params(self) -> list[tuple[str, str]] | None:
+        """Return parameter name pairs that share underlying weights (weight tying).
+
+        Returns:
+            list[tuple[str, str]] | None: List of tied parameter pairs, or None if none.
         """
         return None

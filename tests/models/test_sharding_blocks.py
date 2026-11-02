@@ -1,4 +1,4 @@
-"""Tests for BaseModel sharding protocol and model family training integration."""
+"""Tests for BaseModel sharding protocol, block groups, tied params, and model training."""
 
 import pytest
 import torch
@@ -26,51 +26,82 @@ from stackformer.vision import SegFormer, ViT
 # =====================================================================
 
 @pytest.mark.parametrize(
-    "model_fn,expected_type",
+    "model_fn",
     [
-        (lambda: GPT1(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16), "list"),
-        (lambda: GPT2(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16), "list"),
-        (lambda: Llama1(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16), "list"),
-        (lambda: Llama2(vocab_size=100, embed_dim=32, num_layers=2, num_query_heads=2, num_kv_heads=1, seq_len=16, hidden_dim=64), "list"),
-        (lambda: Gemma1_2B(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16), "list"),
-        (lambda: Gemma1_7B(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16), "list"),
-        (lambda: BERT(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16), "list"),
-        (lambda: RoBERTa(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16), "list"),
-        (lambda: Transformer(vocab_size=100, embed_dim=32, encoder_layers=2, decoder_layers=2, num_heads=2, seq_len=16), "tuple"),
-        (lambda: ViT(img_size=16, patch_size=4, in_channels=3, num_classes=5, embed_dim=32, num_layers=2, num_heads=2, hidden_dim=64), "list"),
-        (lambda: SegFormer(variant="b0", num_labels=5), "list"),
+        lambda: GPT1(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16),
+        lambda: GPT2(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16),
+        lambda: Llama1(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16),
+        lambda: Llama2(vocab_size=100, embed_dim=32, num_layers=2, num_query_heads=2, num_kv_heads=1, seq_len=16, hidden_dim=64),
+        lambda: Gemma1_2B(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16),
+        lambda: Gemma1_7B(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16),
+        lambda: BERT(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16),
+        lambda: RoBERTa(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16),
+        lambda: Transformer(vocab_size=100, embed_dim=32, encoder_layers=2, decoder_layers=2, num_heads=2, seq_len=16),
+        lambda: ViT(img_size=16, patch_size=4, in_channels=3, num_classes=5, embed_dim=32, num_layers=2, num_heads=2, hidden_dim=64),
+        lambda: SegFormer(variant="b0", num_labels=5),
     ],
 )
-def test_model_family_sharding_blocks(model_fn, expected_type):
-    """Verify get_sharding_blocks returns non-empty, unique blocks covering >60% of params."""
+def test_model_family_sharding_blocks(model_fn):
+    """Verify get_sharding_blocks returns a flat, non-empty, unique list of blocks covering >60% of params."""
     model = model_fn()
     blocks = model.get_sharding_blocks()
 
-    if expected_type == "tuple":
-        assert isinstance(blocks, tuple), "Expected tuple of block groups for seq2seq model"
-        assert len(blocks) == 2, "Expected (encoder_blocks, decoder_blocks)"
-        enc_blocks, dec_blocks = blocks
-        assert len(enc_blocks) > 0 and len(dec_blocks) > 0
-        assert len(enc_blocks) == len(set(enc_blocks)), "Encoder blocks must be unique"
-        assert len(dec_blocks) == len(set(dec_blocks)), "Decoder blocks must be unique"
-        flat_blocks = list(enc_blocks) + list(dec_blocks)
-    else:
-        assert isinstance(blocks, list), "Expected list of sharding blocks"
-        assert len(blocks) > 0, "Sharding blocks must be non-empty"
-        assert len(blocks) == len(set(blocks)), "Sharding blocks must be unique"
-        flat_blocks = blocks
+    assert isinstance(blocks, list), "get_sharding_blocks() must always return a flat list[nn.Module]"
+    assert len(blocks) > 0, "Sharding blocks must be non-empty"
+    assert len(blocks) == len(set(blocks)), "Sharding blocks must be unique"
 
-    if isinstance(model, SegFormer):
-        assert len(flat_blocks) == 4, "SegFormer must expose its 4 hierarchical stages"
+    if isinstance(model, Transformer):
+        assert len(blocks) == 4, "Transformer must return 2 encoder blocks followed by 2 decoder blocks"
+    elif isinstance(model, SegFormer):
+        assert len(blocks) == 4, "SegFormer must return its 4 hierarchical stages"
 
-    for b in flat_blocks:
+    for b in blocks:
         assert isinstance(b, nn.Module)
 
     total_params = sum(p.numel() for p in model.parameters())
-    block_params = sum(p.numel() for b in flat_blocks for p in b.parameters())
+    block_params = sum(p.numel() for b in blocks for p in b.parameters())
     param_fraction = block_params / total_params
 
     assert param_fraction > 0.60, f"Blocks cover only {param_fraction:.1%} of parameters (expected > 60%)"
+
+
+def test_model_family_block_groups():
+    """Verify get_block_groups returns named groups for all models."""
+    # Transformer returns separate encoder and decoder
+    trans = Transformer(vocab_size=100, embed_dim=32, encoder_layers=2, decoder_layers=3, num_heads=2, seq_len=16)
+    trans_groups = trans.get_block_groups()
+    assert set(trans_groups.keys()) == {"encoder", "decoder"}
+    assert len(trans_groups["encoder"]) == 2
+    assert len(trans_groups["decoder"]) == 3
+    assert trans_groups["encoder"] + trans_groups["decoder"] == trans.get_sharding_blocks()
+
+    # SegFormer returns stages
+    seg = SegFormer(variant="b0", num_labels=5)
+    seg_groups = seg.get_block_groups()
+    assert set(seg_groups.keys()) == {"stages"}
+    assert len(seg_groups["stages"]) == 4
+    assert seg_groups["stages"] == seg.get_sharding_blocks()
+
+    # Standard model returns blocks
+    gpt = GPT2(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16)
+    gpt_groups = gpt.get_block_groups()
+    assert set(gpt_groups.keys()) == {"blocks"}
+    assert gpt_groups["blocks"] == gpt.get_sharding_blocks()
+
+
+def test_model_family_tied_params():
+    """Verify get_tied_params accurately reports parameter weight tying across all architectures."""
+    bert = BERT(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16)
+    roberta = RoBERTa(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16)
+    gpt = GPT2(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16)
+    llama = Llama2(vocab_size=100, embed_dim=32, num_layers=2, num_query_heads=2, num_kv_heads=1, seq_len=16, hidden_dim=64)
+    trans = Transformer(vocab_size=100, embed_dim=32, encoder_layers=2, decoder_layers=2, num_heads=2, seq_len=16)
+
+    assert bert.get_tied_params() == [("token_embedding.weight", "lm_head.weight")]
+    assert roberta.get_tied_params() == [("token_embedding.weight", "lm_head.weight")]
+    assert gpt.get_tied_params() is None
+    assert llama.get_tied_params() is None
+    assert trans.get_tied_params() is None
 
 
 def test_base_model_auto_detection_and_fallback():
@@ -87,6 +118,8 @@ def test_base_model_auto_detection_and_fallback():
     blocks = custom_model.get_sharding_blocks()
     assert len(blocks) == 3
     assert blocks == list(custom_model.layers)
+    assert custom_model.get_block_groups() == {"blocks": list(custom_model.layers)}
+    assert custom_model.get_tied_params() is None
 
     # 2. Failure fallback raises informative ValueError
     class MonolithicModel(BaseModel):
@@ -242,4 +275,3 @@ def test_trainer_loss_decreases_segformer(tmp_path):
     trainer.train()
     final_loss = trainer.evaluate()["val_loss"]
     assert final_loss < init_loss, f"SegFormer segmentation loss did not decrease: {init_loss} -> {final_loss}"
-

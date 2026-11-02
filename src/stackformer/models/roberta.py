@@ -195,3 +195,7 @@ class RoBERTa(BaseModel):
     def get_sharding_blocks(self) -> list[nn.Module]:
         """Return repeating encoder layer blocks for sharding and checkpointing."""
         return list(self.backbone.layers)
+
+    def get_tied_params(self) -> list[tuple[str, str]] | None:
+        """Return parameter name pairs that share underlying weights."""
+        return [("token_embedding.weight", "lm_head.weight")]
