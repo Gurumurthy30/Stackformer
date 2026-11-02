@@ -103,7 +103,7 @@ class BaseModel(nn.Module):
         Args:
             module (nn.Module): Module currently visited during recursion.
         """
-        if isinstance(module, nn.Linear):
+        if isinstance(module, (nn.Linear, nn.Conv1d, nn.Conv2d, nn.Conv3d)):
             if not module.weight.is_meta:
                 nn.init.normal_(module.weight, mean=0.0, std=0.02)
             if module.bias is not None and not module.bias.is_meta:
@@ -119,9 +119,11 @@ class BaseModel(nn.Module):
                 nn.init.ones_(module.weight)
             if module.bias is not None and not module.bias.is_meta:
                 nn.init.zeros_(module.bias)
-        elif hasattr(module, "weight") and hasattr(module, "eps") and not hasattr(module, "bias"):
+        elif hasattr(module, "weight") and hasattr(module, "eps"):
             if module.weight is not None and not module.weight.is_meta:
                 nn.init.ones_(module.weight)
+            if hasattr(module, "bias") and module.bias is not None and not module.bias.is_meta:
+                nn.init.zeros_(module.bias)
 
     def create_weights(self, method: str = "default", **kwargs: Any) -> BaseModel:
         """Initialize model parameters using default or specified initialization strategy.
@@ -137,6 +139,14 @@ class BaseModel(nn.Module):
         """
         if method == "default":
             self.apply(self._init_weights)
+            # Ensure Stackformer custom LayerNorm / RMSNorm are initialized (weight=1, bias=0)
+            # even when subclasses override _init_weights with checks restricted to nn.LayerNorm.
+            for m in self.modules():
+                if hasattr(m, "eps") and hasattr(m, "weight") and not isinstance(m, (nn.Linear, nn.Embedding)):
+                    if m.weight is not None and not m.weight.is_meta:
+                        nn.init.ones_(m.weight)
+                    if hasattr(m, "bias") and m.bias is not None and not m.bias.is_meta:
+                        nn.init.zeros_(m.bias)
         else:
             Initializer(strategy=method, **kwargs).apply(self)
         return self

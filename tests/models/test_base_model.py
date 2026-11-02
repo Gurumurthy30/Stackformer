@@ -3,8 +3,19 @@ import torch
 import torch.nn as nn
 
 from stackformer.config import ModelConfig
-from stackformer.models import GPT1, GPT2, BaseModel, BERT, Llama1, Llama2
-from stackformer.vision import ViT
+from stackformer.models import (
+    BERT,
+    BaseModel,
+    GPT1,
+    GPT2,
+    Gemma1_2B,
+    Gemma1_7B,
+    Llama1,
+    Llama2,
+    RoBERTa,
+    Transformer,
+)
+from stackformer.vision import SegFormer, ViT
 
 
 def test_base_model_instantiation_with_config():
@@ -202,4 +213,41 @@ def test_vit_base_model_lifecycle(tmp_path):
     new_model.load_weights(st_path)
     after = new_model(x)
     assert torch.allclose(before, after)
+
+
+def test_all_model_families_materialize_and_finite_parameters():
+    cfg = ModelConfig(
+        vocab_size=100,
+        embed_dim=32,
+        num_layers=2,
+        num_heads=4,
+        seq_len=16,
+        hidden_dim=64,
+        dropout=0.0,
+    )
+
+    models = [
+        ("GPT1", lambda: GPT1(cfg)),
+        ("GPT2", lambda: GPT2(cfg)),
+        ("BERT", lambda: BERT(cfg)),
+        ("RoBERTa", lambda: RoBERTa(cfg)),
+        ("Llama1", lambda: Llama1(cfg)),
+        ("Llama2", lambda: Llama2(vocab_size=100, embed_dim=32, num_layers=2, num_query_heads=4, num_kv_heads=2, seq_len=16, hidden_dim=64)),
+        ("Gemma1_2B", lambda: Gemma1_2B(cfg)),
+        ("Gemma1_7B", lambda: Gemma1_7B(cfg)),
+        ("Transformer", lambda: Transformer(cfg)),
+        ("ViT", lambda: ViT(img_size=32, patch_size=8, num_layers=2, embed_dim=32, num_heads=4, hidden_dim=64, num_classes=10)),
+        ("SegFormer", lambda: SegFormer(variant="b0", num_labels=10)),
+    ]
+
+    for name, init_fn in models:
+        with torch.device("meta"):
+            model = init_fn()
+        model.materialize("cpu")
+        model.create_weights("default")
+        for p_name, p in model.named_parameters():
+            assert torch.isfinite(p).all(), f"{name} parameter {p_name} is not finite after materialize and create_weights"
+        for b_name, b in model.named_buffers():
+            assert torch.isfinite(b).all(), f"{name} buffer {b_name} is not finite after materialize and create_weights"
+
 
