@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from .checkpoint import CheckpointManager
+from .checkpoint import CheckpointManager, clean_state_dict, unwrap_model
 from .config import TrainConfig
 from .evaluation import run_evaluation
 from .events import (
@@ -65,6 +65,9 @@ class Trainer:
         self.device = self.config.resolve_device()
         self.model.to(self.device)
 
+        # Apply model transformations in fixed order: TP -> AC -> compile -> FSDP2
+        self._apply_transformations()
+
         if isinstance(self.config.loss, str):
             self.loss_fn = get_loss(self.config.loss, loss_mode=self.config.loss_mode)
         else:
@@ -79,19 +82,28 @@ class Trainer:
         self.scheduler = scheduler or build_scheduler(self.optimizer, self.config, total_steps)
 
         self.state = TrainState()
-        self.metrics = list(metrics or [])
-        self.loggers = list(loggers or [])
-        self.callbacks = list(callbacks or [])
+        self.metrics, self.loggers, self.callbacks = list(metrics or []), list(loggers or []), list(callbacks or [])
 
         self.checkpoint_manager = CheckpointManager(
-            checkpoint_dir=self.config.checkpoint_dir,
-            keep_last_n=self.config.keep_last_n,
-            save_best=self.config.save_best,
-            monitor=self.config.monitor,
-            mode=self.config.mode,
-            save_best_state=self.config.save_best_state,
-            async_checkpoint=self.config.async_checkpoint,
+            checkpoint_dir=self.config.checkpoint_dir, keep_last_n=self.config.keep_last_n,
+            save_best=self.config.save_best, monitor=self.config.monitor, mode=self.config.mode,
+            save_best_state=self.config.save_best_state, async_checkpoint=self.config.async_checkpoint,
         )
+
+    def _apply_transformations(self) -> None:
+        """Apply model transformations in fixed order: TP -> AC -> compile -> FSDP2."""
+        # 1. TP (reserved for Step 7 / Step 9)
+        pass
+        # 2. Activation Checkpointing
+        if self.config.activation_checkpointing != "none":
+            from stackformer.distributed.activation_checkpoint import apply_activation_checkpointing
+            self.model = apply_activation_checkpointing(self.model, mode=self.config.activation_checkpointing)
+        # 3. torch.compile
+        if self.config.compile:
+            from stackformer.distributed.compile import apply_compile
+            self.model = apply_compile(self.model, compile_mode=self.config.compile_mode, per_block=True)
+        # 4. FSDP2 (reserved for Step 7)
+        pass
 
     def _estimate_total_steps(self) -> int:
         if self.config.max_steps is not None:
@@ -113,11 +125,10 @@ class Trainer:
         ckpt = self.checkpoint_manager.load(self.config.resume_from)
         if ckpt is None:
             return False
-        self.model.load_state_dict(ckpt["model"])
-        if self.optimizer is not None and ckpt.get("optimizer") is not None:
-            self.optimizer.load_state_dict(ckpt["optimizer"])
-        if self.scheduler is not None and ckpt.get("scheduler") is not None:
-            self.scheduler.load_state_dict(ckpt["scheduler"])
+        unwrap_model(self.model).load_state_dict(clean_state_dict(ckpt["model"]))
+        for key, target in [("optimizer", self.optimizer), ("scheduler", self.scheduler)]:
+            if target is not None and ckpt.get(key) is not None:
+                target.load_state_dict(ckpt[key])
         if ckpt.get("scaler") is not None and hasattr(self.precision.scaler, "load_state_dict"):
             self.precision.scaler.load_state_dict(ckpt["scaler"])
         if ckpt.get("rng"):

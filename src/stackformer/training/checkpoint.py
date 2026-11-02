@@ -32,6 +32,24 @@ except ImportError:
     safetensors = None
 
 
+def unwrap_model(model: nn.Module) -> nn.Module:
+    """Recursively unwrap compile and wrapper modules."""
+    while hasattr(model, "_orig_mod"):
+        model = model._orig_mod
+    return model
+
+
+def clean_state_dict(raw_state: dict[str, Any]) -> dict[str, Any]:
+    """Clean model state dict keys, stripping _orig_mod. from torch.compile."""
+    cleaned = {}
+    for k, v in raw_state.items():
+        clean_k = k
+        while "_orig_mod." in clean_k:
+            clean_k = clean_k.replace("_orig_mod.", "")
+        cleaned[clean_k] = v
+    return cleaned
+
+
 class CheckpointManager:
     """Manages training checkpoints, metadata, pruning, and state restoration.
 
@@ -131,9 +149,10 @@ class CheckpointManager:
         temp_dir.mkdir(parents=True, exist_ok=True)
 
         try:
+            model_state = clean_state_dict(model.state_dict())
             # 1. state.pt
             state_dict = {
-                "model": model.state_dict(),
+                "model": model_state,
                 "optimizer": optimizer.state_dict() if optimizer is not None else None,
                 "scheduler": scheduler.state_dict() if scheduler is not None else None,
                 "scaler": scaler.state_dict() if scaler is not None and hasattr(scaler, "state_dict") else None,
@@ -145,9 +164,9 @@ class CheckpointManager:
 
             # 2. model.safetensors
             if safetensors is not None:
-                safetensors.torch.save_model(model, str(temp_dir / "model.safetensors"))
+                safetensors.torch.save_model(unwrap_model(model), str(temp_dir / "model.safetensors"))
             else:
-                torch.save(model.state_dict(), temp_dir / "model.pt")
+                torch.save(model_state, temp_dir / "model.pt")
 
             # 3. meta.json
             meta = {
@@ -291,11 +310,12 @@ class CheckpointManager:
         temp_dir.mkdir(parents=True, exist_ok=True)
 
         try:
+            model_state = clean_state_dict(model.state_dict())
             # 1. model.safetensors
             if safetensors is not None:
-                safetensors.torch.save_model(model, str(temp_dir / "model.safetensors"))
+                safetensors.torch.save_model(unwrap_model(model), str(temp_dir / "model.safetensors"))
             else:
-                torch.save(model.state_dict(), temp_dir / "model.pt")
+                torch.save(model_state, temp_dir / "model.pt")
 
             # 2. meta.json
             meta = {

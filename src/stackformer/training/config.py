@@ -62,6 +62,7 @@ class TrainConfig:
     mixed_precision: str = "no"
     activation_checkpointing: str = "none"
     compile: bool = False
+    compile_mode: str | None = None
     grad_accum_steps: int = 1
     max_grad_norm: float | None = 1.0
     device: str = "auto"
@@ -123,6 +124,19 @@ class TrainConfig:
             raise ValueError(
                 f"Unsupported mixed_precision '{self.mixed_precision}'. Supported: {sorted(valid_precision)}"
             )
+
+        dev = self.resolve_device()
+        if dev.type == "cpu" and self.mixed_precision.lower() == "fp16":
+            raise ValueError(
+                "mixed_precision='fp16' is not supported on CPU. Use 'bf16' or 'no' on CPU."
+            )
+
+        if self.compile and self.compile_mode is not None:
+            valid_compile_modes = {"default", "reduce-overhead", "max-autotune"}
+            if self.compile_mode not in valid_compile_modes:
+                raise ValueError(
+                    f"Unsupported compile_mode '{self.compile_mode}'. Supported: {sorted(valid_compile_modes)}"
+                )
 
         valid_parallel = {"none", "ddp", "fsdp2"}
         if self.parallel.lower() not in valid_parallel:
