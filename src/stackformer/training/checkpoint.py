@@ -75,8 +75,6 @@ class CheckpointManager:
         self.save_best_state = save_best_state
         self.async_checkpoint = async_checkpoint
 
-        self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
-
     def _get_rng_state(self) -> dict[str, Any]:
         """Collect current random number generator states across all engines."""
         rng = {

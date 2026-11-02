@@ -228,7 +228,7 @@ def test_kill_and_resume_with_grad_accumulation(tmp_path):
 
 
 def test_resume_from_auto_and_error_handling(tmp_path):
-    """Test resume_from='auto' behavior on empty dir vs non-existent path."""
+    """Test resume_from='auto' behavior on empty dir vs non-existent path vs corrupt dir."""
     mgr = CheckpointManager(checkpoint_dir=tmp_path / "empty")
     # Empty dir starts fresh without error
     loaded = mgr.load("auto")
@@ -237,6 +237,12 @@ def test_resume_from_auto_and_error_handling(tmp_path):
     # Invalid path raises FileNotFoundError
     with pytest.raises(FileNotFoundError, match="Checkpoint not found"):
         mgr.load("non_existent_checkpoint_path")
+
+    # Corrupt directory without state.pt raises FileNotFoundError
+    corrupt_dir = tmp_path / "corrupt_ckpt"
+    corrupt_dir.mkdir()
+    with pytest.raises(FileNotFoundError, match="does not contain 'state.pt'"):
+        mgr.load(corrupt_dir)
 
 
 def test_keep_last_n_pruning_and_preserves_best(tmp_path):

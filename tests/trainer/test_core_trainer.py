@@ -119,7 +119,7 @@ def test_device_auto_resolution():
 # 3. Loss Parity: Trainer vs Plain PyTorch Loop
 # =====================================================================
 
-def test_loss_parity_with_plain_pytorch_loop():
+def test_loss_parity_with_plain_pytorch_loop(tmp_path):
     """Verify Trainer matches manual PyTorch loop step-for-step."""
     torch.manual_seed(1234)
 
@@ -163,6 +163,7 @@ def test_loss_parity_with_plain_pytorch_loop():
         max_grad_norm=1.0,
         mixed_precision="no",
         device="cpu",
+        checkpoint_dir=str(tmp_path),
     )
     # Use custom optimizer with identical all-parameters group to match opt_a
     opt_b = torch.optim.AdamW(model_b.parameters(), lr=1e-3, weight_decay=0.0, betas=(0.9, 0.95), eps=1e-8)
@@ -178,13 +179,13 @@ def test_loss_parity_with_plain_pytorch_loop():
 # 4. Max Steps vs Max Epochs Stopping
 # =====================================================================
 
-def test_stopping_max_steps_before_max_epochs():
+def test_stopping_max_steps_before_max_epochs(tmp_path):
     model = create_tiny_gpt()
     x = torch.randint(0, 64, (20, 16))
     loader = DataLoader(TensorDataset(x, x), batch_size=2)  # 10 batches/epoch
 
     # max_epochs=2 (20 steps total), but max_steps=5 -> should stop at 5
-    cfg = TrainConfig(max_epochs=2, max_steps=5, lr=1e-3, scheduler="none")
+    cfg = TrainConfig(max_epochs=2, max_steps=5, lr=1e-3, scheduler="none", checkpoint_dir=str(tmp_path))
     trainer = Trainer(model, cfg, train_loader=loader)
     state = trainer.train()
 
@@ -192,13 +193,13 @@ def test_stopping_max_steps_before_max_epochs():
     assert state.epoch == 0
 
 
-def test_stopping_max_epochs_before_max_steps():
+def test_stopping_max_epochs_before_max_steps(tmp_path):
     model = create_tiny_gpt()
     x = torch.randint(0, 64, (20, 16))
     loader = DataLoader(TensorDataset(x, x), batch_size=2)  # 10 batches/epoch
 
     # max_epochs=1 (10 steps total), max_steps=50 -> should stop at epoch 1 (step 10)
-    cfg = TrainConfig(max_epochs=1, max_steps=50, lr=1e-3, scheduler="none")
+    cfg = TrainConfig(max_epochs=1, max_steps=50, lr=1e-3, scheduler="none", checkpoint_dir=str(tmp_path))
     trainer = Trainer(model, cfg, train_loader=loader)
     state = trainer.train()
 
@@ -206,13 +207,13 @@ def test_stopping_max_epochs_before_max_steps():
     assert state.epoch == 0
 
 
-def test_stopping_max_steps_only():
+def test_stopping_max_steps_only(tmp_path):
     model = create_tiny_gpt()
     x = torch.randint(0, 64, (10, 16))
     loader = DataLoader(TensorDataset(x, x), batch_size=2)  # 5 batches/epoch
 
     # max_epochs=None, max_steps=12 -> loops through ~2.4 epochs to hit 12 steps
-    cfg = TrainConfig(max_epochs=None, max_steps=12, lr=1e-3, scheduler="none")
+    cfg = TrainConfig(max_epochs=None, max_steps=12, lr=1e-3, scheduler="none", checkpoint_dir=str(tmp_path))
     trainer = Trainer(model, cfg, train_loader=loader)
     state = trainer.train()
 
@@ -224,7 +225,7 @@ def test_stopping_max_steps_only():
 # 5. Eval Frequency and Max Eval Steps
 # =====================================================================
 
-def test_eval_frequency_and_max_eval_steps():
+def test_eval_frequency_and_max_eval_steps(tmp_path):
     model = create_tiny_gpt()
     x_train = torch.randint(0, 64, (20, 16))
     x_val = torch.randint(0, 64, (30, 16))
@@ -247,6 +248,7 @@ def test_eval_frequency_and_max_eval_steps():
         eval_every_n_epochs=None,
         max_eval_steps=4,
         scheduler="none",
+        checkpoint_dir=str(tmp_path),
     )
     trainer = MockTrainer(model, cfg, train_loader=train_dl, val_loader=val_dl)
     trainer.train()
@@ -259,7 +261,7 @@ def test_eval_frequency_and_max_eval_steps():
 # 6. Gradient Accumulation Equivalence
 # =====================================================================
 
-def test_gradient_accumulation_parity():
+def test_gradient_accumulation_parity(tmp_path):
     """Verify 2 micro-batches with grad_accum_steps=2 matches single large batch."""
     torch.manual_seed(999)
 
@@ -294,6 +296,7 @@ def test_gradient_accumulation_parity():
         scheduler="none",
         max_grad_norm=None,
         device="cpu",
+        checkpoint_dir=str(tmp_path),
     )
     trainer = Trainer(model_accum, cfg, train_loader=loader, optimizer=opt_accum)
     trainer.train()
@@ -306,7 +309,7 @@ def test_gradient_accumulation_parity():
 # 7. Loss Decrease Tests (LLM next-token shift & Classification)
 # =====================================================================
 
-def test_llm_shift_loss_decrease():
+def test_llm_shift_loss_decrease(tmp_path):
     """Verify tiny GPT2 trains and decreases loss on repeated sequences."""
     torch.manual_seed(42)
     model = create_tiny_gpt()
@@ -316,7 +319,7 @@ def test_llm_shift_loss_decrease():
     loader = DataLoader(TensorDataset(pattern, pattern), batch_size=4, shuffle=True)
 
     # Initial eval loss
-    cfg = TrainConfig(max_epochs=5, lr=2e-3, optimizer="adamw", scheduler="none")
+    cfg = TrainConfig(max_epochs=5, lr=2e-3, optimizer="adamw", scheduler="none", checkpoint_dir=str(tmp_path))
     trainer = Trainer(model, cfg, train_loader=loader, val_loader=loader)
 
     init_loss = trainer.evaluate()["val_loss"]
@@ -326,7 +329,7 @@ def test_llm_shift_loss_decrease():
     assert final_loss < init_loss, f"Expected loss to decrease: init={init_loss}, final={final_loss}"
 
 
-def test_classification_loss_decrease():
+def test_classification_loss_decrease(tmp_path):
     """Verify Trainer trains a standard classification model."""
     torch.manual_seed(42)
     # Simple MLP classifier
@@ -340,7 +343,7 @@ def test_classification_loss_decrease():
     y = (x[:, 0] > 0).long()
     loader = DataLoader(TensorDataset(x, y), batch_size=16)
 
-    cfg = TrainConfig(max_epochs=5, lr=1e-2, loss="cross_entropy", scheduler="none")
+    cfg = TrainConfig(max_epochs=5, lr=1e-2, loss="cross_entropy", scheduler="none", checkpoint_dir=str(tmp_path))
     trainer = Trainer(model, cfg, train_loader=loader, val_loader=loader)
 
     init_loss = trainer.evaluate()["val_loss"]
