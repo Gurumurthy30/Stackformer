@@ -47,7 +47,7 @@ from torchtitan.models.common.linear import Linear
 from torchtitan.models.common.nn_modules import RMSNorm
 from torchtitan.models.common.rope import RoPE
 from torchtitan.protocols.module import Module
-from torchtitan.tools.utils import round_up
+from stackformer.distributed.hardware import round_up
 
 
 __all__ = [
@@ -148,7 +148,7 @@ class VarlenInnerAttention(InnerAttention):
         super().__init__()
         self.window_size = config.window_size
 
-        from torchtitan.tools.utils import get_cuda_flash_attention_impl
+        from stackformer.distributed.hardware import get_cuda_flash_attention_impl
 
         flash_attention_impl = get_cuda_flash_attention_impl()
         if (

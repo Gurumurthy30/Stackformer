@@ -198,3 +198,4 @@ def init_weights(
     """
     initializer = Initializer(strategy=strategy, std=std, mean=mean, gain=gain, **kwargs)
     return initializer.apply(module)
+

@@ -20,7 +20,7 @@ from spmd_types import SpmdType
 from torch.utils._pytree import tree_map
 
 from torchtitan.config import Configurable
-from torchtitan.distributed.parallel_dims import MeshAxisName, ParallelDims
+from stackformer.distributed.mesh import MeshAxisName, ParallelDims
 from torchtitan.distributed.spmd_types import (
     _per_axis_types,
     current_spmd_mesh,

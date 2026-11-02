@@ -19,7 +19,7 @@ from spmd_types import SpmdType
 from torch.distributed.device_mesh import DeviceMesh
 from torch.distributed.tensor import Partial, Placement, Replicate, Shard
 
-from torchtitan.distributed.parallel_dims import MeshAxisName, unfold_dp_axis
+from stackformer.distributed.mesh import MeshAxisName, unfold_dp_axis
 from torchtitan.distributed.spmd_types import _per_axis_types, spmd_axes
 
 

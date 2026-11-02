@@ -17,7 +17,19 @@ from types import ModuleType
 import torch
 from torch._utils import _get_available_device_type, _get_device_module
 
-from torchtitan.observability import structured_logger as sl
+# Replaced structured_logger with lightweight no-op stub
+class _SLStub:
+    @staticmethod
+    def log_trace_span(name: str):
+        def decorator(fn):
+            return fn
+        return decorator
+
+    @staticmethod
+    def add_step_tag(tag: str) -> None:
+        pass
+
+sl = _SLStub()
 
 
 logger = logging.getLogger(__name__)

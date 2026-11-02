@@ -22,7 +22,7 @@ from torchtitan.quantization.mxfp8 import _mxfp8_linear_import_error, MXFP8Linea
 from torchtitan.quantization.mxfp8.experts import _get_mxfp8_grouped_experts_cls
 from torchtitan.quantization.nvfp4 import NVFP4Linear
 from torchtitan.quantization.utils import module_filter_fn, swap_token_dispatcher
-from torchtitan.tools.utils import has_cuda_capability, has_rocm_capability
+from stackformer.distributed.hardware import has_cuda_capability, has_rocm_capability
 
 from .converter import ModelConfigConverter
 

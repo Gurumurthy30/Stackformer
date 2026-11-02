@@ -11,7 +11,7 @@ from typing import Any
 import torch
 
 from torchtitan.config import ParallelismConfig
-from torchtitan.distributed.parallel_dims import ParallelDims
+from stackformer.distributed.mesh import ParallelDims
 
 from .module import Module
 

@@ -31,7 +31,7 @@ from torch.distributed.checkpoint.state_dict_saver import (
 from torchtitan.config import TORCH_DTYPE_MAP
 from torchtitan.observability import structured_logger as sl
 from torchtitan.tools import filesystem
-from torchtitan.tools.utils import GarbageCollection
+from stackformer.distributed.hardware import GarbageCollection
 
 from .base import (
     BaseCheckpointManager,

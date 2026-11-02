@@ -43,7 +43,7 @@ from torch.distributed._functional_collectives import all_reduce
 from torchtitan.components.optimizer import OptimizersContainer
 from torchtitan.distributed import ParallelDims
 from torchtitan.protocols.module import Module
-from torchtitan.tools.utils import device_type
+from stackformer.distributed.hardware import device_type
 
 __all__ = [
     "AuxLoss",

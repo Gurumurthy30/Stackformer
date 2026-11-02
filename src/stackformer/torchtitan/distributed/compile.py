@@ -17,7 +17,7 @@ from torch._subclasses.fake_tensor import FakeTensorMode
 from torch.distributed.device_mesh import DeviceMesh
 
 from torchtitan.config import CompileConfig
-from torchtitan.distributed.parallel_dims import ParallelDims
+from stackformer.distributed.mesh import ParallelDims
 
 
 # TODO: Remove this monkeypatch once FakeTensorMode.__init__ is decorated with

@@ -97,7 +97,7 @@ def get_attention_config(
     if backend == "flex":
         return FlexInnerAttention.Config()
     elif backend == "flex_flash":
-        from torchtitan.tools.utils import has_cuda_capability
+        from stackformer.distributed.hardware import has_cuda_capability
 
         if not has_cuda_capability(9, 0):
             raise ValueError(

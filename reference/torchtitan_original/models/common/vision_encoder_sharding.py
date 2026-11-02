@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 import spmd_types as spmd
 from spmd_types import SpmdType
 
-from torchtitan.distributed.parallel_dims import MeshAxisName
+from stackformer.distributed.mesh import MeshAxisName
 from torchtitan.models.common.decoder_sharding import set_gqa_inner_attention_local_spmd
 from torchtitan.protocols.sharding import ShardingConfig
 

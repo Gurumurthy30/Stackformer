@@ -18,7 +18,7 @@ import torch
 from torchtitan.config import Configurable
 from torchtitan.distributed.cudagraph import get_cudagraph_annotations
 from torchtitan.observability import structured_logger as sl
-from torchtitan.tools.utils import device_module
+from stackformer.distributed.hardware import device_module
 
 # torch's export_chrome_trace gained cuda_graph_annotations when the offline joiner
 # (torch.cuda._annotate_cuda_graph_trace) was removed. Older versions still export, just

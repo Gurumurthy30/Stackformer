@@ -4,16 +4,12 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from torchtitan.models.common.linear import Linear
-from torchtitan.models.common.moe import GroupedExperts
-from torchtitan.models.common.token_dispatcher import (
-    AllToAllTokenDispatcher,
-    HybridEPTokenDispatcher,
-    TorchAOTokenDispatcher,
-)
+from typing import Any
+import torch.nn as nn
+Linear = nn.Linear
 
 
-def module_filter_fn(config: Linear.Config, fqn: str, filter_fqns: list[str]) -> bool:
+def module_filter_fn(config: Any, fqn: str, filter_fqns: list[str]) -> bool:
     """
     Filter function to determine which Linear.Config should be converted.
     For both Float8 and MXFP8, we only convert Linear modules

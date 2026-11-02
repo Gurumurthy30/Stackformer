@@ -18,7 +18,7 @@ import spmd_types as spmd
 import torch
 
 from torchtitan.config import Configurable, TORCH_DTYPE_MAP
-from torchtitan.distributed.parallel_dims import MeshAxisName
+from stackformer.distributed.mesh import MeshAxisName
 from torchtitan.distributed.spmd_types import spmd_mesh_group
 
 from torchtitan.models.common.attention import FlexInnerAttention, VarlenInnerAttention

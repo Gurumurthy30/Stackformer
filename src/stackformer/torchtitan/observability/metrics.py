@@ -21,7 +21,7 @@ from torchtitan.components.optimizer import OptimizersContainer
 from torchtitan.config import Configurable
 from torchtitan.distributed import ParallelDims
 from torchtitan.tools import utils
-from torchtitan.tools.utils import Color, device_module, device_type, NoColor
+from stackformer.distributed.hardware import Color, device_module, device_type, NoColor
 
 
 # named tuple for passing device memory stats for logging

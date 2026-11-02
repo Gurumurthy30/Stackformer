@@ -12,7 +12,7 @@ import torch
 from torch.nn.attention.flex_attention import _mask_mod_signature, and_masks, BlockMask
 
 from torchtitan.config import ParallelismConfig
-from torchtitan.distributed.parallel_dims import ParallelDims
+from stackformer.distributed.mesh import ParallelDims
 from torchtitan.distributed.spmd_types import annotate_input_spmd_types
 from torchtitan.distributed.utils import is_in_batch_invariant_mode
 from torchtitan.models.common.attention import (

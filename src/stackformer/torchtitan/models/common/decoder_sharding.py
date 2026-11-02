@@ -7,7 +7,7 @@
 import spmd_types as spmd
 from spmd_types import SpmdType
 
-from torchtitan.distributed.parallel_dims import MeshAxisName
+from stackformer.distributed.mesh import MeshAxisName
 from torchtitan.models.common.attention import GQAttention
 from torchtitan.models.common.dist_gemm import (
     DistGEMMFeedForward,

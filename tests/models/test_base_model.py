@@ -202,3 +202,4 @@ def test_vit_base_model_lifecycle(tmp_path):
     new_model.load_weights(st_path)
     after = new_model(x)
     assert torch.allclose(before, after)
+

@@ -26,13 +26,13 @@ from torch.distributed.device_mesh import DeviceMesh
 from torch.distributed.tensor import DTensor
 
 from torchtitan.config import CommConfig, DebugConfig
-from torchtitan.tools.utils import device_module, device_type
+from stackformer.distributed.hardware import device_module, device_type
 
 logger = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
-    from torchtitan.distributed.parallel_dims import ParallelDims
+    from stackformer.distributed.mesh import ParallelDims
 
 
 def _dist_reduce(

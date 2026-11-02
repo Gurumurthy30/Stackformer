@@ -17,7 +17,7 @@ from torch.distributed.tensor.experimental._attention import (
 )
 from torch.nn.attention.flex_attention import BlockMask
 
-from torchtitan.distributed.parallel_dims import MeshAxisName
+from stackformer.distributed.mesh import MeshAxisName
 from torchtitan.distributed.spmd_types import _per_axis_types
 from torchtitan.models.common.attention import AttentionMasksType
 

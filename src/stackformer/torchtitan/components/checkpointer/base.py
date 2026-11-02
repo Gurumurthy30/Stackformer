@@ -29,7 +29,7 @@ from torchtitan.config import Configurable, Function
 from torchtitan.observability import structured_logger as sl
 from torchtitan.protocols.state_dict_adapter import BaseStateDictAdapter
 from torchtitan.tools import filesystem
-from torchtitan.tools.utils import GarbageCollection
+from stackformer.distributed.hardware import GarbageCollection
 
 logger = logging.getLogger(__name__)
 

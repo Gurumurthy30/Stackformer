@@ -20,7 +20,7 @@ from torch.distributed.fsdp import (
 from torch.distributed.tensor import Shard
 
 from torchtitan.config import FSDPSymmMemScope
-from torchtitan.distributed.parallel_dims import ParallelDims
+from stackformer.distributed.mesh import ParallelDims
 
 logger = logging.getLogger(__name__)
 

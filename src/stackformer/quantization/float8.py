@@ -6,8 +6,10 @@
 
 from dataclasses import dataclass
 
-from torchtitan.models.common.linear import Linear
-from torchtitan.protocols.module import Module
+# Replaced torchtitan imports with standard PyTorch modules
+import torch.nn as nn
+Module = nn.Module
+Linear = nn.Linear
 
 
 try:

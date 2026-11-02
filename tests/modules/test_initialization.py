@@ -82,3 +82,4 @@ def test_init_weights_helper():
     init_weights(linear, strategy="normal", std=0.01)
     assert linear.weight.std() > 0
     assert torch.allclose(linear.bias, torch.zeros_like(linear.bias))
+

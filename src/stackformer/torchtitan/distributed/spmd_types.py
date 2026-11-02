@@ -18,7 +18,7 @@ import torch
 from torch.distributed.device_mesh import DeviceMesh
 from torch.distributed.tensor import DTensor
 
-from torchtitan.distributed.parallel_dims import (
+from stackformer.distributed.mesh import (
     MeshAxisName,
     ParallelDims,
     unfold_dp_axes,

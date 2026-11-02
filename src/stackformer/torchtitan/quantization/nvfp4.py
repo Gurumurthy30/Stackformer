@@ -24,7 +24,7 @@ import spmd_types as spmd
 import torch
 from spmd_types import SpmdType
 
-from torchtitan.distributed.parallel_dims import MeshAxisName
+from stackformer.distributed.mesh import MeshAxisName
 from torchtitan.models.common.decoder_sharding import dense_activation_placement
 from torchtitan.models.common.linear import Linear
 from torchtitan.protocols.module import Module
