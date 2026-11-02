@@ -381,6 +381,10 @@ class StackFormerSegformer(BaseModel):
             )
         return logits
 
+    def get_sharding_blocks(self) -> list[nn.Module]:
+        """Return the 4 hierarchical vision encoder stages for sharding and checkpointing."""
+        return list(self.segformer.stages)
+
 
 class SegFormer(StackFormerSegformer):
     """SegFormer variant preset container."""

@@ -356,3 +356,7 @@ class ViT(BaseModel):
 
         x = self.encoder(x)  # (B, 1+N, C)
         return self.mlp_head(x[:, 0])  # (B, num_classes)
+
+    def get_sharding_blocks(self) -> list[nn.Module]:
+        """Return repeating vision encoder layer blocks for sharding and checkpointing."""
+        return list(self.encoder.layers)

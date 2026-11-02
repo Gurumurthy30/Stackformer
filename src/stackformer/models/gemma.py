@@ -363,6 +363,11 @@ class Gemma1_7B(BaseModel):
         )
 
 
+    def get_sharding_blocks(self) -> list[nn.Module]:
+        """Return repeating transformer layer blocks for sharding and checkpointing."""
+        return list(self.backbone.layers)
+
+
 # Backward compatibility aliases
 gemma_1_2b = Gemma1_2B
 gemma_1_7b = Gemma1_7B

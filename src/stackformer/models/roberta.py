@@ -191,3 +191,7 @@ class RoBERTa(BaseModel):
 
         x = self.backbone(x, mask=False)  # (B, T, C)
         return self.lm_head(x)  # (B, T, V)
+
+    def get_sharding_blocks(self) -> list[nn.Module]:
+        """Return repeating encoder layer blocks for sharding and checkpointing."""
+        return list(self.backbone.layers)

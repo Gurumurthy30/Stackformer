@@ -219,3 +219,11 @@ class Transformer(BaseModel):
         memory = self.encode(source)  # (B, S, C)
         out = self.decode(target, memory)  # (B, T, C)
         return self.out_proj(out)  # (B, T, V)
+
+    def get_sharding_blocks(self) -> tuple[list[nn.Module], list[nn.Module]]:
+        """Return encoder and decoder blocks separately for sequence-to-sequence sharding.
+
+        Returns:
+            tuple[list[nn.Module], list[nn.Module]]: (encoder_blocks, decoder_blocks)
+        """
+        return list(self.encoder_stack.layers), list(self.decoder_stack.layers)

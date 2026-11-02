@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from typing import Any
 import torch
 import torch.nn as nn
@@ -20,13 +21,25 @@ def prepare_inputs(batch: Any, device: torch.device) -> Any:
 
 def forward_batch(model: nn.Module, batch: Any) -> Any:
     """Execute forward pass on model unpacking inputs according to batch format."""
-    if isinstance(batch, (tuple, list)) and len(batch) >= 2:
-        return model(batch[0])
-    elif isinstance(batch, dict):
-        if "input_ids" in batch:
+    if isinstance(batch, dict):
+        if "input_ids" in batch and len(batch) == 2 and ("labels" in batch or "targets" in batch):
             return model(batch["input_ids"])
-        elif "pixel_values" in batch:
+        elif "pixel_values" in batch and len(batch) == 2 and ("labels" in batch or "targets" in batch):
             return model(batch["pixel_values"])
-        return model(**batch)
-    return model(batch)
 
+        # Match dictionary keys with model.forward parameter names
+        try:
+            sig = inspect.signature(model.forward)
+            model_kwargs = {k: v for k, v in batch.items() if k in sig.parameters}
+            if model_kwargs:
+                return model(**model_kwargs)
+        except Exception:
+            pass
+        return model(**batch)
+
+    elif isinstance(batch, (tuple, list)):
+        if len(batch) >= 2:
+            return model(batch[0])
+        return model(batch[0])
+
+    return model(batch)

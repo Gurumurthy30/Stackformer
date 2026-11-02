@@ -195,6 +195,10 @@ class Llama1(BaseModel):
             eos_token_id=eos_token_id,
         )
 
+    def get_sharding_blocks(self) -> list[nn.Module]:
+        """Return repeating transformer layer blocks for sharding and checkpointing."""
+        return list(self.backbone.layers)
+
 
 class _Llama2Block(nn.Module):
     """Single LLaMA 2 decoder block with GQA.
@@ -431,6 +435,11 @@ class Llama2(BaseModel):
             top_p=top_p,
             eos_token_id=eos_token_id,
         )
+
+
+    def get_sharding_blocks(self) -> list[nn.Module]:
+        """Return repeating transformer layer blocks for sharding and checkpointing."""
+        return list(self.layers)
 
 
 # Backward compatibility aliases

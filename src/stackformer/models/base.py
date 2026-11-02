@@ -227,3 +227,69 @@ class BaseModel(nn.Module):
         if trainable_only:
             return sum(p.numel() for p in self.parameters() if p.requires_grad)
         return sum(p.numel() for p in self.parameters())
+
+    def get_sharding_blocks(self) -> list[nn.Module] | tuple[list[nn.Module], ...]:
+        """Return the repeating layer blocks for distributed sharding, activation checkpointing, and compile.
+
+        Default behavior auto-detects repeating block structures (such as `backbone.layers`,
+        `layers`, `blocks`, or `stages`). Subclasses may override this method to return custom
+        block sequences or split encoder/decoder stacks.
+
+        Returns:
+            list[nn.Module] | tuple[list[nn.Module], ...]: Non-empty sequence of repeating blocks.
+
+        Raises:
+            ValueError: If no repeating block structure could be auto-detected.
+        """
+        # 1. Direct attribute paths on self
+        for attr in ["layers", "blocks", "stages"]:
+            if hasattr(self, attr):
+                val = getattr(self, attr)
+                if isinstance(val, (nn.ModuleList, nn.Sequential)) and len(val) > 0:
+                    return list(val)
+
+        # 2. Nested backbone / encoder / segformer paths
+        for container_name in ["backbone", "encoder", "segformer", "transformer", "model"]:
+            if hasattr(self, container_name):
+                container = getattr(self, container_name)
+                for attr in ["layers", "blocks", "stages"]:
+                    if hasattr(container, attr):
+                        val = getattr(container, attr)
+                        if isinstance(val, (nn.ModuleList, nn.Sequential)) and len(val) > 0:
+                            return list(val)
+
+        # 3. Dynamic scan across all ModuleLists for repeating layers
+        best_candidate: list[nn.Module] | None = None
+        best_param_count: int = 0
+        for mod in self.modules():
+            if isinstance(mod, nn.ModuleList) and len(mod) > 1:
+                types = {type(child) for child in mod}
+                if len(types) == 1:
+                    p_count = sum(p.numel() for p in mod.parameters())
+                    if p_count > best_param_count:
+                        best_param_count = p_count
+                        best_candidate = list(mod)
+
+        if best_candidate is not None:
+            return best_candidate
+
+        raise ValueError(
+            f"Could not auto-detect repeating sharding blocks for model '{self.__class__.__name__}'. "
+            "Please implement get_sharding_blocks() explicitly on this model architecture."
+        )
+
+    def get_tp_plan(self) -> Any | None:
+        """Return Tensor Parallelism (TP) sharding plan for this model architecture.
+
+        Returns:
+            Any | None: Architecture-specific TP sharding plan or None if unsupported.
+        """
+        return None
+
+    def get_pipeline_stages(self) -> Any | None:
+        """Return Pipeline Parallelism (PP) stage definitions for this model architecture.
+
+        Returns:
+            Any | None: Architecture-specific PP pipeline stages or None if unsupported.
+        """
+        return None

@@ -203,7 +203,6 @@ class GPT1(BaseModel):
             eos_token_id=eos_token_id,
         )
 
-
 class GPT2(BaseModel):
     """GPT-2 style decoder-only causal language model.
 
@@ -380,6 +379,11 @@ class GPT2(BaseModel):
             top_p=top_p,
             eos_token_id=eos_token_id,
         )
+
+
+    def get_sharding_blocks(self) -> list[nn.Module]:
+        """Return repeating decoder layer blocks for sharding and checkpointing."""
+        return list(self.backbone.layers)
 
 
 # Backward compatibility aliases

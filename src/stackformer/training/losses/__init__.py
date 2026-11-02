@@ -106,6 +106,8 @@ def cross_entropy_loss(
     if loss_mode == "classification":
         if outputs.ndim == 2:
             return F.cross_entropy(outputs, targets, ignore_index=ignore_index)
+        if outputs.ndim == 4 and targets.ndim == 3:
+            return F.cross_entropy(outputs, targets, ignore_index=ignore_index)
         return F.cross_entropy(
             outputs.view(-1, outputs.size(-1)),
             targets.view(-1),
@@ -124,6 +126,9 @@ def cross_entropy_loss(
         )
     elif outputs.ndim == 2:
         # Standard classification
+        return F.cross_entropy(outputs, targets, ignore_index=ignore_index)
+    elif outputs.ndim == 4 and targets.ndim == 3:
+        # 2D Semantic segmentation
         return F.cross_entropy(outputs, targets, ignore_index=ignore_index)
     else:
         # Flattened or higher-dim fallback
