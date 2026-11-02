@@ -71,13 +71,16 @@ class TrainConfig:
     max_eval_steps: int | None = None
     save_every_n_epochs: int | None = 1
     save_every_n_steps: int | None = None
+    save_last: bool = True
     checkpoint_dir: str = "./checkpoints"
     resume_from: str | None = None
     save_best: bool = True
+    save_best_state: bool = False
     monitor: str = "val_loss"
     mode: str = "min"
     keep_last_n: int = 3
     async_checkpoint: bool = False
+    metrics_on_train: bool = False
 
     def __post_init__(self) -> None:
         self.validate()
@@ -135,6 +138,12 @@ class TrainConfig:
 
         if self.mode.lower() not in {"min", "max"}:
             raise ValueError(f"'mode' must be 'min' or 'max', got {self.mode}")
+        if self.keep_last_n < 1:
+            raise ValueError(f"'keep_last_n' must be >= 1, got {self.keep_last_n}")
+        if self.save_every_n_epochs is not None and self.save_every_n_epochs <= 0:
+            raise ValueError(f"'save_every_n_epochs' must be positive, got {self.save_every_n_epochs}")
+        if self.save_every_n_steps is not None and self.save_every_n_steps <= 0:
+            raise ValueError(f"'save_every_n_steps' must be positive, got {self.save_every_n_steps}")
 
     def resolve_device(self) -> torch.device:
         """Resolve 'auto' device to torch.device (cuda > mps > cpu)."""

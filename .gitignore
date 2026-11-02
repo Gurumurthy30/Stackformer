@@ -23,6 +23,9 @@ htmlcov/
 logs/
 *.log
 
+# Checkpoints
+checkpoints/
+
 # IDE / Editor
 .vscode/
 .idea/
