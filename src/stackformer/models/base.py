@@ -308,4 +308,14 @@ class BaseModel(nn.Module):
         Returns:
             list[tuple[str, str]] | None: List of tied parameter pairs, or None if none.
         """
-        return None
+        tied: list[tuple[str, str]] = []
+        seen: dict[int, str] = {}
+        for name, param in self.named_parameters(remove_duplicate=False):
+            if param.is_meta:
+                continue
+            ptr = param.data_ptr()
+            if ptr in seen:
+                tied.append((seen[ptr], name))
+            else:
+                seen[ptr] = name
+        return tied if tied else None

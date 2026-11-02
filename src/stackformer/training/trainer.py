@@ -24,6 +24,7 @@ from .events import (
 )
 from .losses import get_loss
 from .optim import build_optimizer, build_scheduler
+from .parallelize import apply_model_transformations
 from .precision import PrecisionManager
 from .progress import ProgressBar
 from .state import TrainState
@@ -65,8 +66,7 @@ class Trainer:
         self.device = self.config.resolve_device()
         self.model.to(self.device)
 
-        # Apply model transformations in fixed order: TP -> AC -> compile -> FSDP2
-        self._apply_transformations()
+        self.model = apply_model_transformations(self.model, self.config)
 
         if isinstance(self.config.loss, str):
             self.loss_fn = get_loss(self.config.loss, loss_mode=self.config.loss_mode)
@@ -89,21 +89,6 @@ class Trainer:
             save_best=self.config.save_best, monitor=self.config.monitor, mode=self.config.mode,
             save_best_state=self.config.save_best_state, async_checkpoint=self.config.async_checkpoint,
         )
-
-    def _apply_transformations(self) -> None:
-        """Apply model transformations in fixed order: TP -> AC -> compile -> FSDP2."""
-        # 1. TP (reserved for Step 7 / Step 9)
-        pass
-        # 2. Activation Checkpointing
-        if self.config.activation_checkpointing != "none":
-            from stackformer.distributed.activation_checkpoint import apply_activation_checkpointing
-            self.model = apply_activation_checkpointing(self.model, mode=self.config.activation_checkpointing)
-        # 3. torch.compile
-        if self.config.compile:
-            from stackformer.distributed.compile import apply_compile
-            self.model = apply_compile(self.model, compile_mode=self.config.compile_mode, per_block=True)
-        # 4. FSDP2 (reserved for Step 7)
-        pass
 
     def _estimate_total_steps(self) -> int:
         if self.config.max_steps is not None:
