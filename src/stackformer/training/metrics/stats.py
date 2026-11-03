@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import Optional
+
 import torch
 
 
@@ -25,9 +25,9 @@ class TrainStats:
         self,
         samples: int = 0,
         tokens: int = 0,
-        loss: Optional[float] = None,
-        lr: Optional[float] = None,
-        grad_norm: Optional[float] = None,
+        loss: float | None = None,
+        lr: float | None = None,
+        grad_norm: float | None = None,
     ) -> dict[str, float]:
         """Mark the end of an optimizer step and compute instantaneous throughput stats."""
         now = time.perf_counter()

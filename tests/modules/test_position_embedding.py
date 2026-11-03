@@ -1,7 +1,12 @@
 import pytest
 import torch
+
+from stackformer.modules.position_embedding import (
+    AbsolutePositionEmbedding,
+    RoPE,
+    SinusoidalPositionalEmbedding,
+)
 from tests._test_utils import _checkpoint
-from stackformer.modules.position_embedding import AbsolutePositionEmbedding, RoPE, SinusoidalPositionalEmbedding
 
 
 @pytest.mark.parametrize("batch,seq", [(1, 4), (2, 6)])

@@ -6,7 +6,8 @@ module hierarchies and apply named weight initialization strategies.
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any, ClassVar
 
 import torch
 import torch.nn as nn
@@ -40,7 +41,7 @@ class Initializer:
         **kwargs: Additional hyperparameters passed to strategy functions.
     """
 
-    STRATEGY_MAP: dict[str, Callable[..., torch.Tensor]] = {
+    STRATEGY_MAP: ClassVar[dict[str, Callable[..., torch.Tensor]]] = {
         "normal": strategies.normal_init_,
         "gaussian": strategies.normal_init_,
         "trunc_normal": strategies.trunc_normal_init_,
@@ -144,13 +145,13 @@ class Initializer:
                     module.weight[module.padding_idx].fill_(0)
 
         # Convolutional layers
-        elif isinstance(module, (nn.Conv1d, nn.Conv2d, nn.Conv3d)):
+        elif isinstance(module, nn.Conv1d | nn.Conv2d | nn.Conv3d):
             self._init_tensor(module.weight)
             if module.bias is not None and not module.bias.is_meta:
                 strategies.zeros_init_(module.bias)
 
         # Normalization layers (LayerNorm, RMSNorm, BatchNorm, GroupNorm)
-        elif isinstance(module, (nn.LayerNorm, nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d, nn.GroupNorm)):
+        elif isinstance(module, nn.LayerNorm | nn.BatchNorm1d | nn.BatchNorm2d | nn.BatchNorm3d | nn.GroupNorm):
             if module.weight is not None and not module.weight.is_meta:
                 strategies.ones_init_(module.weight)
             if module.bias is not None and not module.bias.is_meta:

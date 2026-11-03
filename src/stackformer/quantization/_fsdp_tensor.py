@@ -142,7 +142,6 @@ import torch
 from torch.utils import _pytree as pytree
 from torch.utils._python_dispatch import return_and_correct_aliasing
 
-
 # The unsharded-tensor machinery is internal. A data-parallel implementation
 # reaches it through the FSDP hooks, or by calling
 # ``_build_operands`` itself when it reconstructs the
@@ -460,7 +459,7 @@ class _UnshardedFSDPTensor(_FSDPTensorBase):
         for name in _unsharded_inner_tensor_names(type(operands)):
             setattr(self, f"_{name}", getattr(operands, name))
 
-    def __repr__(self) -> str:  # noqa: D401
+    def __repr__(self) -> str:
         # The default tensor printer indexes into the data, which the dispatch
         # guard below refuses once FSDP has freed the storage. Printing is
         # diagnostics, not a read, and callers are not always ours: AOTAutograd

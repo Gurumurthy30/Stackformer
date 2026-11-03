@@ -1,8 +1,8 @@
 import pytest
 import torch
-from tests._test_utils import _checkpoint
 
 from stackformer.modules.attention import (
+    _ROPE_FREQ_CACHE,
     Cross_MultiHead_Attention,
     Group_query_Attention,
     Group_query_Attention_With_RoPE,
@@ -13,17 +13,17 @@ from stackformer.modules.attention import (
     Self_Attention,
     kv_cache_group_query,
     kv_cache_multihead,
-    _ROPE_FREQ_CACHE,
 )
 from stackformer.modules.attention_engine import _run_attention, _run_flex_attention, _run_sdpa
+from tests._test_utils import _checkpoint
 
 BATCH, SEQ, EMB = 2, 6, 8
 HEADS, KV_HEADS = 2, 1
 MASKS = [
-    dict(mask_type=["causal"]),
-    dict(mask_type=["sliding_window"], window_size=2),
-    dict(mask_type=["sliding_window", "global_mask"], window_size=2, global_index=[1]),
-    dict(mask_type=["no"]),
+    {"mask_type": ["causal"]},
+    {"mask_type": ["sliding_window"], "window_size": 2},
+    {"mask_type": ["sliding_window", "global_mask"], "window_size": 2, "global_index": [1]},
+    {"mask_type": ["no"]},
 ]
 
 
@@ -141,9 +141,9 @@ def test_kv_cache_group_query_multiple_decode_steps(torch_device):
 @pytest.mark.parametrize(
     "ctor,args,error",
     [
-        (Multi_Head_Attention, dict(embed_dim=10, num_heads=3), AssertionError),
-        (Group_query_Attention, dict(embed_dim=8, num_query_heads=3, num_kv_heads=2), AssertionError),
-        (Self_Attention, dict(embed_dim=8, mask_type=["does_not_exist"]), ValueError),
+        (Multi_Head_Attention, {"embed_dim": 10, "num_heads": 3}, AssertionError),
+        (Group_query_Attention, {"embed_dim": 8, "num_query_heads": 3, "num_kv_heads": 2}, AssertionError),
+        (Self_Attention, {"embed_dim": 8, "mask_type": ["does_not_exist"]}, ValueError),
     ],
 )
 def test_attention_invalid_configs_raise(ctor, args, error, torch_device):

@@ -51,7 +51,7 @@ def move_to_device(obj: Any, device: str | torch.device) -> Any:
         return obj.to(target_device, non_blocking=(target_device.type == "cuda"))
     if isinstance(obj, dict):
         return {k: move_to_device(v, device) for k, v in obj.items()}
-    if isinstance(obj, (list, tuple)):
+    if isinstance(obj, list | tuple):
         return type(obj)(move_to_device(x, device) for x in obj)
     return obj
 

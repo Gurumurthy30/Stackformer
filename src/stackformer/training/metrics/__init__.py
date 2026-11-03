@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from stackformer.training.metrics.base import Metric
 from stackformer.training.metrics.classification import (
-    Accuracy,
     F1,
+    Accuracy,
     Precision,
     Recall,
     TopKAccuracy,

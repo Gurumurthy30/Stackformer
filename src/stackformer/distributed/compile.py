@@ -37,7 +37,7 @@ def _replace_module_in_parent(root: nn.Module, target: nn.Module, replacement: n
     for parent in root.modules():
         for name, child in parent.named_children():
             if child is target:
-                if isinstance(parent, (nn.ModuleList, nn.Sequential)):
+                if isinstance(parent, nn.ModuleList | nn.Sequential):
                     parent[int(name)] = replacement
                 else:
                     setattr(parent, name, replacement)
@@ -78,7 +78,7 @@ def apply_compile(
 
     if per_block and hasattr(model, "get_sharding_blocks") and callable(model.get_sharding_blocks):
         blocks = model.get_sharding_blocks()
-        for idx, block in enumerate(blocks):
+        for _idx, block in enumerate(blocks):
             compiled_block = cast(nn.Module, torch.compile(block, mode=compile_mode, backend=backend))
             _replace_module_in_parent(model, block, compiled_block)
         logger.info(f"Compiled {len(blocks)} blocks individually with mode={compile_mode}, backend={backend}.")

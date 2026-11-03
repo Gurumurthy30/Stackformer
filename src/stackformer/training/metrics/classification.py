@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+
 import torch
 
 from stackformer.training.metrics.base import Metric, _extract_predictions, _extract_target

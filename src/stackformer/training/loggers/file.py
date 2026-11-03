@@ -6,7 +6,7 @@ import csv
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from stackformer.training.loggers.base import Logger, is_rank_zero
 
@@ -24,7 +24,7 @@ class CSVLogger(Logger):
 
     def __init__(
         self,
-        log_dir: Optional[str | Path] = None,
+        log_dir: str | Path | None = None,
         filename: str = "metrics.csv",
         append: bool = True,
     ) -> None:
@@ -49,7 +49,7 @@ class CSVLogger(Logger):
 
             existing_rows = []
             if self.file_path.exists() and self.file_path.stat().st_size > 0:
-                with open(self.file_path, "r", encoding="utf-8") as f:
+                with open(self.file_path, encoding="utf-8") as f:
                     reader = csv.DictReader(f)
                     existing_rows = list(reader)
 
@@ -67,13 +67,13 @@ class CSVLogger(Logger):
         file_exists = self.file_path.exists() and self.file_path.stat().st_size > 0
 
         if file_exists and self.append:
-            with open(self.file_path, "r", encoding="utf-8") as f:
+            with open(self.file_path, encoding="utf-8") as f:
                 reader = csv.reader(f)
                 header = next(reader, None)
                 if header:
                     self.fieldnames = list(header)
 
-        for field in ["step", "timestamp"] + field_candidates:
+        for field in ["step", "timestamp", *field_candidates]:
             if field not in self.fieldnames:
                 self.fieldnames.append(field)
 
@@ -117,7 +117,7 @@ class JSONLLogger(Logger):
 
     def __init__(
         self,
-        log_dir: Optional[str | Path] = None,
+        log_dir: str | Path | None = None,
         filename: str = "metrics.jsonl",
         append: bool = True,
     ) -> None:

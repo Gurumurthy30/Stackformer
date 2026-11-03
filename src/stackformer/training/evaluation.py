@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+
 import torch
 
 from .utils import forward_batch, prepare_inputs

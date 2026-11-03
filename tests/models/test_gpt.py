@@ -1,7 +1,8 @@
 import pytest
 import torch
-from tests._test_utils import _checkpoint
+
 from stackformer import GPT_1, GPT_2
+from tests._test_utils import _checkpoint
 
 
 @pytest.mark.parametrize("model_cls", [GPT_1, GPT_2])

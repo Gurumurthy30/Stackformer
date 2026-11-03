@@ -1,14 +1,15 @@
 """Unit tests for vectorized evaluation metrics in stackformer.training.metrics."""
 
 import math
+
 import pytest
 import torch
 import torch.nn.functional as F
 
 from stackformer.training.metrics import (
+    F1,
     Accuracy,
     Dice,
-    F1,
     MeanIoU,
     Perplexity,
     Precision,

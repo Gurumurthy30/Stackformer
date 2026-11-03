@@ -1,6 +1,7 @@
 """Shared test utility functions for StackFormer test suite."""
 
 import random
+
 import numpy as np
 import torch
 

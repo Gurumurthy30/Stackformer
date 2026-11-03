@@ -1,6 +1,7 @@
 """Tests for Step 5: Activation Checkpointing, torch.compile, and Mixed Precision."""
 
 import copy
+
 import pytest
 import torch
 import torch.nn as nn
@@ -11,7 +12,6 @@ from stackformer.distributed.compile import apply_compile, is_compile_available
 from stackformer.models import GPT2
 from stackformer.training import CheckpointManager, TrainConfig, Trainer
 from stackformer.training.checkpoint import clean_state_dict
-
 
 # =====================================================================
 # 1. AC Equivalence (none vs full vs selective)

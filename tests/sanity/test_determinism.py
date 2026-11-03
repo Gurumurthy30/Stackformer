@@ -1,8 +1,13 @@
 import torch
-from tests._test_utils import _checkpoint
+
 from stackformer import GPT_1
 from stackformer.modules.attention import Multi_Head_Attention
-from stackformer.modules.position_embedding import AbsolutePositionEmbedding, RoPE, SinusoidalPositionalEmbedding
+from stackformer.modules.position_embedding import (
+    AbsolutePositionEmbedding,
+    RoPE,
+    SinusoidalPositionalEmbedding,
+)
+from tests._test_utils import _checkpoint
 
 
 def test_attention_determinism_fixed_seed(torch_device):

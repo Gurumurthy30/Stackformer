@@ -34,12 +34,12 @@ except ImportError:
 
 
 MIT_CONFIGS = {
-    "b0": dict(embed_dims=[32, 64, 160, 256], depths=[2, 2, 2, 2], decoder_hidden_size=256),
-    "b1": dict(embed_dims=[64, 128, 320, 512], depths=[2, 2, 2, 2], decoder_hidden_size=768),
-    "b2": dict(embed_dims=[64, 128, 320, 512], depths=[3, 4, 6, 3], decoder_hidden_size=768),
-    "b3": dict(embed_dims=[64, 128, 320, 512], depths=[3, 4, 18, 3], decoder_hidden_size=768),
-    "b4": dict(embed_dims=[64, 128, 320, 512], depths=[3, 8, 27, 3], decoder_hidden_size=768),
-    "b5": dict(embed_dims=[64, 128, 320, 512], depths=[3, 6, 40, 3], decoder_hidden_size=768),
+    "b0": {"embed_dims": [32, 64, 160, 256], "depths": [2, 2, 2, 2], "decoder_hidden_size": 256},
+    "b1": {"embed_dims": [64, 128, 320, 512], "depths": [2, 2, 2, 2], "decoder_hidden_size": 768},
+    "b2": {"embed_dims": [64, 128, 320, 512], "depths": [3, 4, 6, 3], "decoder_hidden_size": 768},
+    "b3": {"embed_dims": [64, 128, 320, 512], "depths": [3, 4, 18, 3], "decoder_hidden_size": 768},
+    "b4": {"embed_dims": [64, 128, 320, 512], "depths": [3, 8, 27, 3], "decoder_hidden_size": 768},
+    "b5": {"embed_dims": [64, 128, 320, 512], "depths": [3, 6, 40, 3], "decoder_hidden_size": 768},
 }
 
 NUM_HEADS = [1, 2, 5, 8]
@@ -268,7 +268,7 @@ class DecodeHead(nn.Module):
         b = features[0].shape[0]
         target_hw = features[0].shape[2:]
         projected = []
-        for feat, proj in zip(features, self.linear_projections):
+        for feat, proj in zip(features, self.linear_projections, strict=False):
             h, w = feat.shape[2:]
             t = proj(feat).transpose(1, 2).reshape(b, -1, h, w)
             t = F.interpolate(t, size=target_hw, mode="bilinear", align_corners=False)
@@ -360,7 +360,7 @@ class StackFormerSegformer(BaseModel):
                 nn.init.kaiming_normal_(m.weight, mode="fan_out")
             if m.bias is not None and not m.bias.is_meta:
                 nn.init.zeros_(m.bias)
-        elif isinstance(m, (nn.LayerNorm, nn.BatchNorm2d)):
+        elif isinstance(m, nn.LayerNorm | nn.BatchNorm2d):
             if m.weight is not None and not m.weight.is_meta:
                 nn.init.ones_(m.weight)
             if m.bias is not None and not m.bias.is_meta:

@@ -5,9 +5,10 @@ Consolidates dense mask builders, FlexAttention functional mask_mods, and LRU ca
 
 from __future__ import annotations
 
-from collections import OrderedDict
 import inspect
-from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
+from collections import OrderedDict
+from collections.abc import Callable
+from typing import Any, Literal
 
 import torch
 
@@ -22,7 +23,7 @@ try:
 except ImportError:
     BlockMask = and_masks = create_block_mask = noop_mask = or_masks = None
 
-MaskSpec = Union[List[str], Tuple[str, ...], str, None]
+MaskSpec = list[str] | tuple[str, ...] | str | None
 MaskMod = Callable[[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor]
 _DEFAULT_MAX_CACHE_SIZE = 32
 
@@ -67,7 +68,7 @@ def random_mask(
     seq_len: int,
     num_random: int,
     device: torch.device | str | None = None,
-    generator: Optional[torch.Generator] = None,
+    generator: torch.Generator | None = None,
 ) -> torch.Tensor:
     """Random sparse causal attention mask."""
     if num_random < 0 or num_random > seq_len:
@@ -79,7 +80,7 @@ def random_mask(
     return mask
 
 
-def global_mask(seq_len: int, global_index: List[int], device: torch.device | str | None = None) -> torch.Tensor:
+def global_mask(seq_len: int, global_index: list[int], device: torch.device | str | None = None) -> torch.Tensor:
     """Global attention mask."""
     if len(global_index) == 0:
         raise ValueError("global_index must contain at least one index")
@@ -120,7 +121,7 @@ def mistral(seq_len: int, window_size: int, dilation: int, device: torch.device 
     return sliding_window(seq_len, window_size, device=device) | dilated_causal(seq_len, dilation, device=device)
 
 
-MASK_REGISTRY: Dict[str, Callable] = {
+MASK_REGISTRY: dict[str, Callable] = {
     "no": no_mask,
     "causal": causal_mask,
     "sliding_window": sliding_window,
@@ -146,7 +147,7 @@ def make_mask(
     if isinstance(mask_types, str):
         mask_types = [mask_types]
 
-    if not isinstance(mask_types, (list, tuple)):
+    if not isinstance(mask_types, list | tuple):
         raise TypeError("mask_types must be a list, tuple, or string of mask name(s)")
 
     if combine not in ("or", "and"):
@@ -218,7 +219,7 @@ def dilated_causal_mask_mod(dilation: int) -> MaskMod:
 
 def global_mask_mod(
     seq_len: int,
-    global_index: List[int],
+    global_index: list[int],
     device: torch.device | str | None = None,
 ) -> MaskMod:
     """Factory for a global-attention mask_mod."""
@@ -240,7 +241,7 @@ def global_mask_mod(
 def random_mask_mod(
     seq_len: int,
     num_random: int,
-    generator: Optional[torch.Generator] = None,
+    generator: torch.Generator | None = None,
     device: torch.device | str | None = None,
 ) -> MaskMod:
     """Factory for a random sparse causal mask_mod."""
@@ -297,7 +298,7 @@ def _random_mask_builder(
     seq_len: int,
     *,
     num_random: int,
-    generator: Optional[torch.Generator] = None,
+    generator: torch.Generator | None = None,
     device: torch.device | str | None = None,
     **kwargs,
 ) -> MaskMod:
@@ -305,7 +306,7 @@ def _random_mask_builder(
 
 
 def _global_mask_builder(
-    seq_len: int, *, global_index: List[int], device: torch.device | str | None = None, **kwargs
+    seq_len: int, *, global_index: list[int], device: torch.device | str | None = None, **kwargs
 ) -> MaskMod:
     return global_mask_mod(seq_len, global_index, device=device)
 
@@ -318,7 +319,7 @@ def _mistral_builder(seq_len: int, *, window_size: int, dilation: int, **kwargs)
     return mistral_mask_mod(window_size, dilation)
 
 
-MASK_MOD_REGISTRY: Dict[str, Callable[..., MaskMod]] = {
+MASK_MOD_REGISTRY: dict[str, Callable[..., MaskMod]] = {
     "no": _no_mask_builder,
     "causal": _causal_builder,
     "sliding_window": _sliding_window_builder,
@@ -351,13 +352,13 @@ def make_block_mask(
     if isinstance(mask_types, str):
         mask_types = [mask_types]
 
-    if not isinstance(mask_types, (list, tuple)):
+    if not isinstance(mask_types, list | tuple):
         raise TypeError("mask_types must be a list, tuple, or string of mask name(s)")
 
     if combine not in ("or", "and"):
         raise ValueError(f"combine must be 'or' or 'and', got {combine!r}")
 
-    mask_mods: List[MaskMod] = []
+    mask_mods: list[MaskMod] = []
     for name in mask_types:
         name = name.lower()
         if name not in MASK_MOD_REGISTRY:
@@ -382,7 +383,7 @@ def make_block_mask(
 # ============================================================================
 
 
-def _normalize_mask_names(mask_type: MaskSpec) -> Tuple[str, ...]:
+def _normalize_mask_names(mask_type: MaskSpec) -> tuple[str, ...]:
     """Normalize a mask spec into a sorted tuple of lowercase names."""
     if mask_type is None:
         return ("no",)
@@ -396,15 +397,15 @@ def _make_cache_key(
     seq_len: int,
     device: torch.device | str | None,
     combine: str,
-    mask_kwargs: Dict[str, Any],
-) -> Optional[Tuple]:
+    mask_kwargs: dict[str, Any],
+) -> tuple | None:
     """Build a hashable cache key, or return None if the request can't be cached."""
     names = _normalize_mask_names(mask_type)
 
     hashable_kwargs = []
     for key in sorted(mask_kwargs):
         value = mask_kwargs[key]
-        if isinstance(value, (torch.Tensor, torch.Generator)):
+        if isinstance(value, torch.Tensor | torch.Generator):
             return None
         if isinstance(value, list):
             value = tuple(value)
@@ -428,7 +429,7 @@ def _get_attention_mask(
     combine: Literal["or", "and"] = "or",
     max_cache_size: int = _DEFAULT_MAX_CACHE_SIZE,
     **mask_kwargs,
-) -> Optional[torch.Tensor]:
+) -> torch.Tensor | None:
     """Get (or build + cache) a dense boolean attention mask for SDPA."""
     if mask_type is None:
         return None
@@ -454,7 +455,7 @@ def _get_block_mask(
     combine: Literal["or", "and"] = "or",
     max_cache_size: int = _DEFAULT_MAX_CACHE_SIZE,
     **mask_kwargs,
-) -> Optional[BlockMask]:
+) -> BlockMask | None:
     """Get (or build + cache) a compiled BlockMask for FlexAttention."""
     if mask_type is None:
         return None

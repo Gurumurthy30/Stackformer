@@ -1,7 +1,8 @@
 import pytest
 import torch
-from tests._test_utils import _checkpoint
+
 from stackformer.modules.attention import kv_cache_group_query, kv_cache_multihead
+from tests._test_utils import _checkpoint
 
 
 @pytest.mark.parametrize("batch", [1, 2])

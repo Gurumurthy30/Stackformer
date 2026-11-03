@@ -7,8 +7,10 @@ shared memory pool rather than contiguous per-sequence allocations.
 from __future__ import annotations
 
 import math
+
 import torch
 import torch.nn as nn
+
 from stackformer.utils.cache import _grad_safe_splice
 
 

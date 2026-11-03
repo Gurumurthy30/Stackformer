@@ -12,10 +12,11 @@
 from __future__ import annotations
 
 import logging
+
 import torch
+import torch.distributed as dist
 import torch.nn as nn
 from torch.nn.parallel import DistributedDataParallel as DDP
-import torch.distributed as dist
 
 from .utils import is_distributed_initialized
 

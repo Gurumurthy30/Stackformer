@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import logging
+
 import torch
 import torch.nn as nn
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
@@ -63,7 +64,7 @@ def _replace_module_in_parent(root: nn.Module, target: nn.Module, replacement: n
     for parent in root.modules():
         for name, child in parent.named_children():
             if child is target:
-                if isinstance(parent, (nn.ModuleList, nn.Sequential)):
+                if isinstance(parent, nn.ModuleList | nn.Sequential):
                     parent[int(name)] = replacement
                 else:
                     setattr(parent, name, replacement)
@@ -130,24 +131,27 @@ def apply_activation_checkpointing(
         elif mode == "selective":
             meta = {"forward_mm_count": 0, "recompute_mm_count": 0}
 
-            def selective_policy(ctx, func, *args, **kwargs) -> CheckpointPolicy:
-                mode_str = "recompute" if ctx.is_recompute else "forward"
-                mm_count_key = f"{mode_str}_mm_count"
+            def _make_selective_policy(meta_dict: dict[str, int]):
+                def selective_policy(ctx, func, *args, **kwargs) -> CheckpointPolicy:
+                    mode_str = "recompute" if ctx.is_recompute else "forward"
+                    mm_count_key = f"{mode_str}_mm_count"
 
-                if func in mm_ops:
-                    meta[mm_count_key] += 1
-                    # Save every other matrix multiplication
-                    if meta[mm_count_key] % 2 == 0:
-                        return CheckpointPolicy.PREFER_RECOMPUTE
-                    return CheckpointPolicy.MUST_SAVE
+                    if func in mm_ops:
+                        meta_dict[mm_count_key] += 1
+                        # Save every other matrix multiplication
+                        if meta_dict[mm_count_key] % 2 == 0:
+                            return CheckpointPolicy.PREFER_RECOMPUTE
+                        return CheckpointPolicy.MUST_SAVE
 
-                if func in save_ops:
-                    return CheckpointPolicy.MUST_SAVE
-                return CheckpointPolicy.PREFER_RECOMPUTE
+                    if func in save_ops:
+                        return CheckpointPolicy.MUST_SAVE
+                    return CheckpointPolicy.PREFER_RECOMPUTE
+
+                return selective_policy
 
             wrapped = checkpoint_wrapper(
                 block,
-                context_fn=lambda: create_selective_checkpoint_contexts(selective_policy),
+                context_fn=lambda m=meta: create_selective_checkpoint_contexts(_make_selective_policy(m)),
                 preserve_rng_state=preserve_rng_state,
             )
         else:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 
@@ -44,16 +45,12 @@ def dispatch_checkpoint_save(trainer: Any, path: str) -> None:
 def dispatch_train_end(trainer: Any) -> None:
     """Safely notify callbacks that training has completed."""
     for cb in trainer.callbacks:
-        try:
+        with contextlib.suppress(Exception):
             cb.on_train_end(trainer)
-        except Exception:
-            pass
 
 
 def close_loggers(trainer: Any) -> None:
     """Safely flush and finalize all registered loggers."""
     for lg in trainer.loggers:
-        try:
+        with contextlib.suppress(Exception):
             lg.finish()
-        except Exception:
-            pass

@@ -6,7 +6,9 @@ and multimodal data loading pipelines.
 
 from __future__ import annotations
 
-from typing import Any, Iterator, Protocol, Sequence, runtime_checkable
+from collections.abc import Iterator, Sequence
+from typing import Any, Protocol, runtime_checkable
+
 import torch
 
 

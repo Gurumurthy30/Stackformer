@@ -134,13 +134,13 @@ class BlockConfig:
 # Private factories
 def _build_attention(cfg: BlockConfig) -> nn.Module:
     """Return the self-attention module described by cfg."""
-    shared = dict(
-        dropout=cfg.dropout,
-        mask_type=cfg.mask_type,
-        qkv_bias=cfg.qkv_bias,
-        device=cfg.device,
-        dtype=cfg.dtype,
-    )
+    shared = {
+        "dropout": cfg.dropout,
+        "mask_type": cfg.mask_type,
+        "qkv_bias": cfg.qkv_bias,
+        "device": cfg.device,
+        "dtype": cfg.dtype,
+    }
     embed_dim, num_heads, num_kv_heads = cfg.embed_dim, cfg.num_heads, cfg.num_kv_heads
 
     key = cfg.attention.lower()
@@ -179,7 +179,7 @@ def _build_cross_attention(cfg: BlockConfig) -> nn.Module:
 
 def _build_ffn(cfg: BlockConfig) -> nn.Module:
     """Return the FFN module described by *cfg*."""
-    hw = dict(device=cfg.device, dtype=cfg.dtype)
+    hw = {"device": cfg.device, "dtype": cfg.dtype}
     E, M, D = cfg.embed_dim, cfg.hidden_dim, cfg.dropout
 
     key = cfg.ffn.lower()
@@ -205,7 +205,7 @@ def _build_ffn(cfg: BlockConfig) -> nn.Module:
 
 def _build_norm(cfg: BlockConfig) -> nn.Module:
     """Return one normalization layer described by *cfg*."""
-    hw = dict(device=cfg.device, dtype=cfg.dtype)
+    hw = {"device": cfg.device, "dtype": cfg.dtype}
 
     key = cfg.norm.lower()
     if key == "layernorm":
@@ -230,7 +230,7 @@ def _build_pos_embedding(
     if name is None:
         return None
 
-    hw = dict(device=cfg.device, dtype=cfg.dtype)
+    hw = {"device": cfg.device, "dtype": cfg.dtype}
 
     registry: dict[str, nn.Module] = {
         "sinusoidal": SinusoidalPositionalEmbedding(max_seq_len, cfg.embed_dim, **hw),

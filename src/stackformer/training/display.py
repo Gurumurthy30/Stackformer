@@ -5,9 +5,11 @@ from __future__ import annotations
 import logging
 import re
 import sys
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 from stackformer.distributed.utils import is_rank_zero
+
 from .progress import ProgressBar
 
 logger = logging.getLogger(__name__)
@@ -169,7 +171,7 @@ class DisplayManager:
             if k in cfg_dict:
                 items.append((k, str(cfg_dict[k])))
         for k, v in sorted(cfg_dict.items()):
-            if k not in key_order and not isinstance(v, (dict, list)):
+            if k not in key_order and not isinstance(v, dict | list):
                 items.append((k, str(v)))
 
         if self.mode == "rich" and self._rich_console is not None:
@@ -267,7 +269,7 @@ class DisplayManager:
             self._rich_console.print(table)
         else:
             self.write(f"\n--- {title} ---\n")
-            col_w = max(len(k) for k in metrics.keys()) if metrics else 12
+            col_w = max(len(k) for k in metrics) if metrics else 12
             for k, v in sorted(metrics.items()):
                 v_str = f"{v:.4f}" if isinstance(v, float) else str(v)
                 self.write(f"  {k:<{col_w}} : {v_str}\n")

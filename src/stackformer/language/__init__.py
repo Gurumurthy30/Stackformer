@@ -7,9 +7,10 @@ Exposes:
     - EncoderDecoder: Encoder-decoder sequence-to-sequence model architecture
 """
 
-from .decoder import Decoder, GPTDecoder
 from stackformer.models.bert import BERT
 from stackformer.models.roberta import RoBERTa
+
+from .decoder import Decoder, GPTDecoder
 from .encoder_decoder import EncoderDecoder
 
 __all__ = [

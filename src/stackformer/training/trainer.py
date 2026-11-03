@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import copy
 import warnings
+from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Any, Callable, Sequence
+from typing import Any
+
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
+
+from stackformer.utils.checkpoint import save_model_weights
 
 from .checkpoint import CheckpointManager, clean_state_dict, unwrap_model
 from .config import TrainConfig
@@ -29,7 +33,6 @@ from .parallelize import apply_model_transformations
 from .precision import PrecisionManager
 from .state import TrainState
 from .utils import forward_batch, prepare_inputs
-from stackformer.utils.checkpoint import save_model_weights
 
 
 class Trainer:
@@ -135,17 +138,20 @@ class Trainer:
 
         resumed = self._restore_checkpoint_if_requested()
 
-        if getattr(self.train_loader, "shuffle", False) or (
-            hasattr(self.train_loader, "sampler")
-            and isinstance(getattr(self.train_loader, "sampler", None), torch.utils.data.RandomSampler)
-        ):
-            if getattr(self.train_loader, "generator", None) is None:
-                warnings.warn(
-                    "DataLoader has shuffle=True but no generator configured with a fixed seed. "
-                    "For bit-identical mid-epoch resume, instantiate DataLoader with a seeded torch.Generator.",
-                    UserWarning,
-                    stacklevel=2,
-                )
+        has_unseeded_shuffle = (
+            getattr(self.train_loader, "shuffle", False)
+            or (
+                hasattr(self.train_loader, "sampler")
+                and isinstance(getattr(self.train_loader, "sampler", None), torch.utils.data.RandomSampler)
+            )
+        ) and getattr(self.train_loader, "generator", None) is None
+        if has_unseeded_shuffle:
+            warnings.warn(
+                "DataLoader has shuffle=True but no generator configured with a fixed seed. "
+                "For bit-identical mid-epoch resume, instantiate DataLoader with a seeded torch.Generator.",
+                UserWarning,
+                stacklevel=2,
+            )
 
         self.model.train()
         self.state.should_stop = False
@@ -170,9 +176,9 @@ class Trainer:
                 dispatch_epoch_start(self, epoch)
 
                 if hasattr(self.train_loader, "sampler") and hasattr(self.train_loader.sampler, "set_epoch"):
-                    getattr(self.train_loader.sampler, "set_epoch")(epoch)
+                    self.train_loader.sampler.set_epoch(epoch)
                 elif getattr(self.train_loader, "generator", None) is not None:
-                    getattr(self.train_loader, "generator").manual_seed(self.config.seed + epoch)
+                    self.train_loader.generator.manual_seed(self.config.seed + epoch)
 
                 pbar = self.display.progress_bar(
                     self.train_loader,

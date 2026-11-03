@@ -1,11 +1,12 @@
 import torch
-from tests._test_utils import _checkpoint
+
 from stackformer.modules.attention import (
     Group_query_Attention,
     Multi_Head_Attention,
     kv_cache_group_query,
     kv_cache_multihead,
 )
+from tests._test_utils import _checkpoint
 
 
 def _copy_qkv_proj_weights(src, dst):

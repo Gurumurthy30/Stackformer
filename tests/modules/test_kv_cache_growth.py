@@ -1,7 +1,8 @@
 import pytest
 import torch
-from tests._test_utils import _checkpoint
+
 from stackformer.modules.attention import kv_cache_group_query, kv_cache_multihead
+from tests._test_utils import _checkpoint
 
 BATCH = 2
 SEQ = 6
@@ -14,12 +15,12 @@ HEADS = 2
     [
         (
             kv_cache_multihead,
-            dict(embed_dim=EMB, num_heads=HEADS, batch_size=BATCH, kv_seq_len=SEQ, dropout=0.0),
+            {"embed_dim": EMB, "num_heads": HEADS, "batch_size": BATCH, "kv_seq_len": SEQ, "dropout": 0.0},
             HEADS,
         ),
         (
             kv_cache_group_query,
-            dict(embed_dim=EMB, num_query_heads=HEADS, num_kv_heads=1, batch_size=BATCH, kv_seq_len=SEQ, dropout=0.0),
+            {"embed_dim": EMB, "num_query_heads": HEADS, "num_kv_heads": 1, "batch_size": BATCH, "kv_seq_len": SEQ, "dropout": 0.0},
             1,
         ),
     ],

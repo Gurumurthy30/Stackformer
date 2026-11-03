@@ -1,6 +1,8 @@
 import torch
+
+from stackformer.modules.normalization import LayerNorm as LayerNormalization
+from stackformer.modules.normalization import RMSNorm as RMSNormalization
 from tests._test_utils import _checkpoint
-from stackformer.modules.normalization import LayerNorm as LayerNormalization, RMSNorm as RMSNormalization
 
 
 def test_normalization_outputs_are_finite(torch_device):

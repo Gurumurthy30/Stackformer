@@ -1,14 +1,15 @@
 import torch
-from tests._test_utils import _checkpoint
+
 from stackformer.modules.feed_forward import (
     FF_GELU,
     FF_GeGLU,
     FF_LeakyReLU,
     FF_ReLU,
-    FF_SiLU,
     FF_Sigmoid,
+    FF_SiLU,
     FF_SwiGLU,
 )
+from tests._test_utils import _checkpoint
 
 
 def test_feedforward_variants_shape(torch_device):

@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from typing import Any
+
 import torch.nn as nn
 
 Linear = nn.Linear
@@ -61,7 +62,7 @@ def swap_token_dispatcher(routed_experts_config, pad_multiple: int) -> None:
 
 def has_quantization(model_config) -> bool:
     """Check if any module in the model config has quantization applied."""
-    from .float8 import _float8_experts_cache, Float8Linear
+    from .float8 import Float8Linear, _float8_experts_cache
     from .mxfp8 import MXFP8Linear
     from .mxfp8.experts import _mxfp8_experts_cache
     from .nvfp4 import NVFP4Linear

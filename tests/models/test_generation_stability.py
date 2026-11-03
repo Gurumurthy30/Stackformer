@@ -1,8 +1,8 @@
 import pytest
 import torch
-from tests._test_utils import _checkpoint
 
 from stackformer import GPT_2, gemma_1_2b, llama_1
+from tests._test_utils import _checkpoint
 
 BATCH = 2
 SEQ = 6

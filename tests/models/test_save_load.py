@@ -1,9 +1,9 @@
 import pytest
 import torch
-from tests._test_utils import _checkpoint
 
 from stackformer import GPT_1, GPT_2, gemma_1_2b, llama_1
 from stackformer.models.llama import llama_2
+from tests._test_utils import _checkpoint
 
 
 @pytest.mark.parametrize("model_name", ["gpt1", "gpt2", "gemma", "llama1", "llama2"])

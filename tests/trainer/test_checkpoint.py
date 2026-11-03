@@ -4,6 +4,7 @@ import copy
 import json
 import random
 from pathlib import Path
+
 import pytest
 import torch
 import torch.nn as nn
@@ -11,7 +12,7 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from stackformer.config import ModelConfig
 from stackformer.models import GPT2
-from stackformer.training import Trainer, TrainConfig, CheckpointManager
+from stackformer.training import CheckpointManager, TrainConfig, Trainer
 from stackformer.training.state import TrainState
 
 
@@ -59,7 +60,7 @@ def test_checkpoint_roundtrip_restores_state(tmp_path):
     new_model = create_tiny_model()
     new_model.load_state_dict(loaded["model"])
 
-    for p1, p2 in zip(model.parameters(), new_model.parameters()):
+    for p1, p2 in zip(model.parameters(), new_model.parameters(), strict=False):
         assert torch.equal(p1, p2), "Model parameters mismatch after reload"
 
     new_opt = torch.optim.AdamW(new_model.parameters(), lr=1e-3)
@@ -155,7 +156,7 @@ def test_kill_and_resume_parity_mid_epoch(tmp_path):
     assert trainer_a.state.global_step == trainer_b2.state.global_step
     assert trainer_a.state.epoch == trainer_b2.state.epoch
 
-    for p_a, p_b in zip(model_a.parameters(), model_b_resume.parameters()):
+    for p_a, p_b in zip(model_a.parameters(), model_b_resume.parameters(), strict=False):
         assert torch.allclose(p_a, p_b, atol=1e-6), "Parameters diverge after resume"
 
 
@@ -223,7 +224,7 @@ def test_kill_and_resume_with_grad_accumulation(tmp_path):
     trainer_b2 = Trainer(model_b_res, cfg_b2, train_loader=loader_b2)
     trainer_b2.train()
 
-    for p_a, p_b in zip(model_a.parameters(), model_b_res.parameters()):
+    for p_a, p_b in zip(model_a.parameters(), model_b_res.parameters(), strict=False):
         assert torch.allclose(p_a, p_b, atol=1e-6), "Param mismatch with grad accum"
 
 
@@ -320,7 +321,7 @@ def test_atomic_saving_resilience_to_failure(tmp_path, monkeypatch):
 
     # Simulate crash during 2nd save
     def crashing_save(*args, **kwargs):
-        raise IOError("Disk full or simulated crash!")
+        raise OSError("Disk full or simulated crash!")
 
     monkeypatch.setattr(torch, "save", crashing_save)
 

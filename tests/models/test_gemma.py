@@ -1,7 +1,8 @@
 import torch
-from tests._test_utils import _checkpoint
+
 from stackformer import gemma_1_2b
 from stackformer.models.gemma import gemma_1_7b
+from tests._test_utils import _checkpoint
 
 
 @torch.no_grad()

@@ -14,7 +14,7 @@ import shutil
 import warnings
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -128,11 +128,11 @@ class CheckpointManager:
         self,
         model: nn.Module,
         train_state: TrainState,
-        optimizer: Optional[torch.optim.Optimizer] = None,
-        scheduler: Optional[Any] = None,
-        scaler: Optional[Any] = None,
-        config: Optional[Any] = None,
-        metrics: Optional[dict[str, float]] = None,
+        optimizer: torch.optim.Optimizer | None = None,
+        scheduler: Any | None = None,
+        scaler: Any | None = None,
+        config: Any | None = None,
+        metrics: dict[str, float] | None = None,
     ) -> Path:
         """Atomically save training state, weights, and metadata.
 
@@ -269,7 +269,7 @@ class CheckpointManager:
             f.write(dir_name.strip() + "\n")
         temp_latest.replace(self.checkpoint_dir / "latest")
 
-    def latest(self) -> Optional[Path]:
+    def latest(self) -> Path | None:
         """Retrieve path to the most recent checkpoint directory, or None if none exist."""
         latest_file = self.checkpoint_dir / "latest"
         if latest_file.exists():
@@ -318,9 +318,9 @@ class CheckpointManager:
     def load(
         self,
         path: str | Path | None = "auto",
-        model: Optional[nn.Module] = None,
-        optimizer: Optional[torch.optim.Optimizer] = None,
-    ) -> Optional[dict[str, Any]]:
+        model: nn.Module | None = None,
+        optimizer: torch.optim.Optimizer | None = None,
+    ) -> dict[str, Any] | None:
         """Load checkpoint state dictionary from specific path or 'auto' for latest.
 
         Args:
@@ -369,11 +369,11 @@ class CheckpointManager:
         self,
         model: nn.Module,
         train_state: TrainState,
-        metrics: Optional[dict[str, float]] = None,
-        optimizer: Optional[torch.optim.Optimizer] = None,
-        scheduler: Optional[Any] = None,
-        scaler: Optional[Any] = None,
-        config: Optional[Any] = None,
+        metrics: dict[str, float] | None = None,
+        optimizer: torch.optim.Optimizer | None = None,
+        scheduler: Any | None = None,
+        scaler: Any | None = None,
+        config: Any | None = None,
     ) -> Path:
         """Save best-performing checkpoint into the dedicated 'best/' directory.
 

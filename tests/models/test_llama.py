@@ -1,8 +1,9 @@
 import pytest
 import torch
-from tests._test_utils import _checkpoint
+
 from stackformer import llama_1
 from stackformer.models.llama import llama_2
+from tests._test_utils import _checkpoint
 
 
 def test_llama_1_forward_grad_and_generate(torch_device):

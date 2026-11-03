@@ -1,7 +1,7 @@
 import torch
-from tests._test_utils import _checkpoint
 
 from stackformer import GPT_1
+from tests._test_utils import _checkpoint
 
 
 def test_minimal_training_loop_runs_and_updates_weights(torch_device):

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from stackformer.training.loggers.base import Logger, is_rank_zero
 
@@ -15,9 +15,9 @@ class WandbLogger(Logger):
 
     def __init__(
         self,
-        project: Optional[str] = None,
-        name: Optional[str] = None,
-        config: Optional[dict[str, Any]] = None,
+        project: str | None = None,
+        name: str | None = None,
+        config: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
         try:

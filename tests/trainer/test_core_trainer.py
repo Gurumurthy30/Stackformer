@@ -1,13 +1,14 @@
 """Tests for Step 2: Core Trainer on CPU (no distribution)."""
 
 import copy
+
 import pytest
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
 from stackformer import GPT2, ModelConfig
-from stackformer.training import Trainer, TrainConfig
+from stackformer.training import TrainConfig, Trainer
 from stackformer.training.losses import get_loss, register_loss
 
 
@@ -41,7 +42,8 @@ def test_loss_registry_by_name():
 
 
 def test_loss_registry_by_callable():
-    custom_fn = lambda out, batch: (out - batch[1]).abs().mean()
+    def custom_fn(out, batch):
+        return (out - batch[1]).abs().mean()
     resolved = get_loss(custom_fn)
     assert resolved is custom_fn
 
@@ -174,7 +176,7 @@ def test_loss_parity_with_plain_pytorch_loop(tmp_path):
     trainer.train()
 
     # Compare parameters
-    for p_a, p_b in zip(model_a.parameters(), model_b.parameters()):
+    for p_a, p_b in zip(model_a.parameters(), model_b.parameters(), strict=False):
         assert torch.allclose(p_a, p_b, atol=1e-5), "Parameter mismatch after training"
 
 
@@ -307,7 +309,7 @@ def test_gradient_accumulation_parity(tmp_path):
     trainer = Trainer(model_accum, cfg, train_loader=loader, optimizer=opt_accum)
     trainer.train()
 
-    for p1, p2 in zip(model_single.parameters(), model_accum.parameters()):
+    for p1, p2 in zip(model_single.parameters(), model_accum.parameters(), strict=False):
         assert torch.allclose(p1, p2, atol=1e-5), "Gradient accumulation mismatch"
 
 

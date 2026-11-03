@@ -1,9 +1,9 @@
 import torch
-from tests._test_utils import _checkpoint
 
 from stackformer.modules.attention import Multi_Head_Attention
 from stackformer.modules.feed_forward import FF_GELU
 from stackformer.modules.position_embedding import AbsolutePositionEmbedding
+from tests._test_utils import _checkpoint
 
 
 def test_embedding_position_attention_ff_pipeline_end_to_end(torch_device):

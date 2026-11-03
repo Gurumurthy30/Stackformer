@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import abc
 from typing import Any
+
 import torch
 
 
 def _extract_target(batch: Any) -> torch.Tensor:
     """Helper to extract target tensor from a batch."""
-    if isinstance(batch, (tuple, list)):
+    if isinstance(batch, tuple | list):
         if len(batch) >= 2:
             return batch[1]
         elif len(batch) == 1:
@@ -28,7 +29,7 @@ def _extract_predictions(outputs: Any) -> torch.Tensor:
     """Helper to extract predictions tensor from model outputs."""
     if isinstance(outputs, torch.Tensor):
         return outputs
-    if isinstance(outputs, (tuple, list)):
+    if isinstance(outputs, tuple | list):
         return outputs[0]
     if hasattr(outputs, "logits"):
         return outputs.logits
@@ -67,6 +68,6 @@ class Metric(abc.ABC):
     def _sync(self) -> None:
         """Synchronize metric tensor accumulators across distributed workers."""
         if torch.distributed.is_available() and torch.distributed.is_initialized():
-            for attr_name, val in self.__dict__.items():
+            for _attr_name, val in self.__dict__.items():
                 if isinstance(val, torch.Tensor):
                     torch.distributed.all_reduce(val, op=torch.distributed.ReduceOp.SUM)

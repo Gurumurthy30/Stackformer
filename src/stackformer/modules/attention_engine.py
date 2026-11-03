@@ -7,7 +7,8 @@ Provides wrappers around PyTorch SDPA and FlexAttention, along with the high-lev
 from __future__ import annotations
 
 from collections import OrderedDict
-from typing import Any, Callable, Dict, Literal, Optional
+from collections.abc import Callable
+from typing import Any, Literal
 
 import torch
 import torch.nn.functional as F
@@ -35,7 +36,7 @@ def _run_sdpa(
     attn_mask: torch.Tensor | None,
     dropout_p: float = 0.0,
     is_causal: bool = False,
-    scale: Optional[float] = None,
+    scale: float | None = None,
     enable_gqa: bool = False,
 ) -> torch.Tensor:
     """Wrapper around PyTorch's scaled dot-product attention (SDPA).
@@ -53,7 +54,7 @@ def _run_sdpa(
     Returns:
         torch.Tensor: Output tensor of shape `(B, H, T, D)`.
     """
-    kwargs: Dict[str, Any] = {
+    kwargs: dict[str, Any] = {
         "attn_mask": attn_mask,
         "dropout_p": dropout_p,
         "is_causal": is_causal,
@@ -70,12 +71,12 @@ def _run_flex_attention(
     query: torch.Tensor,
     key: torch.Tensor,
     value: torch.Tensor,
-    score_mod: Optional[Callable] = None,
+    score_mod: Callable | None = None,
     block_mask: Any = None,
-    scale: Optional[float] = None,
+    scale: float | None = None,
     enable_gqa: bool = False,
     return_lse: bool = False,
-    kernel_options: Optional[Dict[str, Any]] = None,
+    kernel_options: dict[str, Any] | None = None,
 ) -> torch.Tensor:
     """Wrapper around PyTorch FlexAttention backend."""
     if flex_attention is None:
@@ -99,15 +100,15 @@ def _run_attention(
     k: torch.Tensor = None,
     v: torch.Tensor = None,
     mask_type: MaskSpec = None,
-    seq_len: Optional[int] = None,
+    seq_len: int | None = None,
     device: torch.device | str | None = None,
-    cache: Optional[OrderedDict] = None,
+    cache: OrderedDict | None = None,
     dropout_p: float = 0.0,
     combine: Literal["or", "and"] = "or",
-    score_mod: Optional[Callable] = None,
-    scale: Optional[float] = None,
+    score_mod: Callable | None = None,
+    scale: float | None = None,
     enable_gqa: bool = False,
-    mask_kwargs: Optional[Dict[str, Any]] = None,
+    mask_kwargs: dict[str, Any] | None = None,
     attn_mask: Any = None,
 ) -> torch.Tensor:
     """Dispatch attention computation to SDPA or FlexAttention backend based on `backend`.

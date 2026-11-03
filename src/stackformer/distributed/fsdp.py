@@ -10,15 +10,16 @@
 from __future__ import annotations
 
 import logging
+
 import torch
-import torch.nn as nn
 import torch.distributed as dist
+import torch.nn as nn
 from torch.distributed.device_mesh import DeviceMesh
 from torch.distributed.fsdp import (
     CPUOffloadPolicy,
-    fully_shard,
     MixedPrecisionPolicy,
     OffloadPolicy,
+    fully_shard,
 )
 
 from .utils import is_distributed_initialized

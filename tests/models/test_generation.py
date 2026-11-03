@@ -1,10 +1,10 @@
 import pytest
 import torch
 import torch.nn as nn
-from tests._test_utils import _checkpoint
 
 from stackformer import GPT_1, GPT_2, gemma_1_2b, llama_1
 from stackformer.generate import text_generate
+from tests._test_utils import _checkpoint
 
 
 @pytest.mark.parametrize("model_cls", [GPT_1, GPT_2, gemma_1_2b, llama_1])

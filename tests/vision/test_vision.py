@@ -1,15 +1,17 @@
 import pytest
 import torch
-from tests._test_utils import _checkpoint
 
-from stackformer.vision.vit import ViT
 from stackformer.vision.segformer import (
-    SegFormer,
     Encoder,
+    SegFormer,
     patch,
     transformer_block,
+)
+from stackformer.vision.segformer import (
     Multi_Head_Attention as SegFormerMHA,
 )
+from stackformer.vision.vit import ViT
+from tests._test_utils import _checkpoint
 
 
 def test_vit_forward(torch_device):

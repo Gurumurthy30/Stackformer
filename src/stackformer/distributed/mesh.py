@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "MeshAxisName",
     "ParallelDims",
-    "unfold_dp_axis",
     "unfold_dp_axes",
+    "unfold_dp_axis",
 ]
 
 

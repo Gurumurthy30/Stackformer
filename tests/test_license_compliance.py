@@ -1,10 +1,11 @@
 """License compliance and attribution verification tests for Stackformer."""
 
 import importlib
-from pathlib import Path
 import subprocess
 import tarfile
 import zipfile
+from pathlib import Path
+
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent

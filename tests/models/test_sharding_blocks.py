@@ -20,7 +20,6 @@ from stackformer.models.base import BaseModel
 from stackformer.training import TrainConfig, Trainer
 from stackformer.vision import SegFormer, ViT
 
-
 # =====================================================================
 # 1. Sharding Blocks Structure and Parameter Coverage
 # =====================================================================

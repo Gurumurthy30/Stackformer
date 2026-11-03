@@ -3,6 +3,7 @@
 import csv
 import json
 from pathlib import Path
+
 import pytest
 import torch
 import torch.nn as nn
@@ -10,7 +11,7 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from stackformer.config import ModelConfig
 from stackformer.models import GPT2
-from stackformer.training import Trainer, TrainConfig
+from stackformer.training import TrainConfig, Trainer
 from stackformer.training.callbacks import Callback, EarlyStopping, LRMonitor
 from stackformer.training.loggers import CSVLogger
 from stackformer.training.metrics import Accuracy, Perplexity
@@ -146,7 +147,7 @@ def test_lr_monitor_records_scheduled_lr(tmp_path):
 
     csv_file = tmp_path / "lr_log.csv"
     assert csv_file.exists()
-    with open(csv_file, "r", encoding="utf-8") as f:
+    with open(csv_file, encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
 
     assert len(rows) > 0
@@ -196,7 +197,7 @@ def test_integration_gpt2_metrics_and_best_model(tmp_path):
     # Verify log CSV contains val_perplexity
     csv_file = tmp_path / "logs" / "gpt_train.csv"
     assert csv_file.exists()
-    with open(csv_file, "r", encoding="utf-8") as f:
+    with open(csv_file, encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
     assert any("val_perplexity" in r for r in rows)
 

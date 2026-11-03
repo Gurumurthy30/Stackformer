@@ -5,9 +5,9 @@ import torch.nn as nn
 from stackformer.config import ModelConfig
 from stackformer.models import (
     BERT,
-    BaseModel,
     GPT1,
     GPT2,
+    BaseModel,
     Gemma1_2B,
     Gemma1_7B,
     Llama1,

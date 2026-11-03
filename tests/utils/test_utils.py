@@ -1,7 +1,6 @@
-from tests._test_utils import _checkpoint
-
 from stackformer import GenerationConfig, ModelConfig, text_generate
 from stackformer.utils import count_parameters, get_device, seed_everything
+from tests._test_utils import _checkpoint
 
 
 def test_module_exports_imports():

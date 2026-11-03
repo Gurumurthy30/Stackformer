@@ -3,12 +3,13 @@
 import csv
 import json
 from pathlib import Path
+
 import pytest
 import torch
 
 from stackformer.training.loggers import (
-    CSVLogger,
     ConsoleLogger,
+    CSVLogger,
     JSONLLogger,
     TensorBoardLogger,
     WandbLogger,
@@ -33,7 +34,7 @@ def test_csv_logger_lifecycle_and_append(tmp_path):
     csv_file = log_dir / "run.csv"
     assert csv_file.exists()
 
-    with open(csv_file, "r", encoding="utf-8") as f:
+    with open(csv_file, encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
 
     assert len(rows) == 2
@@ -47,7 +48,7 @@ def test_csv_logger_lifecycle_and_append(tmp_path):
     logger2.log_metrics({"train_loss": 1.8, "lr": 8e-4}, step=3)
     logger2.finish()
 
-    with open(csv_file, "r", encoding="utf-8") as f:
+    with open(csv_file, encoding="utf-8") as f:
         rows_resumed = list(csv.DictReader(f))
 
     assert len(rows_resumed) == 3
@@ -66,7 +67,7 @@ def test_jsonl_logger_lifecycle_and_append(tmp_path):
     jsonl_file = log_dir / "run.jsonl"
     assert jsonl_file.exists()
 
-    with open(jsonl_file, "r", encoding="utf-8") as f:
+    with open(jsonl_file, encoding="utf-8") as f:
         records = [json.loads(line) for line in f]
 
     assert len(records) == 2
@@ -81,7 +82,7 @@ def test_jsonl_logger_lifecycle_and_append(tmp_path):
     logger2.log_metrics({"val_loss": 1.2, "val_acc": 0.82}, step=10)
     logger2.finish()
 
-    with open(jsonl_file, "r", encoding="utf-8") as f:
+    with open(jsonl_file, encoding="utf-8") as f:
         records_resumed = [json.loads(line) for line in f]
 
     assert len(records_resumed) == 3

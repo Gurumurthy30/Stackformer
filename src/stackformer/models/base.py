@@ -31,7 +31,7 @@ def resolve_model_config(
     resolved = dict(kwargs)
 
     if first_arg is not None:
-        if isinstance(first_arg, (int, float, str, bool)):
+        if isinstance(first_arg, int | float | str | bool):
             pass
         elif (
             hasattr(first_arg, "__dict__") or hasattr(first_arg, "__dataclass_fields__") or isinstance(first_arg, dict)
@@ -105,7 +105,7 @@ class BaseModel(nn.Module):
         Args:
             module (nn.Module): Module currently visited during recursion.
         """
-        if isinstance(module, (nn.Linear, nn.Conv1d, nn.Conv2d, nn.Conv3d)):
+        if isinstance(module, nn.Linear | nn.Conv1d | nn.Conv2d | nn.Conv3d):
             if not module.weight.is_meta:
                 nn.init.normal_(module.weight, mean=0.0, std=0.02)
             if module.bias is not None and not module.bias.is_meta:
@@ -116,7 +116,7 @@ class BaseModel(nn.Module):
             if module.padding_idx is not None and not module.weight.is_meta:
                 with torch.no_grad():
                     module.weight[module.padding_idx].fill_(0)
-        elif isinstance(module, (nn.LayerNorm, nn.BatchNorm1d, nn.BatchNorm2d, nn.GroupNorm)):
+        elif isinstance(module, nn.LayerNorm | nn.BatchNorm1d | nn.BatchNorm2d | nn.GroupNorm):
             if module.weight is not None and not module.weight.is_meta:
                 nn.init.ones_(module.weight)
             if module.bias is not None and not module.bias.is_meta:
@@ -144,7 +144,7 @@ class BaseModel(nn.Module):
             # Ensure Stackformer custom LayerNorm / RMSNorm are initialized (weight=1, bias=0)
             # even when subclasses override _init_weights with checks restricted to nn.LayerNorm.
             for m in self.modules():
-                if hasattr(m, "eps") and hasattr(m, "weight") and not isinstance(m, (nn.Linear, nn.Embedding)):
+                if hasattr(m, "eps") and hasattr(m, "weight") and not isinstance(m, nn.Linear | nn.Embedding):
                     if m.weight is not None and not m.weight.is_meta:
                         nn.init.ones_(m.weight)
                     if hasattr(m, "bias") and m.bias is not None and not m.bias.is_meta:
@@ -247,7 +247,7 @@ class BaseModel(nn.Module):
         for attr in ["layers", "blocks", "stages"]:
             if hasattr(self, attr):
                 val = getattr(self, attr)
-                if isinstance(val, (nn.ModuleList, nn.Sequential)) and len(val) > 0:
+                if isinstance(val, nn.ModuleList | nn.Sequential) and len(val) > 0:
                     return list(val)
 
         # 2. Nested backbone / encoder / segformer paths
@@ -257,7 +257,7 @@ class BaseModel(nn.Module):
                 for attr in ["layers", "blocks", "stages"]:
                     if hasattr(container, attr):
                         val = getattr(container, attr)
-                        if isinstance(val, (nn.ModuleList, nn.Sequential)) and len(val) > 0:
+                        if isinstance(val, nn.ModuleList | nn.Sequential) and len(val) > 0:
                             return list(val)
 
         # 3. Dynamic scan across all ModuleLists for repeating layers

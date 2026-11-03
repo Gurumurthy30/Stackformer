@@ -5,10 +5,11 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+
 import pytest
 import torch
-import torch.nn as nn
 import torch.distributed as dist
+import torch.nn as nn
 
 from stackformer.distributed.dcp import dcp_to_state_dict, load_dcp, save_dcp
 from stackformer.distributed.ddp import apply_ddp
@@ -24,7 +25,6 @@ from stackformer.training.checkpoint import CheckpointManager, clean_state_dict,
 from stackformer.training.config import TrainConfig
 from stackformer.training.launcher import launch
 from stackformer.training.state import TrainState
-
 
 # ==============================================================================
 # Top-level helper models and functions for multi-process worker spawning

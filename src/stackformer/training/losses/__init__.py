@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import functools
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
+
 import torch
 import torch.nn.functional as F
 
@@ -47,7 +49,7 @@ def get_loss(
 
 def _extract_target(batch: Any) -> torch.Tensor:
     """Helper to extract target labels or values from a batch."""
-    if isinstance(batch, (tuple, list)):
+    if isinstance(batch, tuple | list):
         if len(batch) >= 2:
             return batch[1]
         elif len(batch) == 1:
@@ -215,10 +217,9 @@ def focal_loss(
 def seg_cross_entropy_loss(outputs: torch.Tensor, batch: Any, ignore_index: int = -100) -> torch.Tensor:
     """Segmentation cross entropy with automatic 2D spatial upsampling if needed."""
     targets = _extract_target(batch)
-    if outputs.ndim == 4 and targets.ndim == 3:
-        # Spatial dimensions mismatch (e.g. SegFormer 1/4 resolution decode head)
-        if outputs.shape[-2:] != targets.shape[-2:]:
-            outputs = F.interpolate(outputs, size=targets.shape[-2:], mode="bilinear", align_corners=False)
+    # Spatial dimensions mismatch (e.g. SegFormer 1/4 resolution decode head)
+    if outputs.ndim == 4 and targets.ndim == 3 and outputs.shape[-2:] != targets.shape[-2:]:
+        outputs = F.interpolate(outputs, size=targets.shape[-2:], mode="bilinear", align_corners=False)
     return F.cross_entropy(outputs, targets, ignore_index=ignore_index)
 
 

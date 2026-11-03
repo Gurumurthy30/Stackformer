@@ -1,7 +1,7 @@
 import torch
-from tests._test_utils import _checkpoint
 
 from stackformer import GPT_2
+from tests._test_utils import _checkpoint
 
 SEQ = 6
 EMB = 8

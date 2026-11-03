@@ -47,15 +47,15 @@ Quick start:
     >>> y = gqa(torch.randn(2, 32, 256))
 """
 
+from collections import OrderedDict
 from typing import Literal
 
 import torch
 import torch.nn as nn
-from collections import OrderedDict
-from stackformer.modules.masks import _get_attention_mask, _get_block_mask
-from stackformer.modules.attention_engine import _run_attention
-from stackformer.cache import StaticKVCache
 
+from stackformer.cache import StaticKVCache
+from stackformer.modules.attention_engine import _run_attention
+from stackformer.modules.masks import _get_attention_mask, _get_block_mask
 
 _ROPE_FREQ_CACHE: dict[tuple[int, int, str, torch.dtype, float], torch.Tensor] = {}
 
@@ -1275,7 +1275,7 @@ class kv_cache_multihead(nn.Module):
     ):
         B, T, C = x.shape
 
-        assert C == self.embed_dim, "Input embed_dim mismatch"
+        assert self.embed_dim == C, "Input embed_dim mismatch"
         end_pos = start_pos + T
         assert end_pos <= self.kv_seq_len, (
             f"KV cache capacity exceeded: start_pos={start_pos} + T={T} = {end_pos} > cache length {self.kv_seq_len}"
@@ -1444,7 +1444,7 @@ class kv_cache_group_query(nn.Module):
 
     def forward(self, x, start_pos=0, mask=True, rope=True, theta: float = 10000.0):
         B, T, C = x.shape
-        assert C == self.embed_dim, "Input embed_dim mismatch"
+        assert self.embed_dim == C, "Input embed_dim mismatch"
         end_pos = start_pos + T
         assert end_pos <= self.kv_seq_len, (
             f"KV cache capacity exceeded: start_pos={start_pos} + T={T} = {end_pos} > cache length {self.kv_seq_len}"

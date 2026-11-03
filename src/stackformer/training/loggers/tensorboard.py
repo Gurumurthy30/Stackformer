@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from stackformer.training.loggers.base import Logger, is_rank_zero
 
@@ -14,7 +14,7 @@ class TensorBoardLogger(Logger):
     Raises an informative ImportError upon instantiation if `tensorboard` is not installed.
     """
 
-    def __init__(self, log_dir: Optional[str | Path] = None, **kwargs: Any) -> None:
+    def __init__(self, log_dir: str | Path | None = None, **kwargs: Any) -> None:
         try:
             from torch.utils.tensorboard import SummaryWriter
         except ImportError as e:
@@ -30,7 +30,7 @@ class TensorBoardLogger(Logger):
         if self.writer is None or not is_rank_zero():
             return
         for tag, val in metrics.items():
-            if isinstance(val, (int, float)):
+            if isinstance(val, int | float):
                 self.writer.add_scalar(tag, val, global_step=step)
 
     def log_text(self, tag: str, text: str, step: int) -> None:

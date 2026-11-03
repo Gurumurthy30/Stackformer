@@ -227,7 +227,7 @@ def get_peak_flops(device_name: str) -> float:
         return 362e12
     elif "neuron" in device_name:
         # AWS Trainium/Inferentia: query chip type via torch.neuron
-        # TensorEngine BF16 TFLOPS per NeuronCore × default Logical NeuronCore (LNC) count per device
+        # TensorEngine BF16 TFLOPS per NeuronCore * default Logical NeuronCore (LNC) count per device
         neuron_device_name = device_module.get_device_properties().name
         if neuron_device_name in ("trn1", "trn1n", "inf2"):
             # NeuronCore-v2 TensorEngine: 90 BF16 TFLOPS/core, LNC=1

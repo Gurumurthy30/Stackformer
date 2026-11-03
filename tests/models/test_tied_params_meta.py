@@ -1,6 +1,7 @@
-import torch
 import pytest
-from stackformer.models import GPT2, BERT, RoBERTa, Llama2
+import torch
+
+from stackformer.models import BERT, GPT2, Llama2, RoBERTa
 
 
 def test_get_tied_params_meta_tensors_skipped():

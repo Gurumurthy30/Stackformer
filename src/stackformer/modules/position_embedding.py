@@ -9,6 +9,7 @@ Provides positional embedding strategies:
 from __future__ import annotations
 
 import math
+
 import torch
 import torch.nn as nn
 
@@ -121,7 +122,7 @@ class SinusoidalPositionalEmbedding(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x: (B, T, C)
         B, T = x.shape[:2]
-        if T > self.pe.size(0):
+        if self.pe.size(0) < T:
             raise ValueError(f"Sequence length {T} exceeds maximum {self.pe.size(0)}.")
         return self.pe[:T].unsqueeze(0).expand(B, T, -1)  # (B, T, C)
 
@@ -204,7 +205,7 @@ class RoPE(nn.Module):
         x_r = x.reshape(B, H, T, D // 2, 2)
         x_complex = torch.view_as_complex(x_r.float())  # (B, H, T, D // 2)
 
-        if T > self.freq_complex.size(0):
+        if self.freq_complex.size(0) < T:
             raise ValueError(f"Sequence length {T} exceeds maximum {self.freq_complex.size(0)}.")
         freqs = self.freq_complex[:T].unsqueeze(0).unsqueeze(0)  # (1, 1, T, D // 2)
         freqs = freqs.to(x_complex)
