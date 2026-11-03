@@ -13,13 +13,12 @@ logger = logging.getLogger(__name__)
 
 
 def apply_model_transformations(model: nn.Module, config: TrainConfig) -> nn.Module:
-    """Apply model transformations in fixed order: TP -> AC -> compile -> FSDP2.
+    """Apply model transformations in fixed order: AC -> compile -> DDP/FSDP2.
 
     Order is strictly enforced:
-        1. TP (Tensor Parallelism): shards linear projections / attention across ranks
-        2. AC (Activation Checkpointing): wraps repeating layer blocks
-        3. torch.compile: compiles blocks or full module (with TP communication hooks if active)
-        4. FSDP2 (Fully Sharded Data Parallel): shards parameters across data parallel ranks
+        1. AC (Activation Checkpointing): wraps repeating layer blocks
+        2. torch.compile: compiles blocks or full module
+        3. DDP / FSDP2 (Data Parallelism): wraps with DDP or shards parameters across FSDP2 ranks
 
     Args:
         model: Original PyTorch nn.Module.
@@ -28,10 +27,7 @@ def apply_model_transformations(model: nn.Module, config: TrainConfig) -> nn.Mod
     Returns:
         nn.Module: Transformed model.
     """
-    # 1. TP (Tensor Parallelism)
-    # Reserved for Step 7 / Step 9 (torch parallelize_module)
-
-    # 2. Activation Checkpointing
+    # 1. Activation Checkpointing
     if getattr(config, "activation_checkpointing", "none") != "none":
         from stackformer.distributed.activation_checkpoint import apply_activation_checkpointing
 

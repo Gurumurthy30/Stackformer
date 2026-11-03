@@ -22,9 +22,6 @@ class TrainConfig:
         warmup_steps: Warmup steps for scheduler.
         loss: Loss function name or callable fn(outputs, batch) -> scalar.
         parallel: Parallelism strategy ("none", "ddp", "fsdp2").
-        tp_degree: Tensor parallel degree.
-        pp_degree: Pipeline parallel degree.
-        cp_degree: Context parallel degree.
         mixed_precision: Precision mode ("no", "fp16", "bf16").
         activation_checkpointing: AC strategy ("none", "selective", "full").
         compile: Whether to torch.compile the model blocks.
@@ -56,9 +53,6 @@ class TrainConfig:
     loss: str | Callable[[Any, Any], torch.Tensor] = "cross_entropy"
     loss_mode: str = "auto"
     parallel: str = "none"
-    tp_degree: int = 1
-    pp_degree: int = 1
-    cp_degree: int = 1
     mixed_precision: str = "no"
     activation_checkpointing: str = "none"
     compile: bool = False

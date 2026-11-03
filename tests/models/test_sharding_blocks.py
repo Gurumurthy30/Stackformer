@@ -133,13 +133,6 @@ def test_base_model_auto_detection_and_fallback():
         mono.get_sharding_blocks()
 
 
-def test_tp_plan_and_pipeline_stages_defaults():
-    """Verify default implementations return None on BaseModel."""
-    gpt = GPT2(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16)
-    assert gpt.get_tp_plan() is None
-    assert gpt.get_pipeline_stages() is None
-
-
 # =====================================================================
 # 2. Five-Step Training Loss Decrease Tests for Every Model Family
 # =====================================================================

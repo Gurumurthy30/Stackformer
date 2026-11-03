@@ -49,21 +49,17 @@ def apply_compile(
     compile_mode: str | None = None,
     backend: str = "inductor",
     per_block: bool = True,
-    tp_enabled: bool = False,
-    tp_mesh: Any | None = None,
 ) -> nn.Module:
     """Apply torch.compile to repeating blocks or the full model.
 
-    Applied after Tensor Parallelism (TP) and Activation Checkpointing (AC),
-    and before FSDP2 in the distributed execution pipeline.
+    Applied after Activation Checkpointing (AC) and before DDP/FSDP2 in the
+    distributed execution pipeline.
 
     Args:
         model: PyTorch nn.Module architecture.
         compile_mode: Optional compilation optimization mode ("default", "reduce-overhead", "max-autotune").
         backend: PyTorch compiler backend (default: "inductor").
         per_block: Whether to compile individual repeating blocks rather than the entire module.
-        tp_enabled: Hook for async Tensor Parallelism support.
-        tp_mesh: DeviceMesh instance for TP communication if enabled.
 
     Returns:
         nn.Module: Compiled PyTorch module.
@@ -80,14 +76,6 @@ def apply_compile(
         torch._dynamo.config.skip_fwd_side_effects_in_bwd_under_checkpoint = True
     except Exception:
         pass
-
-    # Async TP hook for future multi-GPU sharding (Step 7 / Step 9)
-    if tp_enabled and tp_mesh is not None:
-        try:
-            torch._inductor.config._micro_pipeline_tp = True
-            logger.info("Async Tensor Parallelism compilation enabled.")
-        except Exception:
-            pass
 
     if per_block and hasattr(model, "get_sharding_blocks") and callable(model.get_sharding_blocks):
         blocks = model.get_sharding_blocks()

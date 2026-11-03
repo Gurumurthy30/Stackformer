@@ -80,7 +80,7 @@ def apply_activation_checkpointing(
 ) -> nn.Module:
     """Apply activation checkpointing to repeating layer blocks of the model.
 
-    Applied after Tensor Parallelism (TP) and before torch.compile and FSDP2 in the
+    Applied before torch.compile and FSDP2/DDP in the
     distributed initialization pipeline.
 
     Args:

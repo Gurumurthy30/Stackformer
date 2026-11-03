@@ -75,7 +75,7 @@ def apply_fsdp(
 ) -> nn.Module:
     """Apply PyTorch 2.6 FSDP2 (fully_shard) across model repeating blocks and root module.
 
-    Applied in the distributed initialization order: TP -> AC -> compile -> FSDP2.
+    Applied in the distributed initialization order: AC -> compile -> DDP/FSDP2.
     Shards repeating blocks exposed via `model.get_sharding_blocks()`, followed by the root module.
 
     Args:

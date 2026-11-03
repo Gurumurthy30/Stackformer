@@ -25,7 +25,7 @@ The following items are designated release blockers to be verified once in a CUD
 3. **DCP to SafeTensors on a Sharded Model**:
    - Consolidate an FSDP2 DCP checkpoint directory into a single unsharded `model.safetensors` file and verify that `BaseModel.load_weights()` produces identical outputs.
 4. **Multi-GPU NCCL Distributed Runs**:
-   - Execute multi-GPU scaling tests under `backend="nccl"`, validating DDP, FSDP2, and Tensor Parallelism across physical GPU devices.
+   - Execute multi-GPU scaling tests under `backend="nccl"`, validating DDP and FSDP2 across physical GPU devices.
 
 ---
 
@@ -37,7 +37,6 @@ The following items are designated release blockers to be verified once in a CUD
 | **Vision GPU Tests** | `tests/vision/test_vision.py:test_vision_transformer_cuda` | Tests ViT / SegFormer on GPU. | Skipped (`CUDA unavailable`) |
 | **`torch.compile`** | `tests/trainer/test_step5_ac_compile_precision.py::test_compile_trainer_integration_smoke` | Requires Triton compiler and MSVC/C++ toolchain supported under Inductor. | Skipped (`triton/compiler unavailable`) |
 | **Selective-AC Memory** | Peak activation memory benchmarking with `torch.cuda.max_memory_allocated()` | Verifies that `activation_checkpointing="selective"` saves memory over `"none"` without full recompute overhead. | Verified analytically; requires CUDA for byte-level memory tracking |
-| **Async TP Overlap** | Tensor Parallelism + `torch.compile` communication-computation overlap | Requires NCCL asynchronous collective streams and Inductor compile. | Emulated on CPU |
 | **FP16 Mixed Precision** | `mixed_precision="fp16"` training loop | PyTorch `torch.amp.autocast('cpu', dtype=torch.float16)` is unsupported/unstable on CPU without hardware FP16; requires CUDA device. | Disallowed on CPU; requires CUDA |
 
 ---

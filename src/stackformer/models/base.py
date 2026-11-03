@@ -278,22 +278,6 @@ class BaseModel(nn.Module):
             "Please implement get_sharding_blocks() explicitly on this model architecture."
         )
 
-    def get_tp_plan(self) -> Any | None:
-        """Return Tensor Parallelism (TP) sharding plan for this model architecture.
-
-        Returns:
-            Any | None: Architecture-specific TP sharding plan or None if unsupported.
-        """
-        return None
-
-    def get_pipeline_stages(self) -> Any | None:
-        """Return Pipeline Parallelism (PP) stage definitions for this model architecture.
-
-        Returns:
-            Any | None: Architecture-specific PP pipeline stages or None if unsupported.
-        """
-        return None
-
     def get_block_groups(self) -> dict[str, list[nn.Module]]:
         """Return named groups of repeating blocks (e.g. encoder/decoder or stages).
 
