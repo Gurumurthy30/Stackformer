@@ -4,7 +4,8 @@ version = "0.1.10"
 description = "Modular transformer blocks built in PyTorch"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE*", "THIRD_PARTY_NOTICES.md"]
 
 authors = [
   { name = "Stackformer Labs", email = "stackformer.dev@gmail.com" }
