@@ -32,7 +32,7 @@ SOFTWARE.
 
 Stackformer contains code derived from [TorchTitan](https://github.com/pytorch/torchtitan) (Meta Platforms, Inc.), licensed under the BSD 3-Clause License.
 
-For detailed attribution and the full list of derived files, see [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md) and [`LICENSE-torchtitan`](../LICENSE-torchtitan).
+For detailed attribution and the full list of derived files, see [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md) and [`licenses/TORCHTITAN-BSD-3-Clause.txt`](../licenses/TORCHTITAN-BSD-3-Clause.txt).
 
 > **Disclaimer**: TorchTitan and PyTorch are trademarks or registered trademarks of Meta Platforms, Inc. Stackformer is an independent open-source project and is not affiliated with, endorsed by, or sponsored by Meta Platforms, Inc. or the TorchTitan project contributors.
 

@@ -61,11 +61,11 @@ def test_meta_bsd3_headers_in_derived_files():
 
 
 def test_notice_files_exist_and_contain_conditions_and_disclaimer():
-    """Verify LICENSE-torchtitan and THIRD_PARTY_NOTICES.md exist and contain required clauses."""
-    license_file = REPO_ROOT / "LICENSE-torchtitan"
+    """Verify TORCHTITAN-BSD-3-Clause.txt and THIRD_PARTY_NOTICES.md exist and contain required clauses."""
+    license_file = REPO_ROOT / "licenses" / "TORCHTITAN-BSD-3-Clause.txt"
     notices_file = REPO_ROOT / "THIRD_PARTY_NOTICES.md"
 
-    assert license_file.is_file(), "Missing LICENSE-torchtitan at repo root"
+    assert license_file.is_file(), "Missing TORCHTITAN-BSD-3-Clause.txt in licenses/"
     assert notices_file.is_file(), "Missing THIRD_PARTY_NOTICES.md at repo root"
 
     license_text = license_file.read_text(encoding="utf-8")
@@ -82,7 +82,7 @@ def test_notice_files_exist_and_contain_conditions_and_disclaimer():
         "3. Neither the name of the copyright holder nor the names of its contributors",
     ]
     for c in conditions:
-        assert c in license_text, f"Missing condition '{c}' in LICENSE-torchtitan"
+        assert c in license_text, f"Missing condition '{c}' in licenses/TORCHTITAN-BSD-3-Clause.txt"
         assert c in notices_text, f"Missing condition '{c}' in THIRD_PARTY_NOTICES.md"
 
     # Disclaimer
@@ -92,7 +92,7 @@ def test_notice_files_exist_and_contain_conditions_and_disclaimer():
 
 
 def test_wheel_and_sdist_license_distribution(tmp_path):
-    """Verify built wheel and sdist packages contain LICENSE-torchtitan and THIRD_PARTY_NOTICES.md."""
+    """Verify built wheel and sdist packages contain licenses/TORCHTITAN-BSD-3-Clause.txt and THIRD_PARTY_NOTICES.md."""
     try:
         import build
     except ImportError:
@@ -109,8 +109,11 @@ def test_wheel_and_sdist_license_distribution(tmp_path):
     assert len(wheels) == 1, "Expected exactly one wheel built"
     with zipfile.ZipFile(wheels[0]) as zf:
         namelist = zf.namelist()
-        assert any("LICENSE-torchtitan" in name for name in namelist), (
-            f"LICENSE-torchtitan not found in wheel: {namelist}"
+        assert any("LICENSE" in name for name in namelist), (
+            f"LICENSE not found in wheel: {namelist}"
+        )
+        assert any("TORCHTITAN-BSD-3-Clause.txt" in name for name in namelist), (
+            f"TORCHTITAN-BSD-3-Clause.txt not found in wheel: {namelist}"
         )
         assert any("THIRD_PARTY_NOTICES" in name for name in namelist), (
             f"THIRD_PARTY_NOTICES not found in wheel: {namelist}"
@@ -121,8 +124,11 @@ def test_wheel_and_sdist_license_distribution(tmp_path):
     assert len(sdists) == 1, "Expected exactly one sdist built"
     with tarfile.open(sdists[0]) as tf:
         namelist = tf.getnames()
-        assert any("LICENSE-torchtitan" in name for name in namelist), (
-            f"LICENSE-torchtitan not found in sdist: {namelist}"
+        assert any("LICENSE" in name for name in namelist), (
+            f"LICENSE not found in sdist: {namelist}"
+        )
+        assert any("TORCHTITAN-BSD-3-Clause.txt" in name for name in namelist), (
+            f"TORCHTITAN-BSD-3-Clause.txt not found in sdist: {namelist}"
         )
         assert any("THIRD_PARTY_NOTICES" in name for name in namelist), (
             f"THIRD_PARTY_NOTICES not found in sdist: {namelist}"

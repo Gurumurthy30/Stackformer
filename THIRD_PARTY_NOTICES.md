@@ -10,7 +10,7 @@ Stackformer contains code copied or derived from the third-party open-source pro
 - **Copyright**: (c) Meta Platforms, Inc. and affiliates.
 - **License**: BSD 3-Clause License
 - **Source Repository**: https://github.com/pytorch/torchtitan
-- **Full License Text**: See [`LICENSE-torchtitan`](./LICENSE-torchtitan)
+- **Full License Text**: See [`licenses/TORCHTITAN-BSD-3-Clause.txt`](licenses/TORCHTITAN-BSD-3-Clause.txt). The "LICENSE file" referenced in the headers of derived source files means that file.
 
 ### Derived Files in Stackformer
 The following files in Stackformer are derived or ported from TorchTitan:

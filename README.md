@@ -319,4 +319,4 @@ If you use Stackformer in your research or project, please cite:
 
 This project is licensed under the [MIT License](LICENSE).
 
-Stackformer contains code derived from [TorchTitan](https://github.com/pytorch/torchtitan) (Meta Platforms, Inc.), licensed under the BSD 3-Clause License. See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) and [`LICENSE-torchtitan`](LICENSE-torchtitan) for details. Stackformer is an independent project and is not affiliated with or endorsed by Meta Platforms, Inc.
+Stackformer contains code derived from [TorchTitan](https://github.com/pytorch/torchtitan) (Meta Platforms, Inc.), licensed under the BSD 3-Clause License. See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) and [`licenses/TORCHTITAN-BSD-3-Clause.txt`](licenses/TORCHTITAN-BSD-3-Clause.txt) for details. Stackformer is an independent project and is not affiliated with or endorsed by Meta Platforms, Inc.
