@@ -12,7 +12,9 @@ def _extract_target(batch: Any) -> torch.Tensor:
     if isinstance(batch, (tuple, list)):
         if len(batch) >= 2:
             return batch[1]
-        return batch[0]
+        elif len(batch) == 1:
+            return batch[0]
+        raise ValueError("Cannot extract target from empty batch sequence.")
     elif isinstance(batch, dict):
         for key in ["labels", "targets", "target", "label", "input_ids"]:
             if key in batch:

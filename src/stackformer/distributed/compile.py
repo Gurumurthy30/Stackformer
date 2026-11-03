@@ -10,6 +10,8 @@
 from __future__ import annotations
 
 import logging
+from typing import cast
+
 import torch
 import torch.nn as nn
 
@@ -77,11 +79,11 @@ def apply_compile(
     if per_block and hasattr(model, "get_sharding_blocks") and callable(model.get_sharding_blocks):
         blocks = model.get_sharding_blocks()
         for idx, block in enumerate(blocks):
-            compiled_block = torch.compile(block, mode=compile_mode, backend=backend)
+            compiled_block = cast(nn.Module, torch.compile(block, mode=compile_mode, backend=backend))
             _replace_module_in_parent(model, block, compiled_block)
         logger.info(f"Compiled {len(blocks)} blocks individually with mode={compile_mode}, backend={backend}.")
         return model
 
-    compiled_model = torch.compile(model, mode=compile_mode, backend=backend)
+    compiled_model = cast(nn.Module, torch.compile(model, mode=compile_mode, backend=backend))
     logger.info(f"Compiled full model with mode={compile_mode}, backend={backend}.")
     return compiled_model

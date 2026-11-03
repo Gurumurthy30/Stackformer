@@ -1,0 +1,40 @@
+name: Code Quality Pipeline
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Lint, Format, Types, Security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ".[dev,train]"
+
+      - name: Ruff Lint Check
+        run: python -m ruff check src/ tests/
+
+      - name: Ruff Formatting Check
+        run: python -m ruff format --check src/ tests/
+
+      - name: Pyright Baseline Type Check
+        run: python scripts/check_pyright.py
+
+      - name: Bandit Security Scan
+        run: python -m bandit -r src/stackformer -ll -ii
+
+      - name: Vulture Dead Code Analysis (Report Only)
+        if: always()
+        run: python -m vulture src/stackformer --min-confidence 80 --exclude src/stackformer/torchtitan || true

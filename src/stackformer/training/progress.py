@@ -18,7 +18,7 @@ class ProgressBar:
         enabled: bool = True,
     ) -> None:
         self.enabled = enabled
-        self.total = total if total is not None else (len(iterable) if hasattr(iterable, "__len__") else None)
+        self.total = total if total is not None else (len(iterable) if hasattr(iterable, "__len__") else None)  # type: ignore[arg-type]
         self.desc = desc
         self.iterable = iterable
         self._tqdm_inst = None

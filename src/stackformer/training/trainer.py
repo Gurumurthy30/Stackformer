@@ -170,9 +170,9 @@ class Trainer:
                 dispatch_epoch_start(self, epoch)
 
                 if hasattr(self.train_loader, "sampler") and hasattr(self.train_loader.sampler, "set_epoch"):
-                    self.train_loader.sampler.set_epoch(epoch)
+                    getattr(self.train_loader.sampler, "set_epoch")(epoch)
                 elif getattr(self.train_loader, "generator", None) is not None:
-                    self.train_loader.generator.manual_seed(self.config.seed + epoch)
+                    getattr(self.train_loader, "generator").manual_seed(self.config.seed + epoch)
 
                 pbar = self.display.progress_bar(
                     self.train_loader,

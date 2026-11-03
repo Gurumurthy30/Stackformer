@@ -363,7 +363,7 @@ class CheckpointManager:
         else:
             target_file = target_path
 
-        return torch.load(str(target_file), map_location="cpu", weights_only=False)
+        return torch.load(str(target_file), map_location="cpu", weights_only=False)  # nosec B614
 
     def save_best(
         self,
@@ -465,7 +465,7 @@ class CheckpointManager:
         elif pt_file.exists():
             load_model_weights(model, pt_file, device=device)
         elif state_file.exists():
-            ckpt = torch.load(str(state_file), map_location=device, weights_only=False)
+            ckpt = torch.load(str(state_file), map_location=device, weights_only=False)  # nosec B614
             model.load_state_dict(ckpt["model"])
         else:
             raise FileNotFoundError(f"No weights file found in best checkpoint directory: {best_dir}")

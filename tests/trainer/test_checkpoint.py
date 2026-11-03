@@ -399,3 +399,22 @@ def test_checkpoint_manager_warns_and_falls_back_when_safetensors_missing(tmp_pa
 
     assert saved_dir.exists()
     assert (saved_dir / "model.pt").exists()
+
+
+def test_state_pt_weights_only_behavior(tmp_path):
+    """Test why state.pt requires weights_only=False while weights are stored safely in model.safetensors."""
+    mgr = CheckpointManager(checkpoint_dir=tmp_path)
+    model = create_tiny_model()
+    st = TrainState(epoch=1, global_step=5)
+    opt = torch.optim.Adam(model.parameters(), lr=1e-3)
+    ckpt_dir = mgr.save(model, st, optimizer=opt)
+    state_file = ckpt_dir / "state.pt"
+
+    assert state_file.exists()
+    # Loading state.pt with weights_only=False succeeds and recovers full optimizer and train state
+    loaded = torch.load(str(state_file), map_location="cpu", weights_only=False)
+    assert "model" in loaded
+    assert "optimizer" in loaded
+    assert "rng" in loaded
+    assert "train_state" in loaded
+    assert (ckpt_dir / "model.safetensors").exists(), "Zero-copy safe model weights must be stored as safetensors"

@@ -38,8 +38,8 @@ def forward_batch(model: nn.Module, batch: Any) -> Any:
         return model(**batch)
 
     elif isinstance(batch, (tuple, list)):
-        if len(batch) >= 2:
+        if len(batch) >= 1:
             return model(batch[0])
-        return model(batch[0])
+        raise ValueError("Cannot forward empty batch sequence to model.")
 
     return model(batch)
