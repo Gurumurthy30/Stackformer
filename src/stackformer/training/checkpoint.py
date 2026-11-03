@@ -11,6 +11,7 @@ import os
 import random
 import re
 import shutil
+import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -220,6 +221,12 @@ class CheckpointManager:
             if safetensors is not None:
                 safetensors.torch.save_model(unwrap_model(model), str(temp_dir / "model.safetensors"))
             else:
+                warnings.warn(
+                    "safetensors is not installed; saved weights to 'model.pt' instead. "
+                    "Install safetensors via: pip install safetensors",
+                    UserWarning,
+                    stacklevel=2,
+                )
                 torch.save(model_state, temp_dir / "model.pt")
 
             # 3. meta.json
@@ -390,6 +397,12 @@ class CheckpointManager:
             if safetensors is not None:
                 safetensors.torch.save_model(unwrap_model(model), str(temp_dir / "model.safetensors"))
             else:
+                warnings.warn(
+                    "safetensors is not installed; saved weights to 'model.pt' instead. "
+                    "Install safetensors via: pip install safetensors",
+                    UserWarning,
+                    stacklevel=2,
+                )
                 torch.save(model_state, temp_dir / "model.pt")
 
             # 2. meta.json

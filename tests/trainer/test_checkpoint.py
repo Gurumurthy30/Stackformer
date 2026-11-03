@@ -361,3 +361,37 @@ def test_trainer_save_safetensors_and_base_model_reload(tmp_path):
         out_reloaded = new_model(x)
 
     assert torch.allclose(out_orig, out_reloaded), "Outputs differ after reloading safetensors export"
+
+
+def test_safetensors_missing_save_weights_hint(tmp_path, monkeypatch):
+    """save_model_weights raises clear ImportError hint if safetensors is missing."""
+    import sys
+    model = create_tiny_model()
+    st_path = tmp_path / "model.safetensors"
+
+    monkeypatch.setitem(sys.modules, "safetensors", None)
+    monkeypatch.setitem(sys.modules, "safetensors.torch", None)
+
+    from stackformer.utils.checkpoint import save_model_weights
+    with pytest.raises(ImportError, match="Install via `pip install safetensors`"):
+        save_model_weights(model, st_path)
+
+
+def test_checkpoint_manager_warns_and_falls_back_when_safetensors_missing(tmp_path, monkeypatch):
+    """CheckpointManager warns with installation hint and falls back to model.pt when safetensors is missing."""
+    import stackformer.training.checkpoint as ckpt_mod
+
+    model = create_tiny_model()
+    opt = torch.optim.AdamW(model.parameters(), lr=1e-3)
+    state = TrainState(epoch=0, global_step=1, step_in_epoch=1)
+    cfg = TrainConfig(checkpoint_dir=str(tmp_path))
+
+    monkeypatch.setattr(ckpt_mod, "safetensors", None)
+
+    mgr = CheckpointManager(checkpoint_dir=tmp_path)
+    with pytest.warns(UserWarning, match="Install safetensors via: pip install safetensors"):
+        saved_dir = mgr.save(model=model, train_state=state, optimizer=opt, scheduler=None, config=cfg)
+
+    assert saved_dir.exists()
+    assert (saved_dir / "model.pt").exists()
+

@@ -16,6 +16,7 @@ keywords = ["transformer", "pytorch", "deep-learning", "attention", "llm", "mach
 dependencies = [
   "torch>=2.5,<3.0",
   "numpy>=1.24,<3.0",
+  "safetensors>=0.4.0",
 ]
 
 classifiers = [
@@ -33,7 +34,6 @@ classifiers = [
 train = [
   "tqdm>=4.65.0",
   "rich>=12.0",
-  "safetensors>=0.4.0",
 ]
 tensorboard = [
   "tensorboard>=2.14",
@@ -53,7 +53,6 @@ dev = [
 all = [
   "tqdm>=4.65.0",
   "rich>=12.0",
-  "safetensors>=0.4.0",
   "tensorboard>=2.14",
   "wandb>=0.17",
   "torchao>=0.6.0",
