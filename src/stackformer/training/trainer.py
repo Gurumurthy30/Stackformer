@@ -87,7 +87,7 @@ class Trainer:
         self.checkpoint_manager = CheckpointManager(
             checkpoint_dir=self.config.checkpoint_dir, keep_last_n=self.config.keep_last_n,
             save_best=self.config.save_best, monitor=self.config.monitor, mode=self.config.mode,
-            save_best_state=self.config.save_best_state, async_checkpoint=self.config.async_checkpoint,
+            save_best_state=self.config.save_best_state, async_checkpoint=self.config.async_checkpoint, use_dcp=(self.config.parallel == "fsdp2"),
         )
 
     def _estimate_total_steps(self) -> int:
@@ -107,7 +107,7 @@ class Trainer:
     def _restore_checkpoint_if_requested(self) -> bool:
         if not self.config.resume_from:
             return False
-        ckpt = self.checkpoint_manager.load(self.config.resume_from)
+        ckpt = self.checkpoint_manager.load(self.config.resume_from, model=self.model, optimizer=self.optimizer)
         if ckpt is None:
             return False
         unwrap_model(self.model).load_state_dict(clean_state_dict(ckpt["model"]))

@@ -33,19 +33,24 @@ except ImportError:
 
 
 def unwrap_model(model: nn.Module) -> nn.Module:
-    """Recursively unwrap compile and wrapper modules."""
-    while hasattr(model, "_orig_mod"):
-        model = model._orig_mod
+    """Recursively unwrap compile, DDP, and wrapper modules."""
+    while hasattr(model, "_orig_mod") or hasattr(model, "module"):
+        if hasattr(model, "_orig_mod"):
+            model = model._orig_mod
+        elif hasattr(model, "module"):
+            model = model.module
     return model
 
 
 def clean_state_dict(raw_state: dict[str, Any]) -> dict[str, Any]:
-    """Clean model state dict keys, stripping _orig_mod. from torch.compile."""
+    """Clean model state dict keys, stripping _orig_mod. and module. prefixes."""
     cleaned = {}
     for k, v in raw_state.items():
         clean_k = k
         while "_orig_mod." in clean_k:
             clean_k = clean_k.replace("_orig_mod.", "")
+        while clean_k.startswith("module."):
+            clean_k = clean_k[7:]
         cleaned[clean_k] = v
     return cleaned
 
@@ -84,6 +89,7 @@ class CheckpointManager:
         mode: str = "min",
         save_best_state: bool = False,
         async_checkpoint: bool = False,
+        use_dcp: bool = False,
     ) -> None:
         self.checkpoint_dir = Path(checkpoint_dir).resolve()
         self.keep_last_n = max(1, keep_last_n)
@@ -92,6 +98,7 @@ class CheckpointManager:
         self.mode = mode.lower()
         self.save_best_state = save_best_state
         self.async_checkpoint = async_checkpoint
+        self.use_dcp = use_dcp
 
     def _get_rng_state(self) -> dict[str, Any]:
         """Collect current random number generator states across all engines."""
@@ -142,15 +149,16 @@ class CheckpointManager:
         """
         dir_name = f"epoch_{train_state.epoch + 1:03d}_step_{train_state.global_step:05d}"
         target_dir = self.checkpoint_dir / dir_name
-        temp_dir = self.checkpoint_dir / f".tmp_{dir_name}_{os.getpid()}"
 
-        if temp_dir.exists():
-            shutil.rmtree(temp_dir, ignore_errors=True)
-        temp_dir.mkdir(parents=True, exist_ok=True)
+        from stackformer.distributed.utils import is_distributed_initialized, is_rank_zero
+        is_dist = is_distributed_initialized() and torch.distributed.get_world_size() > 1
 
-        try:
+        if self.use_dcp and is_dist:
+            # Multi-process DCP: all ranks write shards to target_dir/dcp concurrently
+            target_dir.mkdir(parents=True, exist_ok=True)
+            dcp_dir = target_dir / "dcp"
+            from stackformer.distributed.dcp import save_dcp
             model_state = clean_state_dict(model.state_dict())
-            # 1. state.pt
             state_dict = {
                 "model": model_state,
                 "optimizer": optimizer.state_dict() if optimizer is not None else None,
@@ -160,7 +168,53 @@ class CheckpointManager:
                 "train_state": train_state.to_dict(),
                 "config": config.to_dict() if hasattr(config, "to_dict") else config,
             }
-            torch.save(state_dict, temp_dir / "state.pt")
+            save_dcp(state_dict, dcp_dir)
+
+            if is_rank_zero():
+                if safetensors is not None:
+                    safetensors.torch.save_model(unwrap_model(model), str(target_dir / "model.safetensors"))
+                meta = {
+                    "step": train_state.global_step,
+                    "epoch": train_state.epoch,
+                    "step_in_epoch": train_state.step_in_epoch,
+                    "total_micro_batches": train_state.total_micro_batches,
+                    "best_metric": train_state.best_metric,
+                    "metrics": metrics or {},
+                    "torch_version": torch.__version__,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+                with open(target_dir / "meta.json", "w", encoding="utf-8") as f:
+                    json.dump(meta, f, indent=2)
+                self._update_latest_pointer(dir_name)
+                self.prune()
+
+            torch.distributed.barrier()
+            return target_dir
+
+        temp_dir = self.checkpoint_dir / f".tmp_{dir_name}_{os.getpid()}"
+
+        if temp_dir.exists():
+            shutil.rmtree(temp_dir, ignore_errors=True)
+        temp_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            model_state = clean_state_dict(model.state_dict())
+            # 1. state.pt or DCP
+            state_dict = {
+                "model": model_state,
+                "optimizer": optimizer.state_dict() if optimizer is not None else None,
+                "scheduler": scheduler.state_dict() if scheduler is not None else None,
+                "scaler": scaler.state_dict() if scaler is not None and hasattr(scaler, "state_dict") else None,
+                "rng": self._get_rng_state(),
+                "train_state": train_state.to_dict(),
+                "config": config.to_dict() if hasattr(config, "to_dict") else config,
+            }
+            if self.use_dcp:
+                dcp_dir = temp_dir / "dcp"
+                from stackformer.distributed.dcp import save_dcp
+                save_dcp(state_dict, dcp_dir)
+            else:
+                torch.save(state_dict, temp_dir / "state.pt")
 
             # 2. model.safetensors
             if safetensors is not None:
@@ -233,7 +287,7 @@ class CheckpointManager:
         for item in self.checkpoint_dir.iterdir():
             if item.is_dir():
                 m = pattern.match(item.name)
-                if m and (item / "state.pt").exists():
+                if m and ((item / "state.pt").exists() or (item / "dcp").exists()):
                     epoch = int(m.group(1))
                     step = int(m.group(2))
                     results.append(((epoch, step), item))
@@ -249,11 +303,18 @@ class CheckpointManager:
             for _, path in to_delete:
                 shutil.rmtree(path, ignore_errors=True)
 
-    def load(self, path: str | Path | None = "auto") -> Optional[dict[str, Any]]:
+    def load(
+        self,
+        path: str | Path | None = "auto",
+        model: Optional[nn.Module] = None,
+        optimizer: Optional[torch.optim.Optimizer] = None,
+    ) -> Optional[dict[str, Any]]:
         """Load checkpoint state dictionary from specific path or 'auto' for latest.
 
         Args:
             path: File path, directory path, or "auto" (default: "auto").
+            model: Optional model instance for in-place DCP loading.
+            optimizer: Optional optimizer instance for in-place DCP loading.
 
         Returns:
             dict[str, Any] | None: Deserialized checkpoint dictionary, or None if starting fresh.
@@ -262,19 +323,33 @@ class CheckpointManager:
             ckpt_dir = self.latest()
             if ckpt_dir is None:
                 return None
-            target_file = ckpt_dir / "state.pt"
+            target_path = ckpt_dir
         else:
             p = Path(path)
             if not p.is_absolute() and not p.exists() and (self.checkpoint_dir / p).exists():
                 p = self.checkpoint_dir / p
             if not p.exists():
                 raise FileNotFoundError(f"Checkpoint not found at: {path}")
-            if p.is_dir():
-                target_file = p / "state.pt"
-                if not target_file.exists():
-                    raise FileNotFoundError(f"Checkpoint directory {p} does not contain 'state.pt'")
-            else:
-                target_file = p
+            target_path = p
+
+        if target_path.is_dir():
+            if (target_path / "dcp").is_dir() or (target_path / ".metadata").exists():
+                from stackformer.distributed.dcp import load_dcp
+
+                dcp_dir = target_path / "dcp" if (target_path / "dcp").is_dir() else target_path
+                state = {}
+                if model is not None:
+                    state["model"] = model.state_dict()
+                if optimizer is not None:
+                    state["optimizer"] = optimizer.state_dict()
+                load_dcp(state, dcp_dir)
+                return state
+
+            target_file = target_path / "state.pt"
+            if not target_file.exists():
+                raise FileNotFoundError(f"Checkpoint directory {target_path} does not contain 'state.pt' or 'dcp'")
+        else:
+            target_file = target_path
 
         return torch.load(str(target_file), map_location="cpu", weights_only=False)
 

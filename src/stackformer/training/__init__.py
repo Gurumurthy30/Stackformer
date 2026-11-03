@@ -4,6 +4,7 @@ from .checkpoint import CheckpointManager
 from .config import TrainConfig
 from .state import TrainState
 from .trainer import Trainer
+from .launcher import launch
 from .metrics import (
     Accuracy,
     Dice,
@@ -53,5 +54,6 @@ __all__ = [
     "TrainState",
     "TrainStats",
     "Trainer",
+    "launch",
     "WandbLogger",
 ]

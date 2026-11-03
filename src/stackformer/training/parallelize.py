@@ -50,7 +50,20 @@ def apply_model_transformations(model: nn.Module, config: TrainConfig) -> nn.Mod
             per_block=True,
         )
 
-    # 4. FSDP2 (Fully Sharded Data Parallel)
-    # Hook for Step 7 (FSDP2 module wrapping)
+    # 4. FSDP2 / DDP (Data Parallelism)
+    parallel = getattr(config, "parallel", "none").lower().strip()
+    if parallel == "ddp":
+        from stackformer.distributed.ddp import apply_ddp
+
+        model = apply_ddp(model, device=config.resolve_device())
+    elif parallel == "fsdp2":
+        from stackformer.distributed.fsdp import apply_fsdp
+
+        model = apply_fsdp(
+            model,
+            mixed_precision=config.mixed_precision,
+            device=config.resolve_device(),
+        )
 
     return model
+
