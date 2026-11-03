@@ -2,6 +2,7 @@
 
 from .checkpoint import CheckpointManager
 from .config import TrainConfig
+from .display import DisplayManager
 from .state import TrainState
 from .trainer import Trainer
 from .launcher import launch
@@ -38,6 +39,7 @@ __all__ = [
     "CheckpointManager",
     "ConsoleLogger",
     "Dice",
+    "DisplayManager",
     "EarlyStopping",
     "F1",
     "JSONLLogger",

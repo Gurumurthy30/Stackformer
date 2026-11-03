@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 
 from .checkpoint import CheckpointManager, clean_state_dict, unwrap_model
 from .config import TrainConfig
+from .display import DisplayManager
 from .evaluation import run_evaluation
 from .events import (
     close_loggers,
@@ -26,7 +27,6 @@ from .losses import get_loss
 from .optim import build_optimizer, build_scheduler
 from .parallelize import apply_model_transformations
 from .precision import PrecisionManager
-from .progress import ProgressBar
 from .state import TrainState
 from .utils import forward_batch, prepare_inputs
 from stackformer.utils.checkpoint import save_model_weights
@@ -83,6 +83,7 @@ class Trainer:
 
         self.state = TrainState()
         self.metrics, self.loggers, self.callbacks = list(metrics or []), list(loggers or []), list(callbacks or [])
+        self.display = DisplayManager(mode=self.config.display, verbosity=self.config.verbosity, rank_zero_only=True)
 
         self.checkpoint_manager = CheckpointManager(
             checkpoint_dir=self.config.checkpoint_dir, keep_last_n=self.config.keep_last_n,
@@ -168,10 +169,9 @@ class Trainer:
                 elif getattr(self.train_loader, "generator", None) is not None:
                     self.train_loader.generator.manual_seed(self.config.seed + epoch)
 
-                pbar = ProgressBar(
+                pbar = self.display.progress_bar(
                     self.train_loader,
                     desc=f"Epoch {epoch + 1}" + (f"/{max_epochs}" if max_epochs else ""),
-                    enabled=True,
                 )
 
                 running_loss = 0.0

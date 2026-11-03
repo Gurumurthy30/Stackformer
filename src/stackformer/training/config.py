@@ -76,6 +76,8 @@ class TrainConfig:
     keep_last_n: int = 3
     async_checkpoint: bool = False
     metrics_on_train: bool = False
+    verbosity: str = "normal"
+    display: str = "auto"
 
     def __post_init__(self) -> None:
         self.validate()
@@ -152,6 +154,18 @@ class TrainConfig:
             raise ValueError(f"'save_every_n_epochs' must be positive, got {self.save_every_n_epochs}")
         if self.save_every_n_steps is not None and self.save_every_n_steps <= 0:
             raise ValueError(f"'save_every_n_steps' must be positive, got {self.save_every_n_steps}")
+
+        valid_verbosity = {"quiet", "normal", "verbose"}
+        if self.verbosity.lower() not in valid_verbosity:
+            raise ValueError(
+                f"Unsupported verbosity '{self.verbosity}'. Supported: {sorted(valid_verbosity)}"
+            )
+
+        valid_display = {"auto", "rich", "plain"}
+        if self.display.lower() not in valid_display:
+            raise ValueError(
+                f"Unsupported display '{self.display}'. Supported: {sorted(valid_display)}"
+            )
 
     def resolve_device(self) -> torch.device:
         """Resolve 'auto' device to torch.device (cuda > mps > cpu)."""
