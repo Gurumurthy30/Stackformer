@@ -268,7 +268,10 @@ def test_keep_last_n_pruning_and_preserves_best(tmp_path):
     assert len(step_dirs) == 2
     assert "epoch_001_step_00003" in step_dirs
     assert "epoch_001_step_00004" in step_dirs
-    assert (tmp_path / "latest").read_text(encoding="utf-8").strip() == "epoch_001_step_00004"
+    latest_path = tmp_path / "latest"
+    assert latest_path.is_file()
+    assert not latest_path.is_symlink(), "latest pointer must be a regular text file, not a symlink"
+    assert latest_path.read_text(encoding="utf-8").strip() == "epoch_001_step_00004"
 
 
 def test_best_model_saving_min_and_max_modes(tmp_path):

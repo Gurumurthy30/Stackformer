@@ -273,7 +273,7 @@ class CheckpointManager:
             try:
                 name = latest_file.read_text(encoding="utf-8").strip()
                 p = self.checkpoint_dir / name
-                if p.is_dir() and (p / "state.pt").exists():
+                if p.is_dir() and ((p / "state.pt").exists() or (p / "dcp").exists() or (p / "model.safetensors").exists()):
                     return p
             except Exception:
                 pass
