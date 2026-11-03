@@ -49,6 +49,10 @@ dev = [
   "pytest-cov>=5.0,<6.0",
   "build>=1.2,<2.0",
   "twine>=5.0,<6.0",
+  "ruff>=0.3.0",
+  "pyright>=1.1.350",
+  "bandit>=1.7.0",
+  "vulture>=2.10",
 ]
 all = [
   "tqdm>=4.65.0",
@@ -60,6 +64,10 @@ all = [
   "pytest-cov>=5.0,<6.0",
   "build>=1.2,<2.0",
   "twine>=5.0,<6.0",
+  "ruff>=0.3.0",
+  "pyright>=1.1.350",
+  "bandit>=1.7.0",
+  "vulture>=2.10",
 ]
 
 [project.urls]
@@ -87,4 +95,33 @@ addopts = "-q"
 pythonpath = ["."]
 markers = [
   "gpu: tests that require CUDA-capable GPU hardware",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = [
+  "E501",  # line length handled by formatter
+  "E741",  # ambiguous variable name
+  "E731",  # do not assign lambda expression, use a def
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "E402"]
+"tests/*" = ["F401", "F841"]
+"src/stackformer/torchtitan/*" = ["E402", "F401", "F821", "F841"]
+"src/stackformer/quantization/utils.py" = ["F821"]
+"src/stackformer/utils/attn_utils.py" = ["F401"]
+
+[tool.pyright]
+typeCheckingMode = "basic"
+include = [
+  "src/stackformer/training",
+  "src/stackformer/distributed",
+]
+exclude = [
+  "**/__pycache__",
 ]

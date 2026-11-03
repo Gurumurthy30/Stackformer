@@ -46,13 +46,14 @@ from stackformer.modules.normalization import (
     LayerNorm,
     RMSNorm,
 )
-# Aliases for backward compat within this file
-LayerNormalization = LayerNorm
-RMSNormalization = RMSNorm
 from stackformer.modules.position_embedding import (
     AbsolutePositionEmbedding,
     SinusoidalPositionalEmbedding,
 )
+
+# Aliases for backward compat within this file
+LayerNormalization = LayerNorm
+RMSNormalization = RMSNorm
 
 
 @dataclass
@@ -165,7 +166,7 @@ def _build_attention(cfg: BlockConfig) -> nn.Module:
             f"Available: ['mha', 'mha_rope', 'mqa', 'mqa_rope', 'gqa', 'gqa_rope', 'self']"
         )
 
-        
+
 def _build_cross_attention(cfg: BlockConfig) -> nn.Module:
     """Return a cross-attention module (queries from target, K/V from memory)."""
     return Cross_MultiHead_Attention(
@@ -181,7 +182,7 @@ def _build_ffn(cfg: BlockConfig) -> nn.Module:
     """Return the FFN module described by *cfg*."""
     hw = dict(device=cfg.device, dtype=cfg.dtype)
     E, M, D = cfg.embed_dim, cfg.hidden_dim, cfg.dropout
-    
+
     key = cfg.ffn.lower()
     if key == "relu":
         return FF_ReLU(E, M, D, **hw)
@@ -525,4 +526,4 @@ class TransformerBlock(nn.Module):
 
     def forward(self, x: torch.Tensor, mask: bool = True) -> torch.Tensor:
         # x: (B, T, C)
-        return self._block(x, mask=mask)
+        return self._block(x, mask=mask)

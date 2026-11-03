@@ -51,10 +51,9 @@ from typing import Literal
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from collections import OrderedDict
 from stackformer.modules.masks import _get_attention_mask, _get_block_mask
-from stackformer.modules.attention_engine import _run_sdpa, _run_flex_attention, _run_attention
+from stackformer.modules.attention_engine import _run_attention
 from stackformer.cache import StaticKVCache
 
 
@@ -191,7 +190,7 @@ class Self_Attention(nn.Module):
 
     def forward(self, x, mask=True):
         B, T, C = x.shape
-        
+
         # Project Q, K, V
         qkv = self.qkv_proj(x)                      # (B, T, 3*C)
         q, k, v = qkv.split(self.embed_dim, dim=-1)    # each (B, T, C)
@@ -234,7 +233,7 @@ class Multi_Head_Attention(nn.Module):
         device (str or torch.device, optional, default='cpu').
         dtype (torch.dtype, optional, default=torch.float32).
         mask_type ([str], optional, default=['causal']): 'causal' or 'sliding_window'.
-        
+
     Forward args:
         x (torch.Tensor): ``(B, T, C)``.
         mask (bool, optional, default=True): Apply causal mask.
@@ -261,7 +260,7 @@ class Multi_Head_Attention(nn.Module):
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.head_dim = embed_dim // num_heads  # Each head gets a slice of the embedding
-        
+
         self.mask_type = mask_type
         self.backend = backend
         self.combine = combine
@@ -271,13 +270,13 @@ class Multi_Head_Attention(nn.Module):
 
         # Linear layer
         self.qkv_proj = nn.Linear(embed_dim, embed_dim*3, bias=qkv_bias, device=device, dtype=self.dtype)
-        
+
         # Final output projection after attention
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=self.dtype)
 
         # Dropout applied to the attention weights
         self.dropout_p = dropout
-        
+
         # Cache for causal masks keyed by sequence length
         self._causal_mask_cache = OrderedDict()
 
@@ -302,16 +301,16 @@ class Multi_Head_Attention(nn.Module):
 
     def forward(self, x, mask=True):
         B, T, C = x.shape
-        
+
         qkv = self.qkv_proj(x)                      # (B, T, 3*C)
         q, k, v = qkv.split(self.embed_dim, dim=-1)    # each (B, T, C)
-        
+
         # Reshape for multi-head attention:
         # (B, T, C) → (B, T, num_heads, head_dim) → (B, num_heads, T, head_dim)
         q = q.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
         k = k.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
         v = v.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
-        
+
         out = _run_attention(
             backend=self.backend,
             q=q, k=k, v=v,
@@ -323,9 +322,9 @@ class Multi_Head_Attention(nn.Module):
             combine=self.combine,
             mask_kwargs=self.mask_kwargs,
         )
-        
+
         out = out.transpose(1, 2).contiguous().view(B, T, C)
-        
+
         # Final linear projection
         return self.out_proj(out)  # (B, T, C)
 
@@ -374,13 +373,13 @@ class Multi_Head_Attention_With_RoPE(nn.Module):
 
         # Linear layer
         self.qkv_proj = nn.Linear(embed_dim, embed_dim * 3, bias=qkv_bias, device=device, dtype=self.dtype)
-        
+
         # Final output projection after attention
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=self.dtype)
 
         # Dropout applied to the attention weights
         self.dropout_p = dropout
-        
+
         # Cache for causal masks keyed by sequence length
         self._causal_mask_cache = OrderedDict()
 
@@ -402,7 +401,7 @@ class Multi_Head_Attention_With_RoPE(nn.Module):
             combine=self.combine,
             **self.mask_kwargs,
         )
-    
+
     def _precompute_theta_position_frequency(self, head_dim: int, seq_len: int, device: torch.device,theta: float = 10000.0):
         return _build_rope_frequency(head_dim, seq_len, device, self.dtype, theta=theta)
 
@@ -417,11 +416,11 @@ class Multi_Head_Attention_With_RoPE(nn.Module):
         q = q.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
         k = k.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
         v = v.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
-        
+
         freq = self._precompute_theta_position_frequency(self.head_dim, T, device=x.device,theta=theta)
         q = _apply_rotary_position_embedding(q, freq)
         k = _apply_rotary_position_embedding(k, freq)
-        
+
         out = _run_attention(
             backend=self.backend,
             q=q, k=k, v=v,
@@ -433,7 +432,7 @@ class Multi_Head_Attention_With_RoPE(nn.Module):
             combine=self.combine,
             mask_kwargs=self.mask_kwargs,
         )
-        
+
         out = out.transpose(1, 2).contiguous().view(B, T, C)
 
         # Final linear projection
@@ -484,10 +483,10 @@ class Cross_MultiHead_Attention(nn.Module):
 
         # Final output projection
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=dtype)
-        
+
         # Dropout applied to the attention weights
         self.dropout_p = dropout
-        
+
         # Cache for causal masks (optional)
         self._causal_mask_cache = OrderedDict()
 
@@ -550,12 +549,12 @@ class Cross_MultiHead_Attention(nn.Module):
             combine=self.combine,
             mask_kwargs=self.mask_kwargs,
         )
-        
+
         out = out.transpose(1, 2).contiguous().view(B, T, C)
 
         # Final output projection
         return self.out_proj(out)
-    
+
 class Multi_query_Attention(nn.Module):
     """Multi-Query Attention (MQA): many query heads, one shared K/V head.
 
@@ -617,13 +616,13 @@ class Multi_query_Attention(nn.Module):
         # Projection layers
         self.q_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=self.dtype)
         self.kv_proj = nn.Linear(embed_dim, self.head_dim * 2, bias=qkv_bias, device=device, dtype=self.dtype)
-        
+
         # Output final projection
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=self.dtype)
-        
+
         # Dropout applied to the attention weights (sdpa backend only)
         self.dropout_p = dropout
-        
+
         # Cache holds dense masks (sdpa) or BlockMasks (flex) -- never both
         # at once, since backend is fixed for the lifetime of this module.
         self._causal_mask_cache = OrderedDict()
@@ -670,7 +669,7 @@ class Multi_query_Attention(nn.Module):
         out = out.transpose(1, 2).reshape(B, T, C)
 
         return self.out_proj(out)
-    
+
 class Multi_query_Attention_With_RoPE(nn.Module):
     """MQA with RoPE on queries and the shared key.
 
@@ -721,13 +720,13 @@ class Multi_query_Attention_With_RoPE(nn.Module):
         # Projection layers
         self.q_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=self.dtype)
         self.kv_proj = nn.Linear(embed_dim, self.head_dim * 2, bias=qkv_bias, device=device, dtype=self.dtype)
-        
+
         # Output final projection
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=self.dtype)
-        
+
         # Dropout applied to the attention weights (sdpa backend only)
         self.dropout_p = dropout
-        
+
         self._causal_mask_cache = OrderedDict()
 
     def _get_or_create_mask(self, seq_len: int, device):
@@ -740,10 +739,10 @@ class Multi_query_Attention_With_RoPE(nn.Module):
             self._causal_mask_cache, self.mask_type, seq_len, device,
             combine=self.combine, **self.mask_kwargs,
         )
-    
+
     def _precompute_theta_position_frequency(self, head_dim: int, seq_len: int, device: torch.device,theta: float = 10000.0):
         return _build_rope_frequency(head_dim, seq_len, device, self.dtype, theta=theta)
-    
+
     def forward(self, x, mask=True, theta: float = 10000.0):
         B, T, C = x.shape
 
@@ -851,13 +850,13 @@ class Group_query_Attention(nn.Module):
         # Projection layers
         self.q_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=dtype)
         self.kv_proj = nn.Linear(embed_dim, num_kv_heads * self.head_dim * 2, bias=qkv_bias, device=device, dtype=dtype)
-        
+
         # Output final projection
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=dtype)
-        
+
         # Dropout applied to the attention weights (sdpa backend only)
         self.dropout_p = dropout
-        
+
         self._causal_mask_cache = OrderedDict()
 
     def _get_or_create_mask(self, seq_len: int, device):
@@ -879,7 +878,7 @@ class Group_query_Attention(nn.Module):
         kv = self.kv_proj(x)  # (B, T, 2 * num_kv_heads * head_dim)
         kv_dim = self.num_kv_heads * self.head_dim
         k, v = kv.split(kv_dim, dim=-1)
-        
+
         # Reshape projections
         q = q.view(B, T, self.num_query_heads, self.head_dim).transpose(1, 2)  # (B, num_query_heads, T, head_dim)
         k = k.view(B, T, self.num_kv_heads, self.head_dim).transpose(1, 2)     # (B, num_kv_heads, T, head_dim)
@@ -905,7 +904,7 @@ class Group_query_Attention(nn.Module):
         out = out.transpose(1, 2).contiguous().view(B, T, C)
 
         return self.out_proj(out)
-    
+
 class Group_query_Attention_With_RoPE(nn.Module):
     """GQA with RoPE for relative-position-aware grouped attention.
 
@@ -962,10 +961,10 @@ class Group_query_Attention_With_RoPE(nn.Module):
         # Projection layers
         self.q_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=dtype)
         self.kv_proj = nn.Linear(embed_dim, num_kv_heads * self.head_dim * 2, bias=qkv_bias, device=device, dtype=dtype)
-        
+
         # Output final projection
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=dtype)
-        
+
         # Dropout applied to the attention weights (sdpa backend only)
         self.dropout_p = dropout
 
@@ -981,10 +980,10 @@ class Group_query_Attention_With_RoPE(nn.Module):
             self._causal_mask_cache, self.mask_type, seq_len, device,
             combine=self.combine, **self.mask_kwargs,
         )
-    
+
     def _precompute_theta_position_frequency(self, head_dim: int, seq_len: int, device: torch.device,theta: float = 10000.0):
         return _build_rope_frequency(head_dim, seq_len, device, self.dtype, theta=theta)
-    
+
     def forward(self, x, mask=True, theta: float=10000.0):
         B, T, C = x.shape
 
@@ -993,7 +992,7 @@ class Group_query_Attention_With_RoPE(nn.Module):
         kv = self.kv_proj(x)  # (B, T, 2 * num_kv_heads * head_dim)
         kv_dim = self.num_kv_heads * self.head_dim
         k, v = kv.split(kv_dim, dim=-1)
-        
+
         # Reshape projections
         q = q.view(B, T, self.num_query_heads, self.head_dim).transpose(1, 2)  # (B, num_query_heads, T, head_dim)
         k = k.view(B, T, self.num_kv_heads, self.head_dim).transpose(1, 2)     # (B, num_kv_heads, T, head_dim)
@@ -1002,7 +1001,7 @@ class Group_query_Attention_With_RoPE(nn.Module):
         freq = self._precompute_theta_position_frequency(self.head_dim, T, device=x.device,theta=theta)
         q = _apply_rotary_position_embedding(q, freq)
         k = _apply_rotary_position_embedding(k, freq)
-        
+
         # No repeat_interleave -- enable_gqa broadcasts num_kv_heads ->
         # num_query_heads internally.
 
@@ -1018,7 +1017,7 @@ class Group_query_Attention_With_RoPE(nn.Module):
             enable_gqa=True,
             mask_kwargs=self.mask_kwargs,
         )
-        
+
         out = out.transpose(1, 2).contiguous().view(B, T, C)
 
         return self.out_proj(out)
@@ -1161,7 +1160,7 @@ class kv_cache_multihead(nn.Module):
         out = context.transpose(1, 2).contiguous().view(B, T, C)
         return self.out_proj(out)
 
-class kv_cache_group_query(nn.Module):  
+class kv_cache_group_query(nn.Module):
     """GQA with KV cache for production-grade decoding throughput.
 
     Backend note:
@@ -1218,13 +1217,13 @@ class kv_cache_group_query(nn.Module):
         # Linear projections: Q from full dim, KV from reduced dim
         self.q_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=dtype)
         self.kv_proj = nn.Linear(embed_dim, num_kv_heads * self.head_dim * 2, bias=qkv_bias, device=device, dtype=dtype)
-        
-        # Output final projection        
+
+        # Output final projection
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=dtype)
-        
+
         # Dropout applied to the attention weights
         self.dropout_p = dropout
-        
+
         self._causal_mask_cache = OrderedDict()
 
         self.cache = StaticKVCache()
@@ -1251,7 +1250,7 @@ class kv_cache_group_query(nn.Module):
         self._causal_mask_cache[key] = visible
 
         return self._causal_mask_cache[key]
-    
+
     def reset_cache(self):
         self.cache.reset()
         self._causal_mask_cache.clear()

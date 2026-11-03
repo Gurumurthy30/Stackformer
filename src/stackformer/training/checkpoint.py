@@ -20,7 +20,7 @@ import torch
 import torch.nn as nn
 
 from stackformer.training.state import TrainState
-from stackformer.utils.checkpoint import load_model_weights, save_model_weights
+from stackformer.utils.checkpoint import load_model_weights
 
 try:
     import numpy as np

@@ -19,7 +19,6 @@ import torch.nn as nn
 import torch.distributed as dist
 import torch.distributed.checkpoint as dcp
 
-from .utils import is_distributed_initialized
 
 logger = logging.getLogger(__name__)
 

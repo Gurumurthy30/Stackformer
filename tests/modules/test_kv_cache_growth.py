@@ -29,7 +29,7 @@ def test_kv_cache_growth_per_step_and_no_overwrite(cache_cls, kwargs, kv_heads, 
         _checkpoint("Step execution", step=step, out_shape=out.shape)
         assert out.shape == (BATCH, 1, EMB)
         assert torch.isfinite(out).all()
-        
+
         current = cache.cache.peek_kv(0,step+1)[0]
         assert current.shape == (BATCH, kv_heads, step + 1, EMB // HEADS)
 

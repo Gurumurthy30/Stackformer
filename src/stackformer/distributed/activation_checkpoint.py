@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
 import torch
 import torch.nn as nn
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (

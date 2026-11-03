@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import logging
-import os
 import re
 import sys
-import time
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable
 
 from stackformer.distributed.utils import is_rank_zero
 from .progress import ProgressBar

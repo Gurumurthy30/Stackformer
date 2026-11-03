@@ -6,7 +6,6 @@ import logging
 import os
 import sys
 from typing import Any, Callable
-import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 
@@ -88,7 +87,7 @@ def launch(
 
     # 1. Existing torchrun / distributed environment detection
     if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
-        world_size = int(os.environ["WORLD_SIZE"])
+        _ = int(os.environ["WORLD_SIZE"])
         if not dist.is_initialized():
             resolved_backend = backend or get_default_backend()
             configure_windows_environment()

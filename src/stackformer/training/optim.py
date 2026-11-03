@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import math
 from typing import TYPE_CHECKING
-import torch
 import torch.nn as nn
 from torch.optim import Adam, AdamW, SGD, Optimizer
 from torch.optim.lr_scheduler import LambdaLR, LRScheduler

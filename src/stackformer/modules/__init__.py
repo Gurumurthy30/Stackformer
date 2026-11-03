@@ -51,9 +51,6 @@ from .feed_forward import (
 )
 
 from .normalization import LayerNorm, RMSNorm
-# Backward-compat aliases
-LayerNormalization = LayerNorm
-RMSNormalization = RMSNorm
 from .layer import (
     BlockConfig,
     TransformerDecoder,
@@ -64,6 +61,10 @@ from .position_embedding import (
     RoPE,
     SinusoidalPositionalEmbedding,
 )
+
+# Backward-compat aliases
+LayerNormalization = LayerNorm
+RMSNormalization = RMSNorm
 
 
 __all__ = [

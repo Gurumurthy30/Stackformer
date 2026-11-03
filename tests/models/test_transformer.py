@@ -8,7 +8,7 @@ from stackformer.modules.position_embedding import SinusoidalPositionalEmbedding
 
 @pytest.mark.parametrize("batch,seq,embed_dim,heads", [(1, 4, 8, 1), (2, 6, 16, 4)])
 def test_transformer_forward_shape_finite_and_backward(batch, seq, embed_dim, heads, torch_device):
-    
+
     _checkpoint("test_transformer_forward_shape_finite_and_backward setup", batch=batch, seq=seq, device=torch_device)
     torch.manual_seed(0)
     vocab_size = 32

@@ -7,7 +7,7 @@ Provides wrappers around PyTorch SDPA and FlexAttention, along with the high-lev
 from __future__ import annotations
 
 from collections import OrderedDict
-from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Literal, Optional
 
 import torch
 import torch.nn.functional as F
