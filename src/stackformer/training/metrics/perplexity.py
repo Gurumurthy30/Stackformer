@@ -39,7 +39,9 @@ class Perplexity(Metric):
         logits = _extract_predictions(outputs)
         targets = _extract_target(batch).to(logits.device)
 
-        if self.loss_mode == "lm" or (self.loss_mode == "auto" and logits.ndim == 3 and targets.ndim == 2):
+        if self.loss_mode == "lm" or (
+            self.loss_mode == "auto" and logits.ndim == 3 and targets.ndim == 2
+        ):
             shift_logits = logits[:, :-1, :].contiguous()
             shift_targets = targets[:, 1:].contiguous()
             loss = F.cross_entropy(

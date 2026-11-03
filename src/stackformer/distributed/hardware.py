@@ -45,7 +45,9 @@ def round_up(value: int, multiple: int) -> int:
 def has_cuda_capability(major: int, minor: int) -> bool:
     # torch.version.hip is None excludes ROCm (capability is a tuple on AMD too).
     return (
-        torch.cuda.is_available() and torch.version.hip is None and torch.cuda.get_device_capability() >= (major, minor)
+        torch.cuda.is_available()
+        and torch.version.hip is None
+        and torch.cuda.get_device_capability() >= (major, minor)
     )
 
 
@@ -95,7 +97,9 @@ def get_local_device() -> torch.device:
     try:
         local_rank = int(local_rank_str)
     except ValueError as e:
-        raise ValueError(f"LOCAL_RANK environment variable must be a valid integer, got: {local_rank_str}") from e
+        raise ValueError(
+            f"LOCAL_RANK environment variable must be a valid integer, got: {local_rank_str}"
+        ) from e
     if local_rank < 0:
         raise ValueError(f"LOCAL_RANK must be non-negative, got: {local_rank}")
 
@@ -158,7 +162,9 @@ def get_peak_flops(device_name: str) -> float:
         # Run the lspci command and capture the output
         result = subprocess.run(["lspci"], stdout=subprocess.PIPE, text=True)
         # Filter the output for lines containing both "NVIDIA" and "H100"
-        filtered_lines = [line for line in result.stdout.splitlines() if "NVIDIA" in line and "H100" in line]
+        filtered_lines = [
+            line for line in result.stdout.splitlines() if "NVIDIA" in line and "H100" in line
+        ]
         # Join all filtered lines into a single string
         device_name = " ".join(filtered_lines) or device_name
     except FileNotFoundError as e:

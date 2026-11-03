@@ -111,7 +111,9 @@ class SinusoidalPositionalEmbedding(nn.Module):
         factory_kwargs = {"device": device, "dtype": dtype}
 
         position = torch.arange(seq_len, **factory_kwargs).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, embed_dim, 2, **factory_kwargs) * -(math.log(10000.0) / embed_dim))
+        div_term = torch.exp(
+            torch.arange(0, embed_dim, 2, **factory_kwargs) * -(math.log(10000.0) / embed_dim)
+        )
 
         pe = torch.zeros(seq_len, embed_dim, **factory_kwargs)
         pe[:, 0::2] = torch.sin(position * div_term)
@@ -169,7 +171,9 @@ class RoPE(nn.Module):
         freq_complex = self._precompute_theta_position_frequency(head_dim, seq_len, theta)
         self.register_buffer("freq_complex", freq_complex, persistent=True)
 
-    def _precompute_theta_position_frequency(self, head_dim: int, seq_len: int, theta: float) -> torch.Tensor:
+    def _precompute_theta_position_frequency(
+        self, head_dim: int, seq_len: int, theta: float
+    ) -> torch.Tensor:
         """Precompute complex rotary frequency spectrum tensor.
 
         Args:

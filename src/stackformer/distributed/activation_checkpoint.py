@@ -40,7 +40,9 @@ def _get_default_save_ops() -> set:
         compute_ops.append(torch._higher_order_ops.flex_attention)
 
     # Inductor compiled code if available
-    if hasattr(torch, "_higher_order_ops") and hasattr(torch._higher_order_ops, "inductor_compiled_code"):
+    if hasattr(torch, "_higher_order_ops") and hasattr(
+        torch._higher_order_ops, "inductor_compiled_code"
+    ):
         compute_ops.append(torch._higher_order_ops.inductor_compiled_code)
 
     save_ops = set()
@@ -97,7 +99,9 @@ def apply_activation_checkpointing(
         return model
 
     if mode not in {"selective", "full"}:
-        raise ValueError(f"Unknown activation checkpointing mode '{mode}'. Expected 'none', 'selective', or 'full'.")
+        raise ValueError(
+            f"Unknown activation checkpointing mode '{mode}'. Expected 'none', 'selective', or 'full'."
+        )
 
     # 1. Retrieve blocks via Stackformer protocol or auto-detection
     if hasattr(model, "get_sharding_blocks") and callable(model.get_sharding_blocks):
@@ -151,7 +155,9 @@ def apply_activation_checkpointing(
 
             wrapped = checkpoint_wrapper(
                 block,
-                context_fn=lambda m=meta: create_selective_checkpoint_contexts(_make_selective_policy(m)),
+                context_fn=lambda m=meta: create_selective_checkpoint_contexts(
+                    _make_selective_policy(m)
+                ),
                 preserve_rng_state=preserve_rng_state,
             )
         else:

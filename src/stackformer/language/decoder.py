@@ -31,7 +31,9 @@ class Decoder(nn.Module):
         torch.Size([2, 10, 1000])
     """
 
-    def __init__(self, vocab_size: int = 32000, embed_dim: int = 4096, num_layers: int = 32) -> None:
+    def __init__(
+        self, vocab_size: int = 32000, embed_dim: int = 4096, num_layers: int = 32
+    ) -> None:
         super().__init__()
         self.vocab_size = vocab_size
         self.embed_dim = embed_dim

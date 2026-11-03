@@ -8,7 +8,9 @@ from tests._test_utils import _checkpoint
 
 @pytest.mark.parametrize("model_name", ["gpt1", "gpt2", "gemma", "llama1", "llama2"])
 def test_model_save_and_load_roundtrip(tmp_path, model_name, torch_device):
-    _checkpoint("test_model_save_and_load_roundtrip setup", model_name=model_name, device=torch_device)
+    _checkpoint(
+        "test_model_save_and_load_roundtrip setup", model_name=model_name, device=torch_device
+    )
     torch.manual_seed(0)
     x = torch.randint(0, 32, (2, 6), device=torch_device)
 

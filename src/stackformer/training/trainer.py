@@ -85,8 +85,14 @@ class Trainer:
         self.scheduler = scheduler or build_scheduler(self.optimizer, self.config, total_steps)
 
         self.state = TrainState()
-        self.metrics, self.loggers, self.callbacks = list(metrics or []), list(loggers or []), list(callbacks or [])
-        self.display = DisplayManager(mode=self.config.display, verbosity=self.config.verbosity, rank_zero_only=True)
+        self.metrics, self.loggers, self.callbacks = (
+            list(metrics or []),
+            list(loggers or []),
+            list(callbacks or []),
+        )
+        self.display = DisplayManager(
+            mode=self.config.display, verbosity=self.config.verbosity, rank_zero_only=True
+        )
 
         self.checkpoint_manager = CheckpointManager(
             checkpoint_dir=self.config.checkpoint_dir,
@@ -116,7 +122,9 @@ class Trainer:
     def _restore_checkpoint_if_requested(self) -> bool:
         if not self.config.resume_from:
             return False
-        ckpt = self.checkpoint_manager.load(self.config.resume_from, model=self.model, optimizer=self.optimizer)
+        ckpt = self.checkpoint_manager.load(
+            self.config.resume_from, model=self.model, optimizer=self.optimizer
+        )
         if ckpt is None:
             return False
         unwrap_model(self.model).load_state_dict(clean_state_dict(ckpt["model"]))
@@ -142,7 +150,9 @@ class Trainer:
             getattr(self.train_loader, "shuffle", False)
             or (
                 hasattr(self.train_loader, "sampler")
-                and isinstance(getattr(self.train_loader, "sampler", None), torch.utils.data.RandomSampler)
+                and isinstance(
+                    getattr(self.train_loader, "sampler", None), torch.utils.data.RandomSampler
+                )
             )
         ) and getattr(self.train_loader, "generator", None) is None
         if has_unseeded_shuffle:
@@ -175,7 +185,9 @@ class Trainer:
 
                 dispatch_epoch_start(self, epoch)
 
-                if hasattr(self.train_loader, "sampler") and hasattr(self.train_loader.sampler, "set_epoch"):
+                if hasattr(self.train_loader, "sampler") and hasattr(
+                    self.train_loader.sampler, "set_epoch"
+                ):
                     self.train_loader.sampler.set_epoch(epoch)
                 elif getattr(self.train_loader, "generator", None) is not None:
                     self.train_loader.generator.manual_seed(self.config.seed + epoch)
@@ -209,7 +221,9 @@ class Trainer:
                     if self.state.total_micro_batches % accum_steps == 0:
                         if self.config.max_grad_norm is not None:
                             self.precision.unscale_(self.optimizer)
-                            torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.max_grad_norm)
+                            torch.nn.utils.clip_grad_norm_(
+                                self.model.parameters(), self.config.max_grad_norm
+                            )
 
                         self.precision.step(self.optimizer)
                         self.optimizer.zero_grad(set_to_none=True)
@@ -223,7 +237,9 @@ class Trainer:
 
                         lr_curr = self.optimizer.param_groups[0]["lr"]
                         pbar.set_postfix(loss=running_loss, lr=lr_curr, step=self.state.global_step)
-                        dispatch_step_end(self, self.state.global_step, {"loss": running_loss, "lr": lr_curr})
+                        dispatch_step_end(
+                            self, self.state.global_step, {"loss": running_loss, "lr": lr_curr}
+                        )
 
                         if (
                             self.config.save_every_n_steps
@@ -237,7 +253,9 @@ class Trainer:
                             self.evaluate()
                             self.model.train()
 
-                        if self.state.should_stop or (max_steps is not None and self.state.global_step >= max_steps):
+                        if self.state.should_stop or (
+                            max_steps is not None and self.state.global_step >= max_steps
+                        ):
                             self.state.should_stop = True
                             break
 
@@ -245,9 +263,15 @@ class Trainer:
 
                 dispatch_epoch_end(self, epoch, {"epoch_loss": running_loss})
 
-                if self.config.save_every_n_epochs and (epoch + 1) % self.config.save_every_n_epochs == 0:
+                if (
+                    self.config.save_every_n_epochs
+                    and (epoch + 1) % self.config.save_every_n_epochs == 0
+                ):
                     self.save_checkpoint()
-                if self.config.eval_every_n_epochs and (epoch + 1) % self.config.eval_every_n_epochs == 0:
+                if (
+                    self.config.eval_every_n_epochs
+                    and (epoch + 1) % self.config.eval_every_n_epochs == 0
+                ):
                     self.evaluate()
                     self.model.train()
 

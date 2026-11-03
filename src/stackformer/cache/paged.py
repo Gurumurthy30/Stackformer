@@ -140,8 +140,12 @@ class PagedKVCache(nn.Module):
                 phys_block = table[logical_block]
                 n = min(self.block_size - offset, end_pos - pos)
                 chunk_start = pos - start_pos
-                self.pool_keys[phys_block, :, offset : offset + n] = k_store[b, :, chunk_start : chunk_start + n]
-                self.pool_values[phys_block, :, offset : offset + n] = v_store[b, :, chunk_start : chunk_start + n]
+                self.pool_keys[phys_block, :, offset : offset + n] = k_store[
+                    b, :, chunk_start : chunk_start + n
+                ]
+                self.pool_values[phys_block, :, offset : offset + n] = v_store[
+                    b, :, chunk_start : chunk_start + n
+                ]
                 pos += n
 
         self._B = B
@@ -173,8 +177,12 @@ class PagedKVCache(nn.Module):
         v_blocks = v_blocks.view(B, n_logical, self.num_heads, self.block_size, self.head_dim)
 
         # (B, n_logical, H, block, D) -> (B, H, n_logical*block, D)
-        k_full = k_blocks.permute(0, 2, 1, 3, 4).reshape(B, self.num_heads, n_logical * self.block_size, self.head_dim)
-        v_full = v_blocks.permute(0, 2, 1, 3, 4).reshape(B, self.num_heads, n_logical * self.block_size, self.head_dim)
+        k_full = k_blocks.permute(0, 2, 1, 3, 4).reshape(
+            B, self.num_heads, n_logical * self.block_size, self.head_dim
+        )
+        v_full = v_blocks.permute(0, 2, 1, 3, 4).reshape(
+            B, self.num_heads, n_logical * self.block_size, self.head_dim
+        )
 
         return k_full[:, :, :end_pos], v_full[:, :, :end_pos]
 
@@ -200,7 +208,9 @@ class PagedKVCache(nn.Module):
         v_full = _grad_safe_splice(v_full, v_live, sp, ep)
         return k_full, v_full
 
-    def peek_kv(self, start_pos: int = 0, end_pos: int | None = None) -> tuple[torch.Tensor, torch.Tensor]:
+    def peek_kv(
+        self, start_pos: int = 0, end_pos: int | None = None
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Read-only inspection of key and value states without autograd node splicing.
 
         Args:

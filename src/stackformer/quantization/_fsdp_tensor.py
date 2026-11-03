@@ -201,7 +201,9 @@ def _unsharded_inner_tensors(operands: Any) -> tuple[torch.Tensor, ...]:
     tell which field was the derived one. Derived views belong in properties,
     which ``fields()`` skips.
     """
-    tensors = tuple(getattr(operands, name) for name in _unsharded_inner_tensor_names(type(operands)))
+    tensors = tuple(
+        getattr(operands, name) for name in _unsharded_inner_tensor_names(type(operands))
+    )
     storages = {tensor.untyped_storage()._cdata for tensor in tensors}
     if len(storages) != len(tensors):
         raise ValueError(
@@ -218,7 +220,8 @@ def _validate_refilled_tensor_identity(
 ) -> None:
     """Require a refill to preserve every tensor object managed by FSDP."""
     if len(unsharded_inner_tensors) != len(refilled_tensors) or any(
-        previous is not current for previous, current in zip(unsharded_inner_tensors, refilled_tensors, strict=True)
+        previous is not current
+        for previous, current in zip(unsharded_inner_tensors, refilled_tensors, strict=True)
     ):
         raise RuntimeError("FSDP unsharded-operands refill replaced inner tensor storage")
 
@@ -417,7 +420,9 @@ class _ShardedFSDPTensor(_FSDPTensorBase):
             torch.autograd._unsafe_preserve_version_counter(unsharded_inner_tensors),
         ):
             refilled = self._build_operands(logical_tensor, out=existing)
-        _validate_refilled_tensor_identity(unsharded_inner_tensors, _unsharded_inner_tensors(refilled))
+        _validate_refilled_tensor_identity(
+            unsharded_inner_tensors, _unsharded_inner_tensors(refilled)
+        )
         target._operands = refilled
 
 
@@ -480,7 +485,9 @@ class _UnshardedFSDPTensor(_FSDPTensorBase):
     @staticmethod
     def __tensor_unflatten__(inner_tensors, metadata, outer_size, outer_stride):
         operands_cls, dtype = metadata
-        unsharded_inner_tensors = [inner_tensors[f"_{name}"] for name in _unsharded_inner_tensor_names(operands_cls)]
+        unsharded_inner_tensors = [
+            inner_tensors[f"_{name}"] for name in _unsharded_inner_tensor_names(operands_cls)
+        ]
         operands = operands_cls(*unsharded_inner_tensors)
         # FSDP supplies the logical shape; any unsharded inner tensor can stand in for
         # the rest, since they share the unsharded tensor's device and layout.

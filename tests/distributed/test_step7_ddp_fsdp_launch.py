@@ -141,27 +141,36 @@ def _worker_dcp_save_load(tmp_dir_str: str) -> None:
 def test_platform_guard_windows_nccl(monkeypatch):
     """Platform guard: Requesting NCCL on native Windows must raise a clear RuntimeError."""
     monkeypatch.setattr(sys, "platform", "win32")
-    with pytest.raises(RuntimeError, match="Native Windows does not support the NCCL distributed backend"):
+    with pytest.raises(
+        RuntimeError, match="Native Windows does not support the NCCL distributed backend"
+    ):
         validate_platform_and_device(parallel="ddp", backend="nccl", device="cpu")
 
 
 def test_platform_guard_windows_multi_gpu(monkeypatch):
     """Platform guard: Requesting multi-GPU CUDA on native Windows must raise a clear RuntimeError."""
     monkeypatch.setattr(sys, "platform", "win32")
-    with pytest.raises(RuntimeError, match="Native Windows does not support multi-GPU distributed training with NCCL"):
+    with pytest.raises(
+        RuntimeError,
+        match="Native Windows does not support multi-GPU distributed training with NCCL",
+    ):
         validate_platform_and_device(parallel="ddp", backend=None, device="cuda:0", world_size=2)
 
 
 def test_platform_guard_cpu_fsdp2_raises():
     """Platform guard: Requesting FSDP2 on CPU must raise a clear RuntimeError recommending DDP or WSL2."""
-    with pytest.raises(RuntimeError, match="FSDP2 in PyTorch 2.6 requires CUDA/accelerator streams"):
+    with pytest.raises(
+        RuntimeError, match="FSDP2 in PyTorch 2.6 requires CUDA/accelerator streams"
+    ):
         validate_platform_and_device(parallel="fsdp2", backend=None, device="cpu")
 
 
 def test_fsdp2_apply_on_cpu_raises_clear_error():
     """apply_fsdp on CPU must raise clear RuntimeError without silent fallback."""
     model = TinyLinearModel()
-    with pytest.raises(RuntimeError, match="FSDP2 in PyTorch 2.6 requires CUDA/accelerator streams"):
+    with pytest.raises(
+        RuntimeError, match="FSDP2 in PyTorch 2.6 requires CUDA/accelerator streams"
+    ):
         apply_fsdp(model, device="cpu")
 
 
@@ -287,7 +296,9 @@ def test_ddp_two_processes_loss_and_gradient_parity(tmp_path):
 )
 def test_ddp_checkpoint_save_and_resume_parity(tmp_path):
     """Test DDP checkpoint saving strips 'module.' prefix and reload gives identical outputs."""
-    launch(_worker_ddp_checkpoint_save_resume, num_processes=2, backend="gloo", args=(str(tmp_path),))
+    launch(
+        _worker_ddp_checkpoint_save_resume, num_processes=2, backend="gloo", args=(str(tmp_path),)
+    )
 
 
 @pytest.mark.skipif(

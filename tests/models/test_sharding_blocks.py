@@ -32,13 +32,26 @@ from stackformer.vision import SegFormer, ViT
         lambda: GPT2(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16),
         lambda: Llama1(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16),
         lambda: Llama2(
-            vocab_size=100, embed_dim=32, num_layers=2, num_query_heads=2, num_kv_heads=1, seq_len=16, hidden_dim=64
+            vocab_size=100,
+            embed_dim=32,
+            num_layers=2,
+            num_query_heads=2,
+            num_kv_heads=1,
+            seq_len=16,
+            hidden_dim=64,
         ),
         lambda: Gemma1_2B(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16),
         lambda: Gemma1_7B(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16),
         lambda: BERT(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16),
         lambda: RoBERTa(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16),
-        lambda: Transformer(vocab_size=100, embed_dim=32, encoder_layers=2, decoder_layers=2, num_heads=2, seq_len=16),
+        lambda: Transformer(
+            vocab_size=100,
+            embed_dim=32,
+            encoder_layers=2,
+            decoder_layers=2,
+            num_heads=2,
+            seq_len=16,
+        ),
         lambda: ViT(
             img_size=16,
             patch_size=4,
@@ -57,12 +70,16 @@ def test_model_family_sharding_blocks(model_fn):
     model = model_fn()
     blocks = model.get_sharding_blocks()
 
-    assert isinstance(blocks, list), "get_sharding_blocks() must always return a flat list[nn.Module]"
+    assert isinstance(blocks, list), (
+        "get_sharding_blocks() must always return a flat list[nn.Module]"
+    )
     assert len(blocks) > 0, "Sharding blocks must be non-empty"
     assert len(blocks) == len(set(blocks)), "Sharding blocks must be unique"
 
     if isinstance(model, Transformer):
-        assert len(blocks) == 4, "Transformer must return 2 encoder blocks followed by 2 decoder blocks"
+        assert len(blocks) == 4, (
+            "Transformer must return 2 encoder blocks followed by 2 decoder blocks"
+        )
     elif isinstance(model, SegFormer):
         assert len(blocks) == 4, "SegFormer must return its 4 hierarchical stages"
 
@@ -73,13 +90,17 @@ def test_model_family_sharding_blocks(model_fn):
     block_params = sum(p.numel() for b in blocks for p in b.parameters())
     param_fraction = block_params / total_params
 
-    assert param_fraction > 0.60, f"Blocks cover only {param_fraction:.1%} of parameters (expected > 60%)"
+    assert param_fraction > 0.60, (
+        f"Blocks cover only {param_fraction:.1%} of parameters (expected > 60%)"
+    )
 
 
 def test_model_family_block_groups():
     """Verify get_block_groups returns named groups for all models."""
     # Transformer returns separate encoder and decoder
-    trans = Transformer(vocab_size=100, embed_dim=32, encoder_layers=2, decoder_layers=3, num_heads=2, seq_len=16)
+    trans = Transformer(
+        vocab_size=100, embed_dim=32, encoder_layers=2, decoder_layers=3, num_heads=2, seq_len=16
+    )
     trans_groups = trans.get_block_groups()
     assert set(trans_groups.keys()) == {"encoder", "decoder"}
     assert len(trans_groups["encoder"]) == 2
@@ -106,9 +127,17 @@ def test_model_family_tied_params():
     roberta = RoBERTa(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16)
     gpt = GPT2(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16)
     llama = Llama2(
-        vocab_size=100, embed_dim=32, num_layers=2, num_query_heads=2, num_kv_heads=1, seq_len=16, hidden_dim=64
+        vocab_size=100,
+        embed_dim=32,
+        num_layers=2,
+        num_query_heads=2,
+        num_kv_heads=1,
+        seq_len=16,
+        hidden_dim=64,
     )
-    trans = Transformer(vocab_size=100, embed_dim=32, encoder_layers=2, decoder_layers=2, num_heads=2, seq_len=16)
+    trans = Transformer(
+        vocab_size=100, embed_dim=32, encoder_layers=2, decoder_layers=2, num_heads=2, seq_len=16
+    )
 
     assert bert.get_tied_params() == [("token_embedding.weight", "lm_head.weight")]
     assert roberta.get_tied_params() == [("token_embedding.weight", "lm_head.weight")]
@@ -159,7 +188,12 @@ def test_trainer_loss_decreases_gpt(tmp_path):
     loader = DataLoader(TensorDataset(tokens, tokens), batch_size=4, shuffle=True)
 
     cfg = TrainConfig(
-        max_steps=5, lr=3e-3, optimizer="adamw", scheduler="none", checkpoint_dir=str(tmp_path), save_last=False
+        max_steps=5,
+        lr=3e-3,
+        optimizer="adamw",
+        scheduler="none",
+        checkpoint_dir=str(tmp_path),
+        save_last=False,
     )
     trainer = Trainer(model, cfg, train_loader=loader, val_loader=loader)
     init_loss = trainer.evaluate()["val_loss"]
@@ -171,13 +205,24 @@ def test_trainer_loss_decreases_gpt(tmp_path):
 def test_trainer_loss_decreases_llama(tmp_path):
     torch.manual_seed(42)
     model = Llama2(
-        vocab_size=64, embed_dim=32, num_layers=2, num_query_heads=2, num_kv_heads=1, seq_len=16, hidden_dim=64
+        vocab_size=64,
+        embed_dim=32,
+        num_layers=2,
+        num_query_heads=2,
+        num_kv_heads=1,
+        seq_len=16,
+        hidden_dim=64,
     )
     tokens = torch.tensor([[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]] * 16)
     loader = DataLoader(TensorDataset(tokens, tokens), batch_size=4, shuffle=True)
 
     cfg = TrainConfig(
-        max_steps=5, lr=3e-3, optimizer="adamw", scheduler="none", checkpoint_dir=str(tmp_path), save_last=False
+        max_steps=5,
+        lr=3e-3,
+        optimizer="adamw",
+        scheduler="none",
+        checkpoint_dir=str(tmp_path),
+        save_last=False,
     )
     trainer = Trainer(model, cfg, train_loader=loader, val_loader=loader)
     init_loss = trainer.evaluate()["val_loss"]
@@ -193,7 +238,12 @@ def test_trainer_loss_decreases_gemma(tmp_path):
     loader = DataLoader(TensorDataset(tokens, tokens), batch_size=4, shuffle=True)
 
     cfg = TrainConfig(
-        max_steps=5, lr=3e-3, optimizer="adamw", scheduler="none", checkpoint_dir=str(tmp_path), save_last=False
+        max_steps=5,
+        lr=3e-3,
+        optimizer="adamw",
+        scheduler="none",
+        checkpoint_dir=str(tmp_path),
+        save_last=False,
     )
     trainer = Trainer(model, cfg, train_loader=loader, val_loader=loader)
     init_loss = trainer.evaluate()["val_loss"]
@@ -209,7 +259,12 @@ def test_trainer_loss_decreases_bert(tmp_path):
     loader = DataLoader(TensorDataset(tokens, tokens), batch_size=4, shuffle=True)
 
     cfg = TrainConfig(
-        max_steps=5, lr=3e-3, optimizer="adamw", scheduler="none", checkpoint_dir=str(tmp_path), save_last=False
+        max_steps=5,
+        lr=3e-3,
+        optimizer="adamw",
+        scheduler="none",
+        checkpoint_dir=str(tmp_path),
+        save_last=False,
     )
     trainer = Trainer(model, cfg, train_loader=loader, val_loader=loader)
     init_loss = trainer.evaluate()["val_loss"]
@@ -225,7 +280,12 @@ def test_trainer_loss_decreases_roberta(tmp_path):
     loader = DataLoader(TensorDataset(tokens, tokens), batch_size=4, shuffle=True)
 
     cfg = TrainConfig(
-        max_steps=5, lr=3e-3, optimizer="adamw", scheduler="none", checkpoint_dir=str(tmp_path), save_last=False
+        max_steps=5,
+        lr=3e-3,
+        optimizer="adamw",
+        scheduler="none",
+        checkpoint_dir=str(tmp_path),
+        save_last=False,
     )
     trainer = Trainer(model, cfg, train_loader=loader, val_loader=loader)
     init_loss = trainer.evaluate()["val_loss"]
@@ -252,25 +312,41 @@ class Seq2SeqDataset(Dataset):
 
 def test_trainer_loss_decreases_transformer(tmp_path):
     torch.manual_seed(42)
-    model = Transformer(vocab_size=32, embed_dim=32, encoder_layers=2, decoder_layers=2, num_heads=2, seq_len=8)
+    model = Transformer(
+        vocab_size=32, embed_dim=32, encoder_layers=2, decoder_layers=2, num_heads=2, seq_len=8
+    )
     src = torch.tensor([[1, 2, 3, 4, 5, 6, 7, 8]] * 16)
     tgt = torch.tensor([[10, 11, 12, 13, 14, 15, 16, 17]] * 16)
     loader = DataLoader(Seq2SeqDataset(src, tgt), batch_size=4, shuffle=True)
 
     cfg = TrainConfig(
-        max_steps=5, lr=3e-3, optimizer="adamw", scheduler="none", checkpoint_dir=str(tmp_path), save_last=False
+        max_steps=5,
+        lr=3e-3,
+        optimizer="adamw",
+        scheduler="none",
+        checkpoint_dir=str(tmp_path),
+        save_last=False,
     )
     trainer = Trainer(model, cfg, train_loader=loader, val_loader=loader)
     init_loss = trainer.evaluate()["val_loss"]
     trainer.train()
     final_loss = trainer.evaluate()["val_loss"]
-    assert final_loss < init_loss, f"Transformer seq2seq loss did not decrease: {init_loss} -> {final_loss}"
+    assert final_loss < init_loss, (
+        f"Transformer seq2seq loss did not decrease: {init_loss} -> {final_loss}"
+    )
 
 
 def test_trainer_loss_decreases_vit(tmp_path):
     torch.manual_seed(42)
     model = ViT(
-        img_size=16, patch_size=4, in_channels=3, num_classes=2, embed_dim=32, num_layers=2, num_heads=2, hidden_dim=64
+        img_size=16,
+        patch_size=4,
+        in_channels=3,
+        num_classes=2,
+        embed_dim=32,
+        num_layers=2,
+        num_heads=2,
+        hidden_dim=64,
     )
     images = torch.randn(16, 3, 16, 16)
     labels = (images[:, 0, 0, 0] > 0).long()
@@ -289,7 +365,9 @@ def test_trainer_loss_decreases_vit(tmp_path):
     init_loss = trainer.evaluate()["val_loss"]
     trainer.train()
     final_loss = trainer.evaluate()["val_loss"]
-    assert final_loss < init_loss, f"ViT classification loss did not decrease: {init_loss} -> {final_loss}"
+    assert final_loss < init_loss, (
+        f"ViT classification loss did not decrease: {init_loss} -> {final_loss}"
+    )
 
 
 def test_trainer_loss_decreases_segformer(tmp_path):
@@ -314,4 +392,6 @@ def test_trainer_loss_decreases_segformer(tmp_path):
     init_loss = trainer.evaluate()["val_loss"]
     trainer.train()
     final_loss = trainer.evaluate()["val_loss"]
-    assert final_loss < init_loss, f"SegFormer segmentation loss did not decrease: {init_loss} -> {final_loss}"
+    assert final_loss < init_loss, (
+        f"SegFormer segmentation loss did not decrease: {init_loss} -> {final_loss}"
+    )

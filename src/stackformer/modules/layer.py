@@ -122,9 +122,13 @@ class BlockConfig:
             self.num_kv_heads = self.num_heads
 
         if self.embed_dim % self.num_heads != 0:
-            raise ValueError(f"embed_dim ({self.embed_dim}) must be divisible by num_heads ({self.num_heads})")
+            raise ValueError(
+                f"embed_dim ({self.embed_dim}) must be divisible by num_heads ({self.num_heads})"
+            )
 
-        if ("gqa" in self.attention or "mqa" in self.attention) and self.num_heads % self.num_kv_heads != 0:
+        if (
+            "gqa" in self.attention or "mqa" in self.attention
+        ) and self.num_heads % self.num_kv_heads != 0:
             raise ValueError(
                 f"num_heads ({self.num_heads}) must be divisible by "
                 f"num_kv_heads ({self.num_kv_heads}) for {self.attention}"
@@ -341,11 +345,15 @@ class DecoderBlock(nn.Module):
         # x: (B, T, C), memory: (B, S, C)
         if self.pre_norm:
             x = x + self.self_attn(self.norm1(x), mask=self_mask)
-            x = x + self.cross_attn(self.norm2(x), memory, mask=cross_mask, attn_mask=cross_attn_mask)
+            x = x + self.cross_attn(
+                self.norm2(x), memory, mask=cross_mask, attn_mask=cross_attn_mask
+            )
             x = x + self.ffn(self.norm3(x))
         else:  # post-norm
             x = self.norm1(x + self.self_attn(x, mask=self_mask))
-            x = self.norm2(x + self.cross_attn(x, memory, mask=cross_mask, attn_mask=cross_attn_mask))
+            x = self.norm2(
+                x + self.cross_attn(x, memory, mask=cross_mask, attn_mask=cross_attn_mask)
+            )
             x = self.norm3(x + self.ffn(x))
         return x  # (B, T, C)
 

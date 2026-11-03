@@ -121,7 +121,11 @@ class CheckpointManager:
             np.random.set_state(rng_state["numpy"])
         if "torch_cpu" in rng_state and rng_state["torch_cpu"] is not None:
             torch.set_rng_state(rng_state["torch_cpu"])
-        if "torch_cuda" in rng_state and rng_state["torch_cuda"] is not None and torch.cuda.is_available():
+        if (
+            "torch_cuda" in rng_state
+            and rng_state["torch_cuda"] is not None
+            and torch.cuda.is_available()
+        ):
             torch.cuda.set_rng_state_all(rng_state["torch_cuda"])
 
     def save(
@@ -166,7 +170,9 @@ class CheckpointManager:
                 "model": model_state,
                 "optimizer": optimizer.state_dict() if optimizer is not None else None,
                 "scheduler": scheduler.state_dict() if scheduler is not None else None,
-                "scaler": scaler.state_dict() if scaler is not None and hasattr(scaler, "state_dict") else None,
+                "scaler": scaler.state_dict()
+                if scaler is not None and hasattr(scaler, "state_dict")
+                else None,
                 "rng": self._get_rng_state(),
                 "train_state": train_state.to_dict(),
                 "config": config.to_dict() if hasattr(config, "to_dict") else config,
@@ -175,7 +181,9 @@ class CheckpointManager:
 
             if is_rank_zero():
                 if safetensors is not None:
-                    safetensors.torch.save_model(unwrap_model(model), str(target_dir / "model.safetensors"))
+                    safetensors.torch.save_model(
+                        unwrap_model(model), str(target_dir / "model.safetensors")
+                    )
                 meta = {
                     "step": train_state.global_step,
                     "epoch": train_state.epoch,
@@ -207,7 +215,9 @@ class CheckpointManager:
                 "model": model_state,
                 "optimizer": optimizer.state_dict() if optimizer is not None else None,
                 "scheduler": scheduler.state_dict() if scheduler is not None else None,
-                "scaler": scaler.state_dict() if scaler is not None and hasattr(scaler, "state_dict") else None,
+                "scaler": scaler.state_dict()
+                if scaler is not None and hasattr(scaler, "state_dict")
+                else None,
                 "rng": self._get_rng_state(),
                 "train_state": train_state.to_dict(),
                 "config": config.to_dict() if hasattr(config, "to_dict") else config,
@@ -222,7 +232,9 @@ class CheckpointManager:
 
             # 2. model.safetensors
             if safetensors is not None:
-                safetensors.torch.save_model(unwrap_model(model), str(temp_dir / "model.safetensors"))
+                safetensors.torch.save_model(
+                    unwrap_model(model), str(temp_dir / "model.safetensors")
+                )
             else:
                 warnings.warn(
                     "safetensors is not installed; saved weights to 'model.pt' instead. "
@@ -277,7 +289,9 @@ class CheckpointManager:
                 name = latest_file.read_text(encoding="utf-8").strip()
                 p = self.checkpoint_dir / name
                 if p.is_dir() and (
-                    (p / "state.pt").exists() or (p / "dcp").exists() or (p / "model.safetensors").exists()
+                    (p / "state.pt").exists()
+                    or (p / "dcp").exists()
+                    or (p / "model.safetensors").exists()
                 ):
                     return p
             except Exception:
@@ -359,7 +373,9 @@ class CheckpointManager:
 
             target_file = target_path / "state.pt"
             if not target_file.exists():
-                raise FileNotFoundError(f"Checkpoint directory {target_path} does not contain 'state.pt' or 'dcp'")
+                raise FileNotFoundError(
+                    f"Checkpoint directory {target_path} does not contain 'state.pt' or 'dcp'"
+                )
         else:
             target_file = target_path
 
@@ -400,7 +416,9 @@ class CheckpointManager:
             model_state = clean_state_dict(model.state_dict())
             # 1. model.safetensors
             if safetensors is not None:
-                safetensors.torch.save_model(unwrap_model(model), str(temp_dir / "model.safetensors"))
+                safetensors.torch.save_model(
+                    unwrap_model(model), str(temp_dir / "model.safetensors")
+                )
             else:
                 warnings.warn(
                     "safetensors is not installed; saved weights to 'model.pt' instead. "
@@ -428,7 +446,9 @@ class CheckpointManager:
                     "model": model.state_dict(),
                     "optimizer": optimizer.state_dict() if optimizer is not None else None,
                     "scheduler": scheduler.state_dict() if scheduler is not None else None,
-                    "scaler": scaler.state_dict() if scaler is not None and hasattr(scaler, "state_dict") else None,
+                    "scaler": scaler.state_dict()
+                    if scaler is not None and hasattr(scaler, "state_dict")
+                    else None,
                     "rng": self._get_rng_state(),
                     "train_state": train_state.to_dict(),
                     "config": config.to_dict() if hasattr(config, "to_dict") else config,
@@ -468,4 +488,6 @@ class CheckpointManager:
             ckpt = torch.load(str(state_file), map_location=device, weights_only=False)  # nosec B614
             model.load_state_dict(ckpt["model"])
         else:
-            raise FileNotFoundError(f"No weights file found in best checkpoint directory: {best_dir}")
+            raise FileNotFoundError(
+                f"No weights file found in best checkpoint directory: {best_dir}"
+            )

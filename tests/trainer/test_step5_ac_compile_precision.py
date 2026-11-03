@@ -66,14 +66,20 @@ def test_ac_loss_and_gradients_numerical_parity():
 
     # Verify gradients are identical across all parameters
     params_none = dict(m_none.named_parameters())
-    params_full = {k.replace("_checkpoint_wrapped_module.", ""): v for k, v in m_full.named_parameters()}
-    params_sel = {k.replace("_checkpoint_wrapped_module.", ""): v for k, v in m_sel.named_parameters()}
+    params_full = {
+        k.replace("_checkpoint_wrapped_module.", ""): v for k, v in m_full.named_parameters()
+    }
+    params_sel = {
+        k.replace("_checkpoint_wrapped_module.", ""): v for k, v in m_sel.named_parameters()
+    }
 
     for name, p_none in params_none.items():
         if p_none.grad is not None:
             clean_name = name
             assert clean_name in params_full, f"Parameter {clean_name} missing from full AC model"
-            assert clean_name in params_sel, f"Parameter {clean_name} missing from selective AC model"
+            assert clean_name in params_sel, (
+                f"Parameter {clean_name} missing from selective AC model"
+            )
             assert torch.allclose(p_none.grad, params_full[clean_name].grad, atol=1e-5), (
                 f"Gradient mismatch for {name} (full AC)"
             )
@@ -159,7 +165,9 @@ def test_trainer_bf16_autocast_loss_decreases(tmp_path):
     trainer.train()
     final_loss = trainer.evaluate()["val_loss"]
 
-    assert final_loss < init_loss, f"bf16 training failed to decrease loss: {init_loss} -> {final_loss}"
+    assert final_loss < init_loss, (
+        f"bf16 training failed to decrease loss: {init_loss} -> {final_loss}"
+    )
 
 
 def test_fp16_on_cpu_raises_informative_error():
@@ -239,7 +247,9 @@ def test_checkpoint_save_and_resume_with_ac_and_compile(tmp_path):
 
     # Simulate compiled module wrapper by monkeypatching a sub-prefix into state_dict keys
     mgr = CheckpointManager(checkpoint_dir=tmp_path)
-    trainer = Trainer(model, TrainConfig(checkpoint_dir=str(tmp_path), activation_checkpointing="full"))
+    trainer = Trainer(
+        model, TrainConfig(checkpoint_dir=str(tmp_path), activation_checkpointing="full")
+    )
 
     # Save checkpoint
     ckpt_dir = trainer.save_checkpoint()

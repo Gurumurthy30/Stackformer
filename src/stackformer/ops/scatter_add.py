@@ -8,7 +8,9 @@ import torch
 
 
 @torch.library.custom_op("torchtitan::deterministic_scatter_add", mutates_args=())
-def deterministic_scatter_add(out: torch.Tensor, index: torch.Tensor, src: torch.Tensor) -> torch.Tensor:
+def deterministic_scatter_add(
+    out: torch.Tensor, index: torch.Tensor, src: torch.Tensor
+) -> torch.Tensor:
     prev = torch.are_deterministic_algorithms_enabled()
     prev_warn_only = torch.is_deterministic_algorithms_warn_only_enabled()
     torch.use_deterministic_algorithms(True, warn_only=False)

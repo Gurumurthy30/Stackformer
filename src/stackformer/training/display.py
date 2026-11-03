@@ -148,7 +148,9 @@ class DisplayManager:
             cfg_dict = config
         else:
             cfg_dict = {
-                k: getattr(config, k) for k in dir(config) if not k.startswith("_") and not callable(getattr(config, k))
+                k: getattr(config, k)
+                for k in dir(config)
+                if not k.startswith("_") and not callable(getattr(config, k))
             }
 
         # Show important training settings
@@ -215,7 +217,10 @@ class DisplayManager:
             table.add_column("Loss", style="yellow")
             table.add_column("Metrics", style="green")
 
-            m_str = " ".join(f"{k}={v:.4f}" if isinstance(v, float) else f"{k}={v}" for k, v in (metrics or {}).items())
+            m_str = " ".join(
+                f"{k}={v:.4f}" if isinstance(v, float) else f"{k}={v}"
+                for k, v in (metrics or {}).items()
+            )
             table.add_row("Train", f"{train_loss:.4f}", m_str or "-")
 
             if val_metrics:
@@ -232,7 +237,10 @@ class DisplayManager:
         else:
             self.write(f"\n>>> {epoch_str}{time_str} | Train Loss: {train_loss:.4f}")
             if metrics:
-                m_str = " ".join(f"{k}={v:.4f}" if isinstance(v, float) else f"{k}={v}" for k, v in metrics.items())
+                m_str = " ".join(
+                    f"{k}={v:.4f}" if isinstance(v, float) else f"{k}={v}"
+                    for k, v in metrics.items()
+                )
                 self.write(f" | {m_str}")
             if val_metrics:
                 v_loss = val_metrics.get("val_loss")
@@ -280,7 +288,9 @@ class DisplayManager:
         if not self.is_active or not self.is_verbose:
             return
 
-        extra = " ".join(f"{k}={v:.4f}" if isinstance(v, float) else f"{k}={v}" for k, v in kwargs.items())
+        extra = " ".join(
+            f"{k}={v:.4f}" if isinstance(v, float) else f"{k}={v}" for k, v in kwargs.items()
+        )
         msg = f"[Step {step}] Loss: {loss:.4f} | LR: {lr:.2e}"
         if extra:
             msg += f" | {extra}"

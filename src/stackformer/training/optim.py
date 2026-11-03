@@ -46,10 +46,14 @@ def build_optimizer(model: nn.Module, config: TrainConfig) -> Optimizer:
     elif opt_name == "sgd":
         return SGD(param_groups, lr=config.lr, momentum=0.9)
     else:
-        raise ValueError(f"Unknown optimizer '{config.optimizer}', expected 'adamw', 'adam', or 'sgd'.")
+        raise ValueError(
+            f"Unknown optimizer '{config.optimizer}', expected 'adamw', 'adam', or 'sgd'."
+        )
 
 
-def build_scheduler(optimizer: Optimizer, config: TrainConfig, total_steps: int) -> LRScheduler | None:
+def build_scheduler(
+    optimizer: Optimizer, config: TrainConfig, total_steps: int
+) -> LRScheduler | None:
     """Build learning rate scheduler with optional warmup and decay."""
     sched_name = config.scheduler.lower().strip()
     if sched_name in {"none", ""}:

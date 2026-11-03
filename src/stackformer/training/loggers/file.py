@@ -60,7 +60,9 @@ class CSVLogger(Logger):
                 writer.writerows(existing_rows)
 
             self._file = open(self.file_path, mode="a", newline="", encoding="utf-8")
-            self._writer = csv.DictWriter(self._file, fieldnames=self.fieldnames, extrasaction="ignore")
+            self._writer = csv.DictWriter(
+                self._file, fieldnames=self.fieldnames, extrasaction="ignore"
+            )
             return
 
         self.log_dir.mkdir(parents=True, exist_ok=True)

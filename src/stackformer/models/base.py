@@ -34,7 +34,9 @@ def resolve_model_config(
         if isinstance(first_arg, int | float | str | bool):
             pass
         elif (
-            hasattr(first_arg, "__dict__") or hasattr(first_arg, "__dataclass_fields__") or isinstance(first_arg, dict)
+            hasattr(first_arg, "__dict__")
+            or hasattr(first_arg, "__dataclass_fields__")
+            or isinstance(first_arg, dict)
         ):
             config = first_arg
 
@@ -144,7 +146,11 @@ class BaseModel(nn.Module):
             # Ensure Stackformer custom LayerNorm / RMSNorm are initialized (weight=1, bias=0)
             # even when subclasses override _init_weights with checks restricted to nn.LayerNorm.
             for m in self.modules():
-                if hasattr(m, "eps") and hasattr(m, "weight") and not isinstance(m, nn.Linear | nn.Embedding):
+                if (
+                    hasattr(m, "eps")
+                    and hasattr(m, "weight")
+                    and not isinstance(m, nn.Linear | nn.Embedding)
+                ):
                     if m.weight is not None and not m.weight.is_meta:
                         nn.init.ones_(m.weight)
                     if hasattr(m, "bias") and m.bias is not None and not m.bias.is_meta:
@@ -171,7 +177,9 @@ class BaseModel(nn.Module):
         Returns:
             BaseModel: Self for fluent method chaining.
         """
-        is_meta = any(p.is_meta for p in self.parameters()) or any(b.is_meta for b in self.buffers())
+        is_meta = any(p.is_meta for p in self.parameters()) or any(
+            b.is_meta for b in self.buffers()
+        )
         if is_meta:
             self.to_empty(device=device, recurse=True)
         else:

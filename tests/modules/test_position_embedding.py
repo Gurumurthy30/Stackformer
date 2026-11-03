@@ -12,7 +12,10 @@ from tests._test_utils import _checkpoint
 @pytest.mark.parametrize("batch,seq", [(1, 4), (2, 6)])
 def test_absolute_position_embedding_shapes_and_stability(batch, seq, torch_device):
     _checkpoint(
-        "test_absolute_position_embedding_shapes_and_stability setup", batch=batch, seq=seq, device=torch_device
+        "test_absolute_position_embedding_shapes_and_stability setup",
+        batch=batch,
+        seq=seq,
+        device=torch_device,
     )
     torch.manual_seed(0)
     layer = AbsolutePositionEmbedding(seq_len=8, embed_dim=8, device=torch_device)
@@ -27,7 +30,10 @@ def test_absolute_position_embedding_shapes_and_stability(batch, seq, torch_devi
 @pytest.mark.parametrize("batch,seq", [(1, 4), (2, 6)])
 def test_sinusoidal_position_embedding_shapes_and_stability(batch, seq, torch_device):
     _checkpoint(
-        "test_sinusoidal_position_embedding_shapes_and_stability setup", batch=batch, seq=seq, device=torch_device
+        "test_sinusoidal_position_embedding_shapes_and_stability setup",
+        batch=batch,
+        seq=seq,
+        device=torch_device,
     )
     torch.manual_seed(0)
     layer = SinusoidalPositionalEmbedding(seq_len=8, embed_dim=8, device=torch_device)
@@ -40,7 +46,9 @@ def test_sinusoidal_position_embedding_shapes_and_stability(batch, seq, torch_de
 
 
 def test_rope_compatibility_with_attention_shape_and_stability(torch_device):
-    _checkpoint("test_rope_compatibility_with_attention_shape_and_stability setup", device=torch_device)
+    _checkpoint(
+        "test_rope_compatibility_with_attention_shape_and_stability setup", device=torch_device
+    )
     torch.manual_seed(0)
     rope = RoPE(head_dim=4, seq_len=8, device=torch_device)
     x = torch.randn(2, 2, 6, 4, device=torch_device)

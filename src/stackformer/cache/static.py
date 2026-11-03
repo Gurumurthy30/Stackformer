@@ -118,7 +118,9 @@ class StaticKVCache(nn.Module):
         v_full = _grad_safe_splice(v_full, v_live, sp, ep)
         return k_full, v_full
 
-    def peek_kv(self, start_pos: int = 0, end_pos: int | None = None) -> tuple[torch.Tensor, torch.Tensor]:
+    def peek_kv(
+        self, start_pos: int = 0, end_pos: int | None = None
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Read-only inspection of key and value buffers without autograd node splicing.
 
         Args:

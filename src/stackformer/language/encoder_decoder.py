@@ -58,7 +58,9 @@ class EncoderDecoder(nn.Module):
         self.shared_embed = nn.Embedding(vocab_size, embed_dim)
         self.lm_head = nn.Linear(embed_dim, vocab_size, bias=False)
 
-    def forward(self, encoder_input_ids: torch.Tensor, decoder_input_ids: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, encoder_input_ids: torch.Tensor, decoder_input_ids: torch.Tensor
+    ) -> torch.Tensor:
         # encoder_input_ids: (B, S), decoder_input_ids: (B, T)
         dec_x = self.shared_embed(decoder_input_ids)  # (B, T, C)
         # Placeholder forward pass returns linear logits over decoder tokens

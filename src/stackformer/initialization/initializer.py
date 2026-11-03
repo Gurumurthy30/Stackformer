@@ -67,7 +67,9 @@ class Initializer:
         self.strategy_name = strategy.lower().strip()
         if self.strategy_name not in self.STRATEGY_MAP:
             valid = list(self.STRATEGY_MAP.keys())
-            raise ValueError(f"Unknown initialization strategy '{strategy}'. Supported strategies: {valid}")
+            raise ValueError(
+                f"Unknown initialization strategy '{strategy}'. Supported strategies: {valid}"
+            )
         self.strategy_fn = self.STRATEGY_MAP[self.strategy_name]
         self.std = std
         self.mean = mean
@@ -151,7 +153,9 @@ class Initializer:
                 strategies.zeros_init_(module.bias)
 
         # Normalization layers (LayerNorm, RMSNorm, BatchNorm, GroupNorm)
-        elif isinstance(module, nn.LayerNorm | nn.BatchNorm1d | nn.BatchNorm2d | nn.BatchNorm3d | nn.GroupNorm):
+        elif isinstance(
+            module, nn.LayerNorm | nn.BatchNorm1d | nn.BatchNorm2d | nn.BatchNorm3d | nn.GroupNorm
+        ):
             if module.weight is not None and not module.weight.is_meta:
                 strategies.ones_init_(module.weight)
             if module.bias is not None and not module.bias.is_meta:

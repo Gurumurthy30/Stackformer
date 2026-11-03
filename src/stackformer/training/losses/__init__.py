@@ -40,7 +40,9 @@ def get_loss(
     name = loss_name_or_fn.lower().strip()
     if name not in _LOSS_REGISTRY:
         available = sorted(_LOSS_REGISTRY.keys())
-        raise ValueError(f"Unknown loss '{loss_name_or_fn}'. Available registered losses: {available}")
+        raise ValueError(
+            f"Unknown loss '{loss_name_or_fn}'. Available registered losses: {available}"
+        )
     fn = _LOSS_REGISTRY[name]
     if name == "cross_entropy" and loss_mode != "auto":
         return functools.partial(fn, loss_mode=loss_mode)
@@ -201,7 +203,11 @@ def dice_loss(outputs: torch.Tensor, batch: Any, eps: float = 1e-6) -> torch.Ten
 
 @register_loss("focal")
 def focal_loss(
-    outputs: torch.Tensor, batch: Any, gamma: float = 2.0, alpha: float | None = 0.25, ignore_index: int = -100
+    outputs: torch.Tensor,
+    batch: Any,
+    gamma: float = 2.0,
+    alpha: float | None = 0.25,
+    ignore_index: int = -100,
 ) -> torch.Tensor:
     """Focal Loss for addressing class imbalance."""
     targets = _extract_target(batch)
@@ -214,12 +220,16 @@ def focal_loss(
 
 
 @register_loss("seg_cross_entropy")
-def seg_cross_entropy_loss(outputs: torch.Tensor, batch: Any, ignore_index: int = -100) -> torch.Tensor:
+def seg_cross_entropy_loss(
+    outputs: torch.Tensor, batch: Any, ignore_index: int = -100
+) -> torch.Tensor:
     """Segmentation cross entropy with automatic 2D spatial upsampling if needed."""
     targets = _extract_target(batch)
     # Spatial dimensions mismatch (e.g. SegFormer 1/4 resolution decode head)
     if outputs.ndim == 4 and targets.ndim == 3 and outputs.shape[-2:] != targets.shape[-2:]:
-        outputs = F.interpolate(outputs, size=targets.shape[-2:], mode="bilinear", align_corners=False)
+        outputs = F.interpolate(
+            outputs, size=targets.shape[-2:], mode="bilinear", align_corners=False
+        )
     return F.cross_entropy(outputs, targets, ignore_index=ignore_index)
 
 

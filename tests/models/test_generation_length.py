@@ -37,6 +37,8 @@ def test_generation_length_growth_never_truncates_context(model_cls, max_new_tok
     _checkpoint("Executing generate call")
     out = model.generate(x[0], max_context_len=SEQ, max_new_tokens=max_new_tokens)
 
-    _checkpoint("Asserting output length equals context length plus max_new_tokens", out_len=out.shape[-1])
+    _checkpoint(
+        "Asserting output length equals context length plus max_new_tokens", out_len=out.shape[-1]
+    )
     assert out.shape[-1] >= x.shape[-1]
     assert out.shape[-1] == x.shape[-1] + max_new_tokens

@@ -20,7 +20,9 @@ from stackformer.modules.masks import (
 _MAX_MASK_CACHE_SIZE = 32
 
 
-def _normalize_mask_type(mask_type: bool | str | list[str] | tuple[str, ...] | None) -> list[str] | None:
+def _normalize_mask_type(
+    mask_type: bool | str | list[str] | tuple[str, ...] | None,
+) -> list[str] | None:
     """Normalize user-provided mask_type into a canonical list of string identifiers."""
     if mask_type is True:
         return ["causal"]

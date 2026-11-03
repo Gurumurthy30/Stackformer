@@ -96,7 +96,9 @@ class ParallelDims:
             f"Building data-parallel device mesh: dp_replicate={self.dp_replicate}, dp_shard={self.dp_shard}, world_size={self.world_size}"
         )
 
-        self._world_mesh = init_device_mesh(device_type, (self.world_size,), mesh_dim_names=("world",))
+        self._world_mesh = init_device_mesh(
+            device_type, (self.world_size,), mesh_dim_names=("world",)
+        )
 
         if self.dp_replicate > 1 and self.dp_shard > 1:
             full_dp_mesh = self._world_mesh._unflatten(
@@ -154,7 +156,8 @@ class ParallelDims:
         candidates = [
             (name, global_mesh)
             for name, global_mesh in self._global_meshes.items()
-            if global_mesh.mesh_dim_names is not None and set(dims).issubset(set(global_mesh.mesh_dim_names))
+            if global_mesh.mesh_dim_names is not None
+            and set(dims).issubset(set(global_mesh.mesh_dim_names))
         ]
         if not candidates:
             raise ValueError(f"Invalid mesh name combinations {dims}.")
@@ -176,7 +179,11 @@ class ParallelDims:
         """Submesh of axes filtered to those actually enabled in this run."""
         if not self._single_axis_meshes:
             self.build_mesh()
-        axes = [axis for axis in axes if axis in self._single_axis_meshes and self.get_optional_mesh(axis) is not None]
+        axes = [
+            axis
+            for axis in axes
+            if axis in self._single_axis_meshes and self.get_optional_mesh(axis) is not None
+        ]
         return self.get_optional_mesh(axes) if axes else None
 
     def get_all_one_dimensional_meshes(self) -> dict[str, DeviceMesh]:

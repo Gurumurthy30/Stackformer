@@ -139,7 +139,9 @@ class GPT1(BaseModel):
         )
 
         self.embedding = nn.Embedding(vocab_size, embed_dim, device=device, dtype=dtype)
-        self.position_embedding = AbsolutePositionEmbedding(seq_len, embed_dim, device=device, dtype=dtype)
+        self.position_embedding = AbsolutePositionEmbedding(
+            seq_len, embed_dim, device=device, dtype=dtype
+        )
 
         self.backbone = TransformerEncoder(cfg_block, num_layers=num_layers, pos_embedding=None)
         self.lm_head = nn.Linear(embed_dim, vocab_size, bias=False, device=device, dtype=dtype)
@@ -317,7 +319,9 @@ class GPT2(BaseModel):
         )
 
         self.embedding = nn.Embedding(vocab_size, embed_dim, device=device, dtype=dtype)
-        self.position_embedding = AbsolutePositionEmbedding(seq_len, embed_dim, device=device, dtype=dtype)
+        self.position_embedding = AbsolutePositionEmbedding(
+            seq_len, embed_dim, device=device, dtype=dtype
+        )
 
         self.backbone = TransformerEncoder(cfg_block, num_layers=num_layers, pos_embedding=None)
         self.lm_head = nn.Linear(embed_dim, vocab_size, bias=False, device=device, dtype=dtype)

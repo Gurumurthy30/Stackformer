@@ -7,7 +7,11 @@ from tests._test_utils import _checkpoint
 
 @pytest.mark.parametrize("model_cls", [GPT_1, GPT_2])
 def test_save_load_after_training_keeps_predictions(tmp_path, model_cls, torch_device):
-    _checkpoint("test_save_load_after_training_keeps_predictions setup", model=model_cls.__name__, device=torch_device)
+    _checkpoint(
+        "test_save_load_after_training_keeps_predictions setup",
+        model=model_cls.__name__,
+        device=torch_device,
+    )
     torch.manual_seed(0)
     x = torch.randint(0, 32, (2, 6), device=torch_device)
 

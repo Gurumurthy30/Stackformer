@@ -86,7 +86,15 @@ def test_base_model_meta_device_materialization():
 
 @pytest.mark.parametrize(
     "method",
-    ["default", "normal", "trunc_normal", "xavier_uniform", "xavier_normal", "kaiming_uniform", "orthogonal"],
+    [
+        "default",
+        "normal",
+        "trunc_normal",
+        "xavier_uniform",
+        "xavier_normal",
+        "kaiming_uniform",
+        "orthogonal",
+    ],
 )
 def test_base_model_create_weights_strategies(method):
     config = ModelConfig(
@@ -235,7 +243,13 @@ def test_all_model_families_materialize_and_finite_parameters():
         (
             "Llama2",
             lambda: Llama2(
-                vocab_size=100, embed_dim=32, num_layers=2, num_query_heads=4, num_kv_heads=2, seq_len=16, hidden_dim=64
+                vocab_size=100,
+                embed_dim=32,
+                num_layers=2,
+                num_query_heads=4,
+                num_kv_heads=2,
+                seq_len=16,
+                hidden_dim=64,
             ),
         ),
         ("Gemma1_2B", lambda: Gemma1_2B(cfg)),
@@ -244,7 +258,13 @@ def test_all_model_families_materialize_and_finite_parameters():
         (
             "ViT",
             lambda: ViT(
-                img_size=32, patch_size=8, num_layers=2, embed_dim=32, num_heads=4, hidden_dim=64, num_classes=10
+                img_size=32,
+                patch_size=8,
+                num_layers=2,
+                embed_dim=32,
+                num_heads=4,
+                hidden_dim=64,
+                num_classes=10,
             ),
         ),
         ("SegFormer", lambda: SegFormer(variant="b0", num_labels=10)),
@@ -260,4 +280,6 @@ def test_all_model_families_materialize_and_finite_parameters():
                 f"{name} parameter {p_name} is not finite after materialize and create_weights"
             )
         for b_name, b in model.named_buffers():
-            assert torch.isfinite(b).all(), f"{name} buffer {b_name} is not finite after materialize and create_weights"
+            assert torch.isfinite(b).all(), (
+                f"{name} buffer {b_name} is not finite after materialize and create_weights"
+            )

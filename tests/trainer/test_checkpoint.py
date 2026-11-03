@@ -364,7 +364,9 @@ def test_trainer_save_safetensors_and_base_model_reload(tmp_path):
         out_orig = model(x)
         out_reloaded = new_model(x)
 
-    assert torch.allclose(out_orig, out_reloaded), "Outputs differ after reloading safetensors export"
+    assert torch.allclose(out_orig, out_reloaded), (
+        "Outputs differ after reloading safetensors export"
+    )
 
 
 def test_safetensors_missing_save_weights_hint(tmp_path, monkeypatch):
@@ -396,7 +398,9 @@ def test_checkpoint_manager_warns_and_falls_back_when_safetensors_missing(tmp_pa
 
     mgr = CheckpointManager(checkpoint_dir=tmp_path)
     with pytest.warns(UserWarning, match="Install safetensors via: pip install safetensors"):
-        saved_dir = mgr.save(model=model, train_state=state, optimizer=opt, scheduler=None, config=cfg)
+        saved_dir = mgr.save(
+            model=model, train_state=state, optimizer=opt, scheduler=None, config=cfg
+        )
 
     assert saved_dir.exists()
     assert (saved_dir / "model.pt").exists()
@@ -418,4 +422,6 @@ def test_state_pt_weights_only_behavior(tmp_path):
     assert "optimizer" in loaded
     assert "rng" in loaded
     assert "train_state" in loaded
-    assert (ckpt_dir / "model.safetensors").exists(), "Zero-copy safe model weights must be stored as safetensors"
+    assert (ckpt_dir / "model.safetensors").exists(), (
+        "Zero-copy safe model weights must be stored as safetensors"
+    )

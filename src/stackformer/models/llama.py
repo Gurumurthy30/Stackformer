@@ -335,7 +335,9 @@ class Llama2(BaseModel):
         vocab_size = resolved.get("vocab_size", 32000)
         num_layers = resolved.get("num_layers", num_layers)
         embed_dim = resolved.get("embed_dim", embed_dim)
-        num_query_heads = resolved.get("num_query_heads", resolved.get("num_heads", num_query_heads))
+        num_query_heads = resolved.get(
+            "num_query_heads", resolved.get("num_heads", num_query_heads)
+        )
         num_kv_heads = resolved.get("num_kv_heads", num_kv_heads)
         seq_len = resolved.get("seq_len", seq_len)
         hidden_dim = resolved.get("hidden_dim", hidden_dim)
@@ -345,7 +347,9 @@ class Llama2(BaseModel):
         device = resolved.get("device", device)
 
         assert embed_dim % num_query_heads == 0, "embed_dim must be divisible by num_query_heads"
-        assert num_query_heads % num_kv_heads == 0, "num_query_heads must be divisible by num_kv_heads"
+        assert num_query_heads % num_kv_heads == 0, (
+            "num_query_heads must be divisible by num_kv_heads"
+        )
 
         self.seq_len = seq_len
 

@@ -61,7 +61,11 @@ _ROPE_FREQ_CACHE: dict[tuple[int, int, str, torch.dtype, float], torch.Tensor] =
 
 
 def _build_rope_frequency(
-    head_dim: int, seq_len: int, device: torch.device | str, dtype: torch.dtype, theta: float = 10000.0
+    head_dim: int,
+    seq_len: int,
+    device: torch.device | str,
+    dtype: torch.dtype,
+    theta: float = 10000.0,
 ) -> torch.Tensor:
     """Precompute complex rotary positional frequency spectrum for RoPE.
 
@@ -81,7 +85,9 @@ def _build_rope_frequency(
         return _ROPE_FREQ_CACHE[key]
 
     dim_half = head_dim // 2
-    inv_freq = 1.0 / (theta ** (torch.arange(0, dim_half, device=device, dtype=torch.float32) / dim_half))
+    inv_freq = 1.0 / (
+        theta ** (torch.arange(0, dim_half, device=device, dtype=torch.float32) / dim_half)
+    )
     pos = torch.arange(seq_len, device=device, dtype=torch.float32)
     freqs = torch.outer(pos, inv_freq)
     freq_complex = torch.polar(torch.ones_like(freqs), freqs)
@@ -164,7 +170,9 @@ class Self_Attention(nn.Module):
         self.combine = combine
         self.mask_kwargs = mask_kwargs
 
-        self.qkv_proj = nn.Linear(embed_dim, embed_dim * 3, bias=qkv_bias, device=device, dtype=dtype)
+        self.qkv_proj = nn.Linear(
+            embed_dim, embed_dim * 3, bias=qkv_bias, device=device, dtype=dtype
+        )
         self.out_proj = nn.Linear(embed_dim, embed_dim, device=device, dtype=dtype)
         self.dropout_p = dropout
         self._causal_mask_cache = OrderedDict()
@@ -282,10 +290,14 @@ class Multi_Head_Attention(nn.Module):
         self.mask_kwargs = mask_kwargs
 
         # Linear layer
-        self.qkv_proj = nn.Linear(embed_dim, embed_dim * 3, bias=qkv_bias, device=device, dtype=self.dtype)
+        self.qkv_proj = nn.Linear(
+            embed_dim, embed_dim * 3, bias=qkv_bias, device=device, dtype=self.dtype
+        )
 
         # Final output projection after attention
-        self.out_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=self.dtype)
+        self.out_proj = nn.Linear(
+            embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=self.dtype
+        )
 
         # Dropout applied to the attention weights
         self.dropout_p = dropout
@@ -399,10 +411,14 @@ class Multi_Head_Attention_With_RoPE(nn.Module):
         self.mask_kwargs = mask_kwargs
 
         # Linear layer
-        self.qkv_proj = nn.Linear(embed_dim, embed_dim * 3, bias=qkv_bias, device=device, dtype=self.dtype)
+        self.qkv_proj = nn.Linear(
+            embed_dim, embed_dim * 3, bias=qkv_bias, device=device, dtype=self.dtype
+        )
 
         # Final output projection after attention
-        self.out_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=self.dtype)
+        self.out_proj = nn.Linear(
+            embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=self.dtype
+        )
 
         # Dropout applied to the attention weights
         self.dropout_p = dropout
@@ -446,7 +462,9 @@ class Multi_Head_Attention_With_RoPE(nn.Module):
         k = k.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
         v = v.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
 
-        freq = self._precompute_theta_position_frequency(self.head_dim, T, device=x.device, theta=theta)
+        freq = self._precompute_theta_position_frequency(
+            self.head_dim, T, device=x.device, theta=theta
+        )
         q = _apply_rotary_position_embedding(q, freq)
         k = _apply_rotary_position_embedding(k, freq)
 
@@ -522,7 +540,9 @@ class Cross_MultiHead_Attention(nn.Module):
 
         # Linear layer
         self.q_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=dtype)
-        self.kv_proj = nn.Linear(embed_dim, embed_dim * 2, bias=qkv_bias, device=device, dtype=dtype)
+        self.kv_proj = nn.Linear(
+            embed_dim, embed_dim * 2, bias=qkv_bias, device=device, dtype=dtype
+        )
 
         # Final output projection
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=dtype)
@@ -562,9 +582,15 @@ class Cross_MultiHead_Attention(nn.Module):
         k, v = kv.split(self.embed_dim, dim=-1)  # each (B, S, C)
 
         # Reshape to multi-head format
-        q = q.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)  # (B, num_heads, T, head_dim)
-        k = k.view(B, S, self.num_heads, self.head_dim).transpose(1, 2)  # (B, num_heads, S, head_dim)
-        v = v.view(B, S, self.num_heads, self.head_dim).transpose(1, 2)  # (B, num_heads, S, head_dim)
+        q = q.view(B, T, self.num_heads, self.head_dim).transpose(
+            1, 2
+        )  # (B, num_heads, T, head_dim)
+        k = k.view(B, S, self.num_heads, self.head_dim).transpose(
+            1, 2
+        )  # (B, num_heads, S, head_dim)
+        v = v.view(B, S, self.num_heads, self.head_dim).transpose(
+            1, 2
+        )  # (B, num_heads, S, head_dim)
 
         if attn_mask is not None:
             if attn_mask.dim() == 2 and attn_mask.shape != (T, S):
@@ -675,11 +701,17 @@ class Multi_query_Attention(nn.Module):
         self.mask_kwargs = mask_kwargs
 
         # Projection layers
-        self.q_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=self.dtype)
-        self.kv_proj = nn.Linear(embed_dim, self.head_dim * 2, bias=qkv_bias, device=device, dtype=self.dtype)
+        self.q_proj = nn.Linear(
+            embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=self.dtype
+        )
+        self.kv_proj = nn.Linear(
+            embed_dim, self.head_dim * 2, bias=qkv_bias, device=device, dtype=self.dtype
+        )
 
         # Output final projection
-        self.out_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=self.dtype)
+        self.out_proj = nn.Linear(
+            embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=self.dtype
+        )
 
         # Dropout applied to the attention weights (sdpa backend only)
         self.dropout_p = dropout
@@ -801,11 +833,17 @@ class Multi_query_Attention_With_RoPE(nn.Module):
         self.mask_kwargs = mask_kwargs
 
         # Projection layers
-        self.q_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=self.dtype)
-        self.kv_proj = nn.Linear(embed_dim, self.head_dim * 2, bias=qkv_bias, device=device, dtype=self.dtype)
+        self.q_proj = nn.Linear(
+            embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=self.dtype
+        )
+        self.kv_proj = nn.Linear(
+            embed_dim, self.head_dim * 2, bias=qkv_bias, device=device, dtype=self.dtype
+        )
 
         # Output final projection
-        self.out_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=self.dtype)
+        self.out_proj = nn.Linear(
+            embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=self.dtype
+        )
 
         # Dropout applied to the attention weights (sdpa backend only)
         self.dropout_p = dropout
@@ -938,7 +976,9 @@ class Group_query_Attention(nn.Module):
     ):
         super().__init__()
         assert embed_dim % num_query_heads == 0, "embed_dim must be divisible by num_query_heads"
-        assert num_query_heads % num_kv_heads == 0, "num_query_heads must be divisible by num_kv_heads"
+        assert num_query_heads % num_kv_heads == 0, (
+            "num_query_heads must be divisible by num_kv_heads"
+        )
         if backend not in ("sdpa", "flex"):
             raise ValueError(f"backend must be 'sdpa' or 'flex', got {backend!r}")
 
@@ -956,7 +996,9 @@ class Group_query_Attention(nn.Module):
 
         # Projection layers
         self.q_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=dtype)
-        self.kv_proj = nn.Linear(embed_dim, num_kv_heads * self.head_dim * 2, bias=qkv_bias, device=device, dtype=dtype)
+        self.kv_proj = nn.Linear(
+            embed_dim, num_kv_heads * self.head_dim * 2, bias=qkv_bias, device=device, dtype=dtype
+        )
 
         # Output final projection
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=dtype)
@@ -995,9 +1037,15 @@ class Group_query_Attention(nn.Module):
         k, v = kv.split(kv_dim, dim=-1)
 
         # Reshape projections
-        q = q.view(B, T, self.num_query_heads, self.head_dim).transpose(1, 2)  # (B, num_query_heads, T, head_dim)
-        k = k.view(B, T, self.num_kv_heads, self.head_dim).transpose(1, 2)  # (B, num_kv_heads, T, head_dim)
-        v = v.view(B, T, self.num_kv_heads, self.head_dim).transpose(1, 2)  # (B, num_kv_heads, T, head_dim)
+        q = q.view(B, T, self.num_query_heads, self.head_dim).transpose(
+            1, 2
+        )  # (B, num_query_heads, T, head_dim)
+        k = k.view(B, T, self.num_kv_heads, self.head_dim).transpose(
+            1, 2
+        )  # (B, num_kv_heads, T, head_dim)
+        v = v.view(B, T, self.num_kv_heads, self.head_dim).transpose(
+            1, 2
+        )  # (B, num_kv_heads, T, head_dim)
 
         # No repeat_interleave here -- enable_gqa lets the kernel broadcast
         # num_kv_heads -> num_query_heads internally instead of materializing
@@ -1071,7 +1119,9 @@ class Group_query_Attention_With_RoPE(nn.Module):
     ):
         super().__init__()
         assert embed_dim % num_query_heads == 0, "embed_dim must be divisible by num_query_heads"
-        assert num_query_heads % num_kv_heads == 0, "num_query_heads must be divisible by num_kv_heads"
+        assert num_query_heads % num_kv_heads == 0, (
+            "num_query_heads must be divisible by num_kv_heads"
+        )
         if backend not in ("sdpa", "flex"):
             raise ValueError(f"backend must be 'sdpa' or 'flex', got {backend!r}")
 
@@ -1089,7 +1139,9 @@ class Group_query_Attention_With_RoPE(nn.Module):
 
         # Projection layers
         self.q_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=dtype)
-        self.kv_proj = nn.Linear(embed_dim, num_kv_heads * self.head_dim * 2, bias=qkv_bias, device=device, dtype=dtype)
+        self.kv_proj = nn.Linear(
+            embed_dim, num_kv_heads * self.head_dim * 2, bias=qkv_bias, device=device, dtype=dtype
+        )
 
         # Output final projection
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=dtype)
@@ -1133,11 +1185,19 @@ class Group_query_Attention_With_RoPE(nn.Module):
         k, v = kv.split(kv_dim, dim=-1)
 
         # Reshape projections
-        q = q.view(B, T, self.num_query_heads, self.head_dim).transpose(1, 2)  # (B, num_query_heads, T, head_dim)
-        k = k.view(B, T, self.num_kv_heads, self.head_dim).transpose(1, 2)  # (B, num_kv_heads, T, head_dim)
-        v = v.view(B, T, self.num_kv_heads, self.head_dim).transpose(1, 2)  # (B, num_kv_heads, T, head_dim)
+        q = q.view(B, T, self.num_query_heads, self.head_dim).transpose(
+            1, 2
+        )  # (B, num_query_heads, T, head_dim)
+        k = k.view(B, T, self.num_kv_heads, self.head_dim).transpose(
+            1, 2
+        )  # (B, num_kv_heads, T, head_dim)
+        v = v.view(B, T, self.num_kv_heads, self.head_dim).transpose(
+            1, 2
+        )  # (B, num_kv_heads, T, head_dim)
 
-        freq = self._precompute_theta_position_frequency(self.head_dim, T, device=x.device, theta=theta)
+        freq = self._precompute_theta_position_frequency(
+            self.head_dim, T, device=x.device, theta=theta
+        )
         q = _apply_rotary_position_embedding(q, freq)
         k = _apply_rotary_position_embedding(k, freq)
 
@@ -1221,7 +1281,9 @@ class kv_cache_multihead(nn.Module):
 
         #  QKV projection
         self.q_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=dtype)
-        self.kv_proj = nn.Linear(embed_dim, embed_dim * 2, bias=qkv_bias, device=device, dtype=dtype)
+        self.kv_proj = nn.Linear(
+            embed_dim, embed_dim * 2, bias=qkv_bias, device=device, dtype=dtype
+        )
 
         # Final output projection
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=dtype)
@@ -1271,7 +1333,12 @@ class kv_cache_multihead(nn.Module):
         self._causal_mask_cache.clear()
 
     def forward(
-        self, x: torch.Tensor, start_pos: int = 0, mask: bool = True, rope: bool = True, theta: float = 10000.0
+        self,
+        x: torch.Tensor,
+        start_pos: int = 0,
+        mask: bool = True,
+        rope: bool = True,
+        theta: float = 10000.0,
     ):
         B, T, C = x.shape
 
@@ -1293,7 +1360,9 @@ class kv_cache_multihead(nn.Module):
 
         # Rotary Position Embedding (correct for KV cache)
         if rope:
-            freq = self._precompute_theta_position_frequency(self.head_dim, end_pos, device=x.device, theta=theta)
+            freq = self._precompute_theta_position_frequency(
+                self.head_dim, end_pos, device=x.device, theta=theta
+            )
             q = _apply_rotary_position_embedding(q, freq[start_pos:end_pos])
             k = _apply_rotary_position_embedding(k, freq[start_pos:end_pos])
 
@@ -1377,7 +1446,9 @@ class kv_cache_group_query(nn.Module):
     ):
         super().__init__()
         assert embed_dim % num_query_heads == 0, "embed_dim must be divisible by num_query_heads"
-        assert num_query_heads % num_kv_heads == 0, "num_query_heads must be divisible by num_kv_heads"
+        assert num_query_heads % num_kv_heads == 0, (
+            "num_query_heads must be divisible by num_kv_heads"
+        )
         if backend not in ("sdpa", "flex"):
             raise ValueError(f"backend must be 'sdpa' or 'flex', got {backend!r}")
 
@@ -1396,7 +1467,9 @@ class kv_cache_group_query(nn.Module):
 
         # Linear projections: Q from full dim, KV from reduced dim
         self.q_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=dtype)
-        self.kv_proj = nn.Linear(embed_dim, num_kv_heads * self.head_dim * 2, bias=qkv_bias, device=device, dtype=dtype)
+        self.kv_proj = nn.Linear(
+            embed_dim, num_kv_heads * self.head_dim * 2, bias=qkv_bias, device=device, dtype=dtype
+        )
 
         # Output final projection
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=dtype)
@@ -1461,7 +1534,9 @@ class kv_cache_group_query(nn.Module):
 
         # RoPE (correct for KV cache)
         if rope:
-            freq = self._precompute_theta_position_frequency(self.head_dim, end_pos, device=x.device, theta=theta)
+            freq = self._precompute_theta_position_frequency(
+                self.head_dim, end_pos, device=x.device, theta=theta
+            )
             q = _apply_rotary_position_embedding(q, freq[start_pos:end_pos])
             k = _apply_rotary_position_embedding(k, freq[start_pos:end_pos])
 

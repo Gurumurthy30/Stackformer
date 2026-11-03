@@ -11,7 +11,9 @@ VOCAB = 32
 
 
 def test_full_stackformer_pipeline_forward_backward_and_generation(torch_device):
-    _checkpoint("test_full_stackformer_pipeline_forward_backward_and_generation setup", device=torch_device)
+    _checkpoint(
+        "test_full_stackformer_pipeline_forward_backward_and_generation setup", device=torch_device
+    )
     torch.manual_seed(0)
 
     tokens = torch.randint(0, VOCAB, (BATCH, SEQ), device=torch_device)

@@ -44,6 +44,7 @@ def test_loss_registry_by_name():
 def test_loss_registry_by_callable():
     def custom_fn(out, batch):
         return (out - batch[1]).abs().mean()
+
     resolved = get_loss(custom_fn)
     assert resolved is custom_fn
 
@@ -140,7 +141,9 @@ def test_loss_parity_with_plain_pytorch_loop(tmp_path):
     model_b.load_state_dict(model_a.state_dict())
 
     # Plain loop: exactly 1 epoch (2 batches of 4)
-    opt_a = torch.optim.AdamW(model_a.parameters(), lr=1e-3, weight_decay=0.0, betas=(0.9, 0.95), eps=1e-8)
+    opt_a = torch.optim.AdamW(
+        model_a.parameters(), lr=1e-3, weight_decay=0.0, betas=(0.9, 0.95), eps=1e-8
+    )
     loss_fn_ce = torch.nn.CrossEntropyLoss()
 
     model_a.train()
@@ -171,7 +174,9 @@ def test_loss_parity_with_plain_pytorch_loop(tmp_path):
         checkpoint_dir=str(tmp_path),
     )
     # Use custom optimizer with identical all-parameters group to match opt_a
-    opt_b = torch.optim.AdamW(model_b.parameters(), lr=1e-3, weight_decay=0.0, betas=(0.9, 0.95), eps=1e-8)
+    opt_b = torch.optim.AdamW(
+        model_b.parameters(), lr=1e-3, weight_decay=0.0, betas=(0.9, 0.95), eps=1e-8
+    )
     trainer = Trainer(model_b, cfg, train_loader=loader, optimizer=opt_b)
     trainer.train()
 
@@ -191,7 +196,9 @@ def test_stopping_max_steps_before_max_epochs(tmp_path):
     loader = DataLoader(TensorDataset(x, x), batch_size=2)  # 10 batches/epoch
 
     # max_epochs=2 (20 steps total), but max_steps=5 -> should stop at 5
-    cfg = TrainConfig(max_epochs=2, max_steps=5, lr=1e-3, scheduler="none", checkpoint_dir=str(tmp_path))
+    cfg = TrainConfig(
+        max_epochs=2, max_steps=5, lr=1e-3, scheduler="none", checkpoint_dir=str(tmp_path)
+    )
     trainer = Trainer(model, cfg, train_loader=loader)
     state = trainer.train()
 
@@ -205,7 +212,9 @@ def test_stopping_max_epochs_before_max_steps(tmp_path):
     loader = DataLoader(TensorDataset(x, x), batch_size=2)  # 10 batches/epoch
 
     # max_epochs=1 (10 steps total), max_steps=50 -> should stop at epoch 1 (step 10)
-    cfg = TrainConfig(max_epochs=1, max_steps=50, lr=1e-3, scheduler="none", checkpoint_dir=str(tmp_path))
+    cfg = TrainConfig(
+        max_epochs=1, max_steps=50, lr=1e-3, scheduler="none", checkpoint_dir=str(tmp_path)
+    )
     trainer = Trainer(model, cfg, train_loader=loader)
     state = trainer.train()
 
@@ -219,7 +228,9 @@ def test_stopping_max_steps_only(tmp_path):
     loader = DataLoader(TensorDataset(x, x), batch_size=2)  # 5 batches/epoch
 
     # max_epochs=None, max_steps=12 -> loops through ~2.4 epochs to hit 12 steps
-    cfg = TrainConfig(max_epochs=None, max_steps=12, lr=1e-3, scheduler="none", checkpoint_dir=str(tmp_path))
+    cfg = TrainConfig(
+        max_epochs=None, max_steps=12, lr=1e-3, scheduler="none", checkpoint_dir=str(tmp_path)
+    )
     trainer = Trainer(model, cfg, train_loader=loader)
     state = trainer.train()
 
@@ -328,14 +339,18 @@ def test_llm_shift_loss_decrease(tmp_path):
     loader = DataLoader(TensorDataset(pattern, pattern), batch_size=4, shuffle=True)
 
     # Initial eval loss
-    cfg = TrainConfig(max_epochs=5, lr=2e-3, optimizer="adamw", scheduler="none", checkpoint_dir=str(tmp_path))
+    cfg = TrainConfig(
+        max_epochs=5, lr=2e-3, optimizer="adamw", scheduler="none", checkpoint_dir=str(tmp_path)
+    )
     trainer = Trainer(model, cfg, train_loader=loader, val_loader=loader)
 
     init_loss = trainer.evaluate()["val_loss"]
     trainer.train()
     final_loss = trainer.evaluate()["val_loss"]
 
-    assert final_loss < init_loss, f"Expected loss to decrease: init={init_loss}, final={final_loss}"
+    assert final_loss < init_loss, (
+        f"Expected loss to decrease: init={init_loss}, final={final_loss}"
+    )
 
 
 def test_classification_loss_decrease(tmp_path):
@@ -352,14 +367,18 @@ def test_classification_loss_decrease(tmp_path):
     y = (x[:, 0] > 0).long()
     loader = DataLoader(TensorDataset(x, y), batch_size=16)
 
-    cfg = TrainConfig(max_epochs=5, lr=1e-2, loss="cross_entropy", scheduler="none", checkpoint_dir=str(tmp_path))
+    cfg = TrainConfig(
+        max_epochs=5, lr=1e-2, loss="cross_entropy", scheduler="none", checkpoint_dir=str(tmp_path)
+    )
     trainer = Trainer(model, cfg, train_loader=loader, val_loader=loader)
 
     init_loss = trainer.evaluate()["val_loss"]
     trainer.train()
     final_loss = trainer.evaluate()["val_loss"]
 
-    assert final_loss < init_loss, f"Expected classification loss to decrease: {init_loss} -> {final_loss}"
+    assert final_loss < init_loss, (
+        f"Expected classification loss to decrease: {init_loss} -> {final_loss}"
+    )
 
 
 # =====================================================================

@@ -58,7 +58,9 @@ def build_fsdp_policies(
         cast_forward_inputs=True,
     )
 
-    offload_policy: OffloadPolicy = CPUOffloadPolicy(pin_memory=True) if cpu_offload else OffloadPolicy()
+    offload_policy: OffloadPolicy = (
+        CPUOffloadPolicy(pin_memory=True) if cpu_offload else OffloadPolicy()
+    )
 
     return mp_policy, offload_policy
 

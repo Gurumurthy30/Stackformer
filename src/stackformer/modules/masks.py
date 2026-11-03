@@ -37,7 +37,9 @@ def causal_mask(seq_len: int, device: torch.device | str | None = None) -> torch
     return torch.tril(torch.ones(seq_len, seq_len, dtype=torch.bool, device=device))
 
 
-def sliding_window(seq_len: int, window_size: int, device: torch.device | str | None = None) -> torch.Tensor:
+def sliding_window(
+    seq_len: int, window_size: int, device: torch.device | str | None = None
+) -> torch.Tensor:
     """Sliding window causal attention mask."""
     if window_size <= 0:
         raise ValueError("window_size must be > 0")
@@ -51,7 +53,9 @@ def sliding_window(seq_len: int, window_size: int, device: torch.device | str | 
     return in_past & in_window
 
 
-def dilated_causal(seq_len: int, dilation: int, device: torch.device | str | None = None) -> torch.Tensor:
+def dilated_causal(
+    seq_len: int, dilation: int, device: torch.device | str | None = None
+) -> torch.Tensor:
     """Dilated causal attention mask."""
     if dilation <= 0:
         raise ValueError("dilation must be > 0")
@@ -73,14 +77,21 @@ def random_mask(
     """Random sparse causal attention mask."""
     if num_random < 0 or num_random > seq_len:
         raise ValueError("num_random must be between 0 and seq_len")
-    cols = torch.rand(seq_len, seq_len, device=device, generator=generator).tril().topk(num_random, dim=1).indices
+    cols = (
+        torch.rand(seq_len, seq_len, device=device, generator=generator)
+        .tril()
+        .topk(num_random, dim=1)
+        .indices
+    )
 
     mask = torch.zeros(seq_len, seq_len, dtype=torch.bool, device=device)
     mask.scatter_(1, cols, True)
     return mask
 
 
-def global_mask(seq_len: int, global_index: list[int], device: torch.device | str | None = None) -> torch.Tensor:
+def global_mask(
+    seq_len: int, global_index: list[int], device: torch.device | str | None = None
+) -> torch.Tensor:
     """Global attention mask."""
     if len(global_index) == 0:
         raise ValueError("global_index must contain at least one index")
@@ -116,9 +127,13 @@ def no_mask(seq_len: int, device: torch.device | str | None = None) -> torch.Ten
     return torch.ones(seq_len, seq_len, dtype=torch.bool, device=device)
 
 
-def mistral(seq_len: int, window_size: int, dilation: int, device: torch.device | str | None = None) -> torch.Tensor:
+def mistral(
+    seq_len: int, window_size: int, dilation: int, device: torch.device | str | None = None
+) -> torch.Tensor:
     """Mistral-style hybrid sliding window + dilated attention mask."""
-    return sliding_window(seq_len, window_size, device=device) | dilated_causal(seq_len, dilation, device=device)
+    return sliding_window(seq_len, window_size, device=device) | dilated_causal(
+        seq_len, dilation, device=device
+    )
 
 
 MASK_REGISTRY: dict[str, Callable] = {

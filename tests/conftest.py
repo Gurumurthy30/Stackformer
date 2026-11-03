@@ -13,7 +13,9 @@ if str(ROOT) not in sys.path:
 
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "gpu: marks tests that require a CUDA-capable GPU")
-    config.addinivalue_line("markers", "slow: marks tests as slow-running integration or stability tests")
+    config.addinivalue_line(
+        "markers", "slow: marks tests as slow-running integration or stability tests"
+    )
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:

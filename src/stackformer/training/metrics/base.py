@@ -33,7 +33,9 @@ def _extract_predictions(outputs: Any) -> torch.Tensor:
         return outputs[0]
     if hasattr(outputs, "logits"):
         return outputs.logits
-    raise ValueError(f"Could not extract prediction tensor from output of type {type(outputs).__name__}")
+    raise ValueError(
+        f"Could not extract prediction tensor from output of type {type(outputs).__name__}"
+    )
 
 
 class Metric(abc.ABC):

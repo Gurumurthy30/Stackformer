@@ -135,7 +135,9 @@ class BERT(BaseModel):
         )
 
         self.token_embedding = nn.Embedding(vocab_size, embed_dim, device=device, dtype=dtype)
-        self.position_embedding = AbsolutePositionEmbedding(seq_len, embed_dim, device=device, dtype=dtype)
+        self.position_embedding = AbsolutePositionEmbedding(
+            seq_len, embed_dim, device=device, dtype=dtype
+        )
         self.segment_embedding = nn.Embedding(num_segments, embed_dim, device=device, dtype=dtype)
         self.embed_norm = nn.LayerNorm(embed_dim, eps=eps, device=device, dtype=dtype)
         self.embed_dropout = nn.Dropout(dropout)
@@ -180,7 +182,9 @@ class BERT(BaseModel):
         x = self.embed_dropout(x)
 
         padding_mask = (
-            (input_ids != pad_token_id).unsqueeze(1).unsqueeze(2) if (input_ids == pad_token_id).any() else False
+            (input_ids != pad_token_id).unsqueeze(1).unsqueeze(2)
+            if (input_ids == pad_token_id).any()
+            else False
         )
         x = self.backbone(x, mask=padding_mask)  # (B, T, C)
         return self.lm_head(x)  # (B, T, V)

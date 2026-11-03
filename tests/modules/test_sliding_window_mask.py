@@ -44,7 +44,10 @@ def test_sliding_window_mask_blocks_out_of_window_tokens(torch_device):
     out1 = _manual_masked_attention(x1, window_mask)
     out2 = _manual_masked_attention(x2, window_mask)
 
-    _checkpoint("Asserting last token output is unchanged by out-of-window modifications", out1_shape=out1.shape)
+    _checkpoint(
+        "Asserting last token output is unchanged by out-of-window modifications",
+        out1_shape=out1.shape,
+    )
     assert out1.shape == out2.shape == (BATCH, SEQ, EMB)
     assert torch.isfinite(out1).all() and torch.isfinite(out2).all()
 

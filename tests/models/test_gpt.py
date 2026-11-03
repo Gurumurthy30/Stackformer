@@ -7,7 +7,9 @@ from tests._test_utils import _checkpoint
 
 @pytest.mark.parametrize("model_cls", [GPT_1, GPT_2])
 @pytest.mark.parametrize("batch,seq,embed_dim,heads", [(1, 4, 8, 1), (2, 6, 16, 4)])
-def test_gpt_forward_shapes_gradients_and_finiteness(model_cls, batch, seq, embed_dim, heads, torch_device):
+def test_gpt_forward_shapes_gradients_and_finiteness(
+    model_cls, batch, seq, embed_dim, heads, torch_device
+):
     _checkpoint(
         "test_gpt_forward_shapes_gradients_and_finiteness setup",
         model=model_cls.__name__,
@@ -46,7 +48,9 @@ def test_gpt_forward_shapes_gradients_and_finiteness(model_cls, batch, seq, embe
 @pytest.mark.parametrize("model_cls", [GPT_1, GPT_2])
 def test_gpt_generate_handles_single_and_batch_inputs(model_cls, torch_device):
     _checkpoint(
-        "test_gpt_generate_handles_single_and_batch_inputs setup", model=model_cls.__name__, device=torch_device
+        "test_gpt_generate_handles_single_and_batch_inputs setup",
+        model=model_cls.__name__,
+        device=torch_device,
     )
     torch.manual_seed(0)
     vocab_size, seq_len = 32, 6
@@ -82,7 +86,9 @@ def test_gpt_generate_handles_single_and_batch_inputs(model_cls, torch_device):
 @pytest.mark.parametrize("model_cls", [GPT_1, GPT_2])
 def test_gpt_minimal_training_loop_updates_parameters(model_cls, torch_device):
     _checkpoint(
-        "test_gpt_minimal_training_loop_updates_parameters setup", model=model_cls.__name__, device=torch_device
+        "test_gpt_minimal_training_loop_updates_parameters setup",
+        model=model_cls.__name__,
+        device=torch_device,
     )
     torch.manual_seed(0)
     vocab_size, batch, seq_len = 24, 2, 5

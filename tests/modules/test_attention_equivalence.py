@@ -9,9 +9,16 @@ def test_self_attention_equivalent_to_single_head_mha_when_weights_are_shared(to
     x = torch.randn(2, 6, 8, requires_grad=True, device=torch_device)
 
     _checkpoint("Instantiating Self_Attention and single-head Multi_Head_Attention")
-    sa = Self_Attention(embed_dim=8, dropout=0.0, qkv_bias=True, mask_type=["causal"], device=torch_device)
+    sa = Self_Attention(
+        embed_dim=8, dropout=0.0, qkv_bias=True, mask_type=["causal"], device=torch_device
+    )
     mha = Multi_Head_Attention(
-        embed_dim=8, num_heads=1, dropout=0.0, qkv_bias=True, mask_type=["causal"], device=torch_device
+        embed_dim=8,
+        num_heads=1,
+        dropout=0.0,
+        qkv_bias=True,
+        mask_type=["causal"],
+        device=torch_device,
     )
 
     _checkpoint("Copying projection weights from SA to MHA")
@@ -29,7 +36,9 @@ def test_self_attention_equivalent_to_single_head_mha_when_weights_are_shared(to
     out_sa = sa(x)
     out_mha = mha(x)
 
-    _checkpoint("Asserting outputs match within tolerance", sa_shape=out_sa.shape, mha_shape=out_mha.shape)
+    _checkpoint(
+        "Asserting outputs match within tolerance", sa_shape=out_sa.shape, mha_shape=out_mha.shape
+    )
     assert out_sa.shape == out_mha.shape == x.shape
     assert torch.isfinite(out_sa).all() and torch.isfinite(out_mha).all()
     assert torch.allclose(out_sa, out_mha, atol=1e-5)

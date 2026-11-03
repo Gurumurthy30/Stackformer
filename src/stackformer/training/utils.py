@@ -25,7 +25,11 @@ def forward_batch(model: nn.Module, batch: Any) -> Any:
     if isinstance(batch, dict):
         if "input_ids" in batch and len(batch) == 2 and ("labels" in batch or "targets" in batch):
             return model(batch["input_ids"])
-        elif "pixel_values" in batch and len(batch) == 2 and ("labels" in batch or "targets" in batch):
+        elif (
+            "pixel_values" in batch
+            and len(batch) == 2
+            and ("labels" in batch or "targets" in batch)
+        ):
             return model(batch["pixel_values"])
 
         # Match dictionary keys with model.forward parameter names

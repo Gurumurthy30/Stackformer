@@ -68,7 +68,9 @@ def test_display_verbosity_quiet():
     pbar = display.progress_bar(range(10), desc="Hidden Bar")
     assert not pbar.enabled
 
-    assert buf.getvalue() == "", f"Expected empty output for quiet verbosity, got: {buf.getvalue()!r}"
+    assert buf.getvalue() == "", (
+        f"Expected empty output for quiet verbosity, got: {buf.getvalue()!r}"
+    )
 
 
 def test_display_verbosity_verbose():

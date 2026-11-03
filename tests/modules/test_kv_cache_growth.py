@@ -15,19 +15,34 @@ HEADS = 2
     [
         (
             kv_cache_multihead,
-            {"embed_dim": EMB, "num_heads": HEADS, "batch_size": BATCH, "kv_seq_len": SEQ, "dropout": 0.0},
+            {
+                "embed_dim": EMB,
+                "num_heads": HEADS,
+                "batch_size": BATCH,
+                "kv_seq_len": SEQ,
+                "dropout": 0.0,
+            },
             HEADS,
         ),
         (
             kv_cache_group_query,
-            {"embed_dim": EMB, "num_query_heads": HEADS, "num_kv_heads": 1, "batch_size": BATCH, "kv_seq_len": SEQ, "dropout": 0.0},
+            {
+                "embed_dim": EMB,
+                "num_query_heads": HEADS,
+                "num_kv_heads": 1,
+                "batch_size": BATCH,
+                "kv_seq_len": SEQ,
+                "dropout": 0.0,
+            },
             1,
         ),
     ],
 )
 def test_kv_cache_growth_per_step_and_no_overwrite(cache_cls, kwargs, kv_heads, torch_device):
     _checkpoint(
-        "test_kv_cache_growth_per_step_and_no_overwrite setup", cache_cls=cache_cls.__name__, device=torch_device
+        "test_kv_cache_growth_per_step_and_no_overwrite setup",
+        cache_cls=cache_cls.__name__,
+        device=torch_device,
     )
     x = torch.randn(BATCH, SEQ, EMB, device=torch_device)
     cache = cache_cls(device=torch_device, **kwargs)
