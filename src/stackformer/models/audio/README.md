@@ -15,3 +15,4 @@ Provides transformer architectures for automatic speech recognition (ASR), speec
 - [ ] Implement Whisper-style encoder-decoder speech architecture.
 - [ ] Add CTC and autoregressive audio generation heads.
 - [ ] Add unit tests and CPU verification.
+

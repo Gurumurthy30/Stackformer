@@ -1,6 +1,6 @@
 # Models API Reference
 
-This page documents the canonical language and vision architectures implemented in `stackformer.models` and `stackformer.vision`.
+This page documents the canonical language and vision architectures implemented in `stackformer.models.language` and `stackformer.models.vision`.
 
 ---
 
@@ -19,7 +19,7 @@ This page documents the canonical language and vision architectures implemented 
 
 ### GPT Architectures
 
-::: stackformer.models.gpt
+::: stackformer.models.language.gpt
     options:
       show_root_heading: true
       members:
@@ -30,7 +30,7 @@ This page documents the canonical language and vision architectures implemented 
 
 ### LLaMA Architectures
 
-::: stackformer.models.llama
+::: stackformer.models.language.llama
     options:
       show_root_heading: true
       members:
@@ -41,7 +41,7 @@ This page documents the canonical language and vision architectures implemented 
 
 ### Gemma Architectures
 
-::: stackformer.models.gemma
+::: stackformer.models.language.gemma
     options:
       show_root_heading: true
       members:
@@ -52,13 +52,15 @@ This page documents the canonical language and vision architectures implemented 
 
 ### BERT & RoBERTa Encoders
 
-::: stackformer.models.bert
+::: stackformer.models.language.bert
     options:
       show_root_heading: true
       members:
         - BERT
 
-::: stackformer.models.roberta
+---
+
+::: stackformer.models.language.roberta
     options:
       show_root_heading: true
       members:
@@ -68,7 +70,7 @@ This page documents the canonical language and vision architectures implemented 
 
 ### Sequence-to-Sequence Transformer
 
-::: stackformer.models.transformer
+::: stackformer.models.language.transformer
     options:
       show_root_heading: true
       members:
@@ -80,7 +82,7 @@ This page documents the canonical language and vision architectures implemented 
 
 ### Vision Transformer (ViT)
 
-::: stackformer.vision.vit
+::: stackformer.models.vision.vit
     options:
       show_root_heading: true
       members:
@@ -93,7 +95,7 @@ This page documents the canonical language and vision architectures implemented 
 
 ### SegFormer
 
-::: stackformer.vision.segformer
+::: stackformer.models.vision.segformer
     options:
       show_root_heading: true
       members:
@@ -103,4 +105,3 @@ This page documents the canonical language and vision architectures implemented 
         - MixVisionEncoder
         - DecodeHead
         - SegFormer
-

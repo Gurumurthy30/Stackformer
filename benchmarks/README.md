@@ -15,3 +15,4 @@ Provides reproducible throughput, memory, and scaling benchmarks across models, 
 - [ ] Implement multi-GPU DDP / FSDP2 throughput benchmark.
 - [ ] Add peak memory tracking via `torch.cuda.max_memory_allocated()`.
 - [ ] Document hardware baselines and reproduction commands.
+

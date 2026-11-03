@@ -44,7 +44,7 @@ Stackformer intentionally separates weights from dynamic runtime states:
 from stackformer.training import Trainer, TrainConfig
 
 config = TrainConfig(
-    output_dir="./runs/experiment_1",
+    checkpoint_dir="./runs/experiment_1",
     resume_from="./runs/experiment_1/step_00001000",  # or pass latest directory
 )
 trainer = Trainer(model=model, config=config, train_loader=train_loader)

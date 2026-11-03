@@ -14,52 +14,56 @@
   </a>
 </p>
 
-# StackFormer
+# Stackformer
 
-**Composable PyTorch Transformer building blocks, modular architecture zoo, and lightweight training engine in a single clean library.**
+Modular PyTorch transformer blocks, clean architecture zoo, and lightweight distributed training in a single package.
 
 ---
 
-## Why StackFormer?
+## Why Stackformer?
 
-Building custom Transformer architectures today usually forces a frustrating choice: either fork thousands of lines of monolithic, copy-pasted model code from single-file implementations, or navigate bloated multi-layer abstraction frameworks designed exclusively for pretrained weight conversion.
+Building transformer architectures typically forces researchers and engineers between two extremes: copying monolithic model scripts with tangled internal dependencies, or adopting heavy multi-layered frameworks designed around pretrained weight conversion.
 
-**StackFormer** provides a third way: modular PyTorch building blocks that let researchers and engineers assemble custom vision and language Transformers declaratively via `BlockConfig`. Instead of rewriting multi-head attention, rotary positional embeddings, SwiGLU feed-forward networks, or pre-norm connections for every experiment, StackFormer exposes orthogonal layer primitives that compose cleanly and execute on pure PyTorch runtime.
+Stackformer provides a third approach: composable PyTorch building blocks paired with an Accelerate-style distributed `Trainer`. Models share a unified `BlockConfig` and `BaseModel` contract, allowing users to swap attention mechanisms, feed-forward networks, normalization layers, and positional encodings without altering model math or fighting framework boilerplate.
 
 ---
 
 ## Key Features
 
-- **Declarative `BlockConfig` Layer Composability:** Arbitrarily combine 10 attention implementations (`mha`, `gqa`, `mqa`, `cross_mha`, and RoPE variants), 7 feed-forward activation layers (`gelu`, `swiglu`, `geglu`, `leaky_relu`, `relu`, `sigmoid`, `silu`), 2 normalization types (`layernorm`, `rmsnorm`), and 3 positional embedding strategies (`absolute`, `sinusoidal`, `rope`).
-- **Comprehensive Architecture Zoo (Language & Vision):** Production-faithful PyTorch implementations of **GPT-1, GPT-2, LLaMA-1, LLaMA-2, Gemma-1 (2B & 7B), BERT, RoBERTa, Vaswani Encoder-Decoder Transformer, ViT, and SegFormer-B0**.
-- **Lightweight Engine & Trainer:** Built-in `Trainer` featuring Automatic Mixed Precision (`AMPScaler` for FP16/BF16), Distributed Data Parallel (`DDP`), gradient accumulation, max gradient clipping, warmup/decay learning rate schedulers, and zero-dependency SafeTensors checkpointing (`CheckpointManager`).
-- **Stateful KV-Cache Autoregressive Generation:** Standardized `prefill()` and `decode()` model contract supporting fast KV-cache accelerated text generation (`text_generate()`) with temperature, top-k, and top-p (nucleus) sampling strategies.
-- **Zero-Bloat Foundation:** Typed codebase (`py.typed`), 136-test suite across unit and integration targets, with zero heavy required dependencies beyond PyTorch, NumPy, SafeTensors, and tqdm.
-
----
-
-## Framework Comparison
-
-| Dimension | StackFormer | Hugging Face Transformers | nanoGPT | x-transformers |
-| :--- | :--- | :--- | :--- | :--- |
-| **Primary Focus** | Modular custom block composition & native training engine | Pretrained weight distribution & pipeline inference | Minimal teaching codebase for GPT-2 | Experimental attention module collection |
-| **Architecture Scope** | Language + Vision (GPT, LLaMA, Gemma, BERT, RoBERTa, ViT, SegFormer) | Comprehensive pretrained repository | Decoder-only GPT models | Modular Transformer blocks |
-| **Block Composability** | Declarative `BlockConfig` (swap attention, FFN, norm, pos-emb seamlessly) | Monolithic per-model source files | Single-file script | PyTorch module blocks |
-| **Training Infrastructure** | Built-in `Trainer` (AMP, DDP, SafeTensors, gradient accum, schedulers) | Requires `Trainer` or Accelerate | Custom training loop in `train.py` | External (user writes loop) |
-| **Checkpoint Format** | SafeTensors (`.safetensors`) + JSON metadata | SafeTensors / PyTorch bin | PyTorch `.pt` dictionary | External |
+- **Composable Layer Primitives:** Configurable multi-head, grouped-query, and cross-attention modules paired with SwiGLU, GeGLU, and standard activations.
+- **Categorized Architecture Zoo:** Native PyTorch implementations of language models (GPT-1/2, LLaMA-1/2, Gemma, BERT, RoBERTa, seq2seq Transformer) and vision models (ViT, SegFormer).
+- **Accelerate-Style Trainer:** Single `Trainer` interface supporting Distributed Data Parallel (DDP), Fully Sharded Data Parallel (FSDP2), mixed precision, activation checkpointing, and block-level compilation.
+- **Dual Checkpointing Engine:** Clean separation between pure weights (`.safetensors` in core dependencies) and training runtime state (`state.pt` / PyTorch Distributed Checkpoint).
+- **Interactive Multi-Process Launcher:** Notebook-compatible distributed launcher (`launch()`) with automatic platform configuration and worker error propagation.
+- **Zero-Warning Quality Foundation:** Strictly typed codebase, zero-error Pyright compliance, Ruff linting/formatting, and Bandit security verification.
 
 ---
 
 ## Installation
 
-### Prerequisites
-- Python `>= 3.10`
-- PyTorch `>= 2.0`
+Stackformer requires Python `>= 3.10` and PyTorch `>= 2.5,<3.0`.
 
-### Install via PyPI
+### Core Package
 
 ```bash
 pip install stackformer
+```
+
+### Optional Extras
+
+```bash
+# Training utilities (tqdm progress bars, rich console display)
+pip install "stackformer[train]"
+
+# Experiment tracking loggers
+pip install "stackformer[tensorboard]"
+pip install "stackformer[wandb]"
+
+# Low-precision Float8 GEMMs via torchao
+pip install "stackformer[float8]"
+
+# Full development & test suite
+pip install "stackformer[dev]"
 ```
 
 ### Install from Source
@@ -70,249 +74,238 @@ cd Stackformer
 pip install -e .
 ```
 
-### Optional Dependencies
-
-For logging integrations (TensorBoard / Weights & Biases):
-
-```bash
-pip install tensorboard wandb
-```
-
 ---
 
 ## Quick Start
 
-### 1. Build a Custom Architecture with `BlockConfig`
+### 1. Build a Model Architecture
 
 ```python
 import torch
-from stackformer.modules import BlockConfig, TransformerEncoder
+from stackformer.models.language import GPT2
 
-# Define a custom Transformer block configuration
-config = BlockConfig(
-    embed_dim=512,
-    num_heads=8,
-    hidden_dim=2048,
-    attention="gqa_rope",  # Grouped-Query Attention with Rotary Embeddings
-    num_kv_heads=2,
-    ffn="swiglu",           # SwiGLU Feed-Forward Network
-    norm="rmsnorm",         # RMSNorm normalization
-    pre_norm=True,
-    dropout=0.1,
-)
-
-# Instantiate a 6-layer Encoder backbone
-encoder = TransformerEncoder(config, num_layers=6)
-
-x = torch.randn(2, 64, 512)
-output = encoder(x, mask=True)
-print("Encoder output shape:", output.shape)  # torch.Size([2, 64, 512])
-```
-
-### 2. Instantiate a Model from the Architecture Zoo
-
-```python
-import torch
-from stackformer.models import Llama2
-
-# Initialize LLaMA-2 with GQA and stateful KV-cache support
-model = Llama2(
-    vocab_size=32000,
+# Instantiate a compact GPT-2 model
+model = GPT2(
+    vocab_size=1000,
     num_layers=4,
-    embed_dim=512,
-    num_query_heads=8,
-    num_kv_heads=2,
-    batch_size=1,
-    kv_seq_len=128,
+    embed_dim=128,
+    num_heads=4,
+    seq_len=64,
 )
 
-input_ids = torch.randint(0, 32000, (1, 16))
-logits = model(input_ids, start_pos=0)
-print("Logits shape:", logits.shape)  # torch.Size([1, 16, 32000])
+x = torch.randint(0, 1000, (2, 32))
+logits = model(x)
+print(f"Logits shape: {logits.shape}")  # torch.Size([2, 32, 1000])
 ```
 
-### 3. Train with the High-Level `Trainer` Engine
+### 2. Train with `Trainer` and `TrainConfig`
 
 ```python
 import torch
 from torch.utils.data import DataLoader, TensorDataset
-from stackformer.engine import Trainer
-from stackformer.models import GPT2
+from stackformer.models.language import GPT2
+from stackformer.training import Trainer, TrainConfig
 
-# Synthetic dataset
-x = torch.randint(0, 50257, (64, 16))
-y = torch.randint(0, 50257, (64, 16))
-train_loader = DataLoader(TensorDataset(x, y), batch_size=8)
+# Prepare model and synthetic dataset
+model = GPT2(vocab_size=500, num_layers=2, embed_dim=64, num_heads=4, seq_len=32)
+dataset = TensorDataset(torch.randint(0, 500, (64, 16)))
+loader = DataLoader(dataset, batch_size=8)
 
-model = GPT2(vocab_size=50257, num_layers=2, embed_dim=256, num_heads=4, seq_len=64)
-
-trainer = Trainer(
-    model=model,
-    train_dataloader=train_loader,
-    val_dataloader=train_loader,
-    device="cpu",
-    use_amp=False,
-    use_ddp=False,
-    max_epochs=1,
-    max_train_steps=5,
-    lr=3e-4,
-    checkpoint_dir="checkpoints",
+# Configure training parameters
+config = TrainConfig(
+    max_steps=10,
+    lr=1e-3,
+    mixed_precision="no",  # "no", "bf16", or "fp16"
+    checkpoint_dir="./runs/quickstart",
 )
 
-trainer.fit()
+trainer = Trainer(model=model, train_loader=loader, config=config)
+trainer.train()
 ```
 
-### 4. Autoregressive Text Generation
+### 3. Save and Reload Checkpoints
+
+```python
+import stackformer
+from stackformer.models.language import GPT2
+
+# Save weights via Trainer
+trainer.save("./runs/quickstart/model.safetensors")
+
+# Load weights into a fresh model instance
+fresh_model = GPT2(vocab_size=500, num_layers=2, embed_dim=64, num_heads=4, seq_len=32)
+stackformer.load_weights(fresh_model, "./runs/quickstart/model.safetensors")
+```
+
+### 4. Distributed Multi-Process Training with `launch()`
 
 ```python
 import torch
-from stackformer import text_generate
-from stackformer.models import Llama2
+from torch.utils.data import DataLoader, TensorDataset
+from stackformer.models.language import GPT2
+from stackformer.training import Trainer, TrainConfig, launch
 
-model = Llama2(
-    vocab_size=32000,
-    num_layers=2,
-    embed_dim=256,
-    num_query_heads=4,
-    num_kv_heads=2,
-    batch_size=1,
-    kv_seq_len=128,
-)
+def run_worker():
+    model = GPT2(vocab_size=500, num_layers=2, embed_dim=64, num_heads=4, seq_len=32)
+    loader = DataLoader(TensorDataset(torch.randint(0, 500, (32, 16))), batch_size=8)
+    config = TrainConfig(max_steps=5, lr=1e-3, parallel="ddp")
+    trainer = Trainer(model=model, train_loader=loader, config=config)
+    trainer.train()
 
-prompt = torch.randint(0, 32000, (1, 8))
-generated_ids = text_generate(
-    model=model,
-    prompt_ids=prompt,
-    max_new_tokens=20,
-    temperature=0.8,
-    top_p=0.9,
-)
-print("Generated shape:", generated_ids.shape)  # torch.Size([1, 28])
+if __name__ == "__main__":
+    # Launch 2-process DDP execution (works in scripts and Jupyter notebooks)
+    launch(run_worker, num_processes=2, backend="gloo")
 ```
+
+### 5. Autoregressive Text Generation
+
+```python
+import torch
+from stackformer.models.language import GPT2
+from stackformer import text_generate
+
+model = GPT2(vocab_size=500, num_layers=2, embed_dim=64, num_heads=4, seq_len=32)
+prompt = torch.tensor([[10, 25, 42]])
+
+tokens = text_generate(
+    model,
+    prompt,
+    max_new_tokens=10,
+    temperature=0.8,
+    top_k=50,
+)
+print("Generated token IDs:", tokens.tolist())
+```
+
+---
+
+## Model Zoo
+
+Models are organized by category and can be imported from domain packages (`stackformer.models.language`, `stackformer.models.vision`) or top-level `stackformer.models`.
+
+| Category | Model Class | Family / Paper | Description |
+| :--- | :--- | :--- | :--- |
+| **Language** | `GPT1`, `GPT2` | OpenAI GPT | Causal language models with learned positional embeddings |
+| | `Llama1`, `Llama2` | Meta LLaMA | Autoregressive models with RMSNorm, SwiGLU, GQA, and RoPE |
+| | `Gemma1_2B`, `Gemma1_7B` | Google Gemma | Causal models with GeGLU, unit-offset RMSNorm, and RoPE |
+| | `BERT` | Bidirectional Encoder | Bidirectional transformer encoder with absolute position embeddings |
+| | `RoBERTa` | Robustly Optimized BERT | Bidirectional encoder with dynamic masking configuration |
+| | `Transformer` | Vaswani Seq2Seq | Original encoder-decoder architecture with cross-attention |
+| **Vision** | `ViT` | Vision Transformer | Patch projection encoder with classification head |
+| | `SegFormer` | Efficient SegFormer | Hierarchical vision transformer with sequence reduction attention |
+| **Planned** | Multimodal | Vision-Language | Cross-modal projection layers and vision-text decoders (CLIP, LLaVA) |
+| | Audio | Speech Transformers | Audio spectrogram patchifiers and speech decoders (Whisper) |
+
+### Model Registry
+
+```python
+from stackformer.models import list_models, get_model
+
+# Query available architectures grouped by category
+print(list_models())
+# {'language': ['BERT', 'GPT1', 'GPT2', ...], 'vision': ['SegFormer', 'ViT']}
+
+# Factory instantiation by name
+model = get_model("gpt2", vocab_size=1000, num_layers=4, embed_dim=128, num_heads=4, seq_len=64)
+```
+
+---
+
+## Training Capabilities
+
+| Feature | Trainer Setting | Validation Status | Description |
+| :--- | :--- | :--- | :--- |
+| **Distributed Data Parallel** | `parallel="ddp"` | Verified | PyTorch DDP on Gloo (CPU) and NCCL (CUDA) |
+| **FSDP2 Sharding** | `parallel="fsdp2"` | Experimental | Native `torch.distributed.fsdp.fully_shard` (CUDA numerical parity pending) |
+| **Activation Checkpointing** | `activation_checkpointing="full"` | Verified | Checkpoints repeating block forward passes to minimize activation memory |
+| **Per-Block Compilation** | `compile=True` | Supported | Per-block `torch.compile` integration (CUDA validation pending) |
+| **Mixed Precision** | `mixed_precision="bf16"` | Verified | Native PyTorch AMP (`torch.amp.autocast`) with GradScaler |
+| **Distributed Checkpoint** | `use_dcp=True` | Verified | PyTorch DCP integration for parallel sharded state persistence |
+| **Mid-Epoch Resumption** | `resume_from="path"` | Verified | Bit-identical resumption restoring optimizer, scheduler, and RNG state |
+| **Best Model Tracking** | `save_best=True` | Verified | Automated metric monitoring (e.g. `val_loss`) with checkpoint pruning |
+| **Display & Observability** | `display="rich"` | Verified | Pretty Rich formatting with rank-0 gating and clean plain fallback |
+| **Multi-Backend Loggers** | `loggers=[...]` | Verified | Integrated Console, CSV, JSONL, TensorBoard, and Weights & Biases |
+| **Loss Registry** | `loss="cross_entropy"` | Verified | Extensible loss functions via `register_loss()` with automatic mode routing |
+| **Lifecycle Callbacks** | `callbacks=[...]` | Verified | Event hooks for step/epoch boundaries, early stopping, and LR logging |
+
+---
+
+## Checkpoint Security
+
+Stackformer checkpoint directories separate weights from execution state:
+- **`model.safetensors`**: Pure model weights serialized in Hugging Face Safetensors format. Free from arbitrary code execution and memory-mapped for fast loading.
+- **`state.pt`**: Contains optimizer tensors, learning rate scheduler state, step counters, and Python / NumPy RNG states required for exact mid-epoch resumption.
+
+> [!WARNING]
+> Because `state.pt` restores NumPy RNG state and optimizer state dictionaries, it is loaded with `torch.load(..., weights_only=False)`. **Only resume training from checkpoints generated by trusted runs.** When loading weights solely for evaluation, fine-tuning, or inference, load `model.safetensors` via `stackformer.load_weights()`.
 
 ---
 
 ## Project Structure
 
-```text
-Stackformer/
-├── assets/                       # Branding logos and documentation images
-├── ci/                           # CI runner scripts (Kaggle GPU integration)
-├── docs/                         # User & developer documentation
-│   ├── roadmap.md                # Detailed technical roadmap (Phases 0–5)
-│   ├── user_docs/                # Installation, quickstart, API reference
-│   └── developer_docs/           # Architecture deep-dive and scope/design non-goals
-├── examples/                     # Runnable usage examples
-│   ├── simple_trainer.py         # Trainer engine execution demo
-│   └── train_ddp.py              # Multi-GPU DistributedDataParallel (DDP) demo
-├── reviews/                      # Internal engineering reviews and roadmap specifications
-├── src/
-│   └── stackformer/              # Core library package
-│       ├── __init__.py           # Top-level API exports
-│       ├── config.py             # ModelConfig, TrainingConfig, GenerationConfig dataclasses
-│       ├── generate.py           # Autoregressive decoding engine and KV-cache dispatcher
-│       ├── metrics.py            # Public metric utilities
-│       ├── amp/                  # Automatic Mixed Precision (AMPScaler)
-│       ├── cache/                # KV-cache strategies (StaticKVCache, PagedKVCache scaffold)
-│       ├── distributed/          # DistributedDataParallel (DDP) wrappers and process helpers
-│       ├── engine/               # High-level Trainer, Engine, State, and CheckpointManager
-│       ├── language/             # Abstract decoder and encoder-decoder bases
-│       ├── logging/              # Metrics tracking, CSV, TensorBoard, WandB loggers
-│       ├── models/               # GPT-1/2, LLaMA-1/2, Gemma-1, BERT, RoBERTa, Transformer
-│       ├── modules/              # Attention, FFN, Norm, Positional Embedding, BlockConfig, Layer
-│       ├── optim/                # Optimizer and scheduler factory constructors and loss functions
-│       ├── training/             # Engine loop helper routines
-│       ├── utils/                # Device helpers, seed utility, shape formatting
-│       └── vision/               # ViT and SegFormer-B0 architectures
-└── tests/                        # 153 passing tests across unit, integration, and model suites
 ```
-
----
-
-## Architecture & Model Zoo
-
-StackFormer ships verified implementations of canonical language and vision models built directly on `stackformer.modules`:
-
-| Model Architecture | Category | Attention Mechanism | Positional Embedding | Normalization | FFN Activation |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **GPT-1** | Causal Language Model | MHA (Causal) | Absolute Learned | Post-LayerNorm | GELU |
-| **GPT-2** | Causal Language Model | MHA (Causal) | Absolute Learned | Pre-LayerNorm | GELU |
-| **LLaMA-1** | Causal Language Model | MHA + RoPE | RoPE | Pre-RMSNorm | SwiGLU |
-| **LLaMA-2** | Causal Language Model | GQA + Stateful KV Cache | RoPE | Pre-RMSNorm | SwiGLU |
-| **Gemma-1 (2B/7B)** | Causal Language Model | MQA / GQA + RoPE | RoPE | Pre-RMSNorm | GeGLU |
-| **BERT** | Bidirectional Language Model | MHA (Bidirectional) | Absolute Learned + Segment | Post-LayerNorm | GELU |
-| **RoBERTa** | Bidirectional Language Model | MHA (Bidirectional) | Absolute Learned Offset | Post-LayerNorm | GELU |
-| **Vaswani Transformer** | Seq2Seq Encoder-Decoder | Causal MHA + Cross-MHA | Sinusoidal Fixed | Post-LayerNorm | ReLU |
-| **ViT** | Vision Classification | MHA (Bidirectional) | Absolute Learned | Pre-LayerNorm | GELU |
-| **SegFormer-B0** | Semantic Segmentation | Spatial Reduction Attention | Efficient Mix-FFN | Pre-LayerNorm | GELU |
-
----
-
-## Roadmap
-
-Development is structured into linear engineering phases per [`reviews/00_FUTURE_PLAN.md`](docs/roadmap.md):
-
-- **Phase 0 — Unblock Core Generation (Current):** Standardize `prefill()` and `decode()` KV-cache contracts across decoder architectures, update `text_generate()`, and enforce cache parity testing. *(Completed for LLaMA-2).*
-- **Phase 1 — Attention Engine & Compiler Integration (Planned):** Unified `AttentionEngine` kernel dispatcher (`src/stackformer/modules/attention_engine.py`) routing between SDPA, FlexAttention, `flash-attn` v2/v4, and custom Triton fallbacks with zero `torch.compile` graph breaks.
-- **Phase 2 — Budget Planner & PyTorch Native FSDP2 Scaling (Planned):** Analytical and empirical execution planner (`plan_training()`), native PyTorch FSDP2 sharding (`torch.distributed.fsdp.fully_shard`) + `DTensor` + Distributed Checkpoint (`DCP`).
-- **Phase 3 — `torchao` Quantization & Native Adapters (Planned):** Native low-precision quantization via `torchao` (INT8, INT4, FP8, NF4) and zero-bloat `LoRALinear` / `DoRALinear` modules on `BlockConfig`.
-- **Phase 4 — Multimodal Vision-Language & Document AI (Planned):** Unified vision-text backbone combining SegFormer/ViT patch encoders with LLaMA decoder stacks via cross-attention and projection adapters.
-- **Phase 5 — Paged KV Cache & Serving Engine (Planned):** `KVCacheManager` featuring PagedAttention virtual block tables and high-concurrency continuous-batching server (`FastAPI` + Model Context Protocol server).
-
-*For the complete deep technical specification, see [docs/roadmap.md](docs/roadmap.md).*
-
----
-
-## Checkpoint Security & Integrity
-
-Stackformer checkpoint directories cleanly separate pure weights from runtime execution state:
-- **`model.safetensors`**: Pure model weights stored in the memory-mapped Hugging Face Safetensors format (free from executable code or deserialization vulnerabilities).
-- **`state.pt`**: Contains optimizer state, lr scheduler state, step counters, and Python / NumPy RNG states required for bit-identical mid-epoch training resumption.
-
-> [!WARNING]
-> Because `state.pt` restores NumPy RNG state dicts and optimizer state, it is loaded with `torch.load(..., weights_only=False)`. **Only resume training checkpoints from trusted sources.** If you only need model weights for inference or fine-tuning, load `model.safetensors` via `stackformer.load_weights(model, path)`. See [Training & Checkpoint Guide](docs/training.md) for details.
+stackformer/
+├── src/
+│   └── stackformer/
+│       ├── models/             # Domain model architectures
+│       │   ├── language/       # GPT, LLaMA, Gemma, BERT, RoBERTa, Transformer
+│       │   ├── vision/         # ViT, SegFormer
+│       │   ├── multimodal/     # Vision-language architectures (planned)
+│       │   ├── audio/          # Speech and audio transformers (planned)
+│       │   └── base.py         # BaseModel contract and lifecycle hooks
+│       ├── modules/            # Composable attention, FFN, norm, layers, and masks
+│       ├── training/           # Accelerate-style Trainer, callbacks, loggers, losses
+│       ├── distributed/        # DDP, FSDP2 sharding, DCP checkpointing, launcher
+│       ├── ops/                # Optimized operations (scatter_add)
+│       ├── quantization/       # Float8 linear modules & low-precision hooks
+│       ├── cache/              # Static & paged KV cache implementations (experimental)
+│       ├── initialization/     # Parameter initialization strategies
+│       ├── utils/              # Weight checkpointing and attention helpers
+│       ├── data/               # Streaming dataset and collation (planned)
+│       ├── peft/               # Parameter-efficient fine-tuning (planned)
+│       ├── export/             # ONNX and deployment serialization (planned)
+│       ├── eval/               # Evaluation harnesses and benchmark tasks (planned)
+│       └── serving/            # Continuous batching inference server (planned)
+├── examples/                   # 5 runnable CPU notebooks (GPT-2, BERT, ViT, SegFormer, Seq2Seq)
+├── benchmarks/                 # Throughput and memory scaling benchmarks (planned)
+├── docs/                       # Documentation site, roadmap, and guides
+├── tests/                      # 270+ unit, integration, and distributed tests
+└── pyproject.toml              # Single source of truth configuration
+```
 
 ---
 
 ## Documentation
 
-- **User Documentation:**
-  - [Installation Guide](docs/user_docs/installation.md)
-  - [Quickstart Guide](docs/user_docs/quickstart.md)
-  - [Training & Checkpoint Security](docs/training.md)
-  - [API Reference](docs/user_docs/api_reference.md)
-- **Developer & Technical Documentation:**
-  - [Architecture Specification](docs/developer_docs/architecture.md)
-  - [Library Scope & Design Non-Goals](docs/developer_docs/scope.md)
-  - [Technical Roadmap](docs/roadmap.md)
-- **Code Examples:**
-  - [Runnable Example Scripts](examples/)
-
----
-
-## Community & Resources
-
-- **GitHub Repository:** [https://github.com/stackformer-labs/Stackformer](https://github.com/stackformer-labs/Stackformer)
-- **Issue Tracker:** [https://github.com/stackformer-labs/Stackformer/issues](https://github.com/stackformer-labs/Stackformer/issues)
-- **Discussions:** [https://github.com/stackformer-labs/Stackformer/discussions](https://github.com/stackformer-labs/Stackformer/discussions)
-- **Releases:** [https://github.com/stackformer-labs/Stackformer/releases](https://github.com/stackformer-labs/Stackformer/releases)
+- **Getting Started:**
+  - [Installation Guide](docs/getting-started/installation.md)
+  - [Quickstart Guide](docs/getting-started/quickstart.md)
+  - [First Transformer Tutorial](docs/getting-started/first-transformer.md)
+- **Guides & Reference:**
+  - [Training & Checkpointing Guide](docs/training.md)
+  - [Architecture Overview](docs/fundamentals/architecture-overview.md)
+  - [Strategic Roadmap](docs/ROADMAP.md)
+  - [Planned Subsystems Index](docs/PLANNED.md)
+- **Developer Guide:**
+  - [Architecture & Design Principles](docs/developer-guide/architecture.md)
+  - [Contributing Guidelines](docs/developer-guide/contributing.md)
 
 ---
 
 ## Contributing
 
-We welcome community contributions to StackFormer! Please review our [Library Scope & Non-Goals](docs/developer_docs/scope.md) before opening pull requests to ensure alignment with project design principles.
+Contributions are welcome. Please check the [Contributing Guide](docs/developer-guide/contributing.md) and [Strategic Roadmap](docs/ROADMAP.md) before submitting pull requests.
 
 ---
 
 ## Citation
 
-If you use StackFormer in your research or project, please consider citing:
+If you use Stackformer in your research or project, please cite:
 
 ```bibtex
 @software{stackformer2026,
   author = {Stackformer Labs},
-  title = {StackFormer: A Modular PyTorch Framework for Transformer Architecture Composability},
+  title = {Stackformer: Modular PyTorch Transformer Architecture Zoo and Distributed Trainer},
   year = {2026},
   publisher = {GitHub},
   journal = {GitHub repository},

@@ -50,7 +50,7 @@ StackFormer provides production-faithful implementations of canonical architectu
 
 ```python
 import torch
-from stackformer.models import Llama2
+from stackformer.models.language import Llama2
 
 # Instantiate a compact LLaMA-2 model
 model = Llama2(
@@ -73,7 +73,7 @@ print("LLaMA-2 logits shape:", logits.shape)
 ### GPT-2 (MHA + Post-LayerNorm + Absolute Embeddings)
 
 ```python
-from stackformer.models import GPT2
+from stackformer.models.language import GPT2
 
 gpt = GPT2(
     vocab_size=50257,
@@ -99,7 +99,7 @@ StackFormer models are 100% standard `torch.nn.Module` instances, integrating se
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
-from stackformer.models import GPT2
+from stackformer.models.language import GPT2
 
 # 1. Prepare synthetic dataset (tokens and labels)
 inputs = torch.randint(0, 10000, (128, 16))
@@ -132,7 +132,7 @@ Generate sequence continuations using `text_generate()`, supporting temperature 
 ```python
 import torch
 from stackformer import text_generate
-from stackformer.models import GPT2
+from stackformer.models.language import GPT2
 
 # 1. Instantiate model
 model = GPT2(vocab_size=10000, num_layers=2, embed_dim=128, num_heads=4, seq_len=64)

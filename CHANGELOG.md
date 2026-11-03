@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Standalone `stackformer.load_weights`**: Checkpoint loading is centralized via `stackformer.load_weights(model, path)` and `model.load_weights(path)`. Supports direct `.safetensors`, `.pt` files, and checkpoint directories (e.g. `step_00000100`), automatically stripping `module.` (DDP) and `_orig_mod.` (torch.compile) prefixes.
 
 ### Added
+- **Documentation & README Modernization**:
+  - Complete rewrite of `README.md` reflecting current library API, model zoo by category, training capabilities, and verified code snippets.
+  - Added repository link integrity checker `scripts/check_links.py`.
+  - Added planned subsystems index `docs/PLANNED.md` and organization migration reference `docs/ORG_RENAME.md`.
 - **Model Categorization and Registry**:
   - Reorganized model implementations into domain packages `stackformer.models.language` (BERT, GPT, LLaMA, Gemma, RoBERTa, Transformer, Decoder, EncoderDecoder) and `stackformer.models.vision` (ViT, SegFormer).
   - Added model registry query `stackformer.models.list_models()` and instantiation factory `stackformer.models.get_model(name, **kwargs)`.

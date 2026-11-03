@@ -15,3 +15,4 @@ Provides stateful streaming datasets, document token packing, and multi-worker c
 - [ ] Implement `PackedSequenceCollator` for sequence packing with cross-document attention masks.
 - [ ] Integrate data state dict with `Trainer.save_checkpoint()` / `load_checkpoint()`.
 - [ ] Add unit tests for dataset workers and collation determinism.
+

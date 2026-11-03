@@ -27,3 +27,4 @@ This document catalogs all placeholder directories, planned architectural subsys
 1. **No Fake Public APIs**: Placeholders contain clear `README.md` documentation and empty or minimal docstring-only `__init__.py` files. They do not expose stub functions or classes that raise `NotImplementedError` at runtime.
 2. **Clear Roadmap Linkage**: Each planned subsystem corresponds directly to goals defined in [ROADMAP.md](ROADMAP.md).
 3. **Additive Evolution**: Future implementations in these directories must adhere to Stackformer's zero-bloat principles, strict code quality pipelines, and platform portability.
+

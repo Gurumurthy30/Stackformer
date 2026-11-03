@@ -83,6 +83,6 @@ def train_worker():
     trainer.train()
 
 if __name__ == "__main__":
-    launch(train_worker, nproc_per_node=2, backend="gloo")
+    launch(train_worker, num_processes=2, backend="gloo")
 ```
 

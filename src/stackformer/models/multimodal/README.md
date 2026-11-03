@@ -15,3 +15,4 @@ Provides vision-language models (e.g., CLIP, LLaVA, PaLI) and document AI archit
 - [ ] Implement multimodal connector and projection modules.
 - [ ] Build end-to-end vision-language architecture.
 - [ ] Integrate with `Trainer` and multimodal dataset collation.
+

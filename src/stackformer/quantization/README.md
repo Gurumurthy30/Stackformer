@@ -19,3 +19,4 @@ Provides low-precision module representations and quantization transforms to acc
 - [x] Configure `[float8]` extra in `pyproject.toml`.
 - [ ] Implement INT8 weight-only linear layer.
 - [ ] Implement NF4 weight quantization transform.
+
