@@ -1,6 +1,6 @@
 [project]
 name = "stackformer"
-version = "0.2.0"
+version = "0.1.10"
 description = "Modular transformer blocks built in PyTorch"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -130,3 +130,7 @@ include = [
 exclude = [
   "**/__pycache__",
 ]
+reportPrivateImportUsage = false
+reportAttributeAccessIssue = false
+reportOptionalMemberAccess = false
+reportAssignmentType = false

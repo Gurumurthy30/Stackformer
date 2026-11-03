@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
-## [0.2.0] - 2026-11-03
+## [Unreleased]
 
 ### Breaking Changes
 - **Single Save Path via Trainer**: Removed `save_weights()` from `BaseModel` and model classes to eliminate duplicate/conflicting checkpointing code paths. All weight saving must now be performed via `Trainer` (`trainer.save(path)`, `trainer.save_checkpoint()`, `trainer.save_best_model()`).

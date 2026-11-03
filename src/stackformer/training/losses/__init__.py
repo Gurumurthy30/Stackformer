@@ -9,7 +9,7 @@ from typing import Any
 import torch
 import torch.nn.functional as F
 
-_LOSS_REGISTRY: dict[str, Callable[[Any, Any], torch.Tensor]] = {}
+_LOSS_REGISTRY: dict[str, Callable[..., torch.Tensor]] = {}
 
 
 def register_loss(name: str):

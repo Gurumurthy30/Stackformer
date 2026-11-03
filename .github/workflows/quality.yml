@@ -29,8 +29,8 @@ jobs:
       - name: Ruff Formatting Check
         run: python -m ruff format --check src/ tests/
 
-      - name: Pyright Baseline Type Check
-        run: python scripts/check_pyright.py
+      - name: Pyright Type Check
+        run: python -m pyright
 
       - name: Bandit Security Scan
         run: python -m bandit -r src/stackformer -ll -ii

@@ -155,12 +155,13 @@ class Trainer:
 
                 events.dispatch_epoch_start(self, epoch)
 
-                if hasattr(self.train_loader, "sampler") and hasattr(
-                    self.train_loader.sampler, "set_epoch"
-                ):
-                    self.train_loader.sampler.set_epoch(epoch)
-                elif getattr(self.train_loader, "generator", None) is not None:
-                    self.train_loader.generator.manual_seed(self.config.seed + epoch)
+                sampler = getattr(self.train_loader, "sampler", None)
+                if sampler is not None and hasattr(sampler, "set_epoch"):
+                    sampler.set_epoch(epoch)  # pyright: ignore[reportAttributeAccessIssue]
+                else:
+                    gen = getattr(self.train_loader, "generator", None)
+                    if gen is not None:
+                        gen.manual_seed(self.config.seed + epoch)
 
                 pbar = self.display.progress_bar(
                     self.train_loader,
