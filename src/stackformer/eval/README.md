@@ -1,10 +1,17 @@
-# Evaluation Subsystem
+# Evaluation Harness Subsystem
 
-## Overview
-The `stackformer.eval` module provides evaluation pipelines to measure model performance across accuracy, perplexity, generation quality, and latency benchmarks.
+Status: Planned, not implemented
 
-## Planned Capabilities
-- **Perplexity & Loss Evaluation**: Multi-dataset perplexity reporting for autoregressive and masked language models.
-- **Task Evaluation**: Zero-shot and few-shot evaluation tasks (e.g., MMLU, GSM8K, ARC, HellaSwag).
-- **Vision Benchmarks**: Image classification (Top-1/Top-5) and semantic segmentation (mIoU).
+## Purpose
+Provides standardized evaluation loops, benchmark task harnesses, and metric reporting for language, vision, and sequence tasks.
 
+## Planned Contents
+- Zero-shot language model benchmark harness (log-likelihood evaluation).
+- Vision classification and semantic segmentation evaluation loops (mIoU, top-1/top-5 accuracy).
+- Generation benchmark runner (BLEU, ROUGE, perplexity).
+
+## Checklist
+- [ ] Implement standardized evaluation task runner interfacing with `Trainer.evaluate()`.
+- [ ] Add perplexity evaluation across validation splits.
+- [ ] Add segmentation evaluation metrics (mIoU, pixel accuracy).
+- [ ] Add unit tests on synthetic datasets.
