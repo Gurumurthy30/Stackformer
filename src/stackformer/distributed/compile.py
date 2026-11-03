@@ -24,7 +24,7 @@ def is_compile_available() -> tuple[bool, str]:
         tuple[bool, str]: (is_available, error_reason_if_not_available)
     """
     try:
-        fn = torch.compile(torch.nn.Identity())
+        fn = torch.compile(lambda x: x + 1)
         fn(torch.zeros(1))
         return True, ""
     except Exception as e:
