@@ -263,11 +263,23 @@ Development is structured into linear engineering phases per [`reviews/00_FUTURE
 
 ---
 
+## Checkpoint Security & Integrity
+
+Stackformer checkpoint directories cleanly separate pure weights from runtime execution state:
+- **`model.safetensors`**: Pure model weights stored in the memory-mapped Hugging Face Safetensors format (free from executable code or deserialization vulnerabilities).
+- **`state.pt`**: Contains optimizer state, lr scheduler state, step counters, and Python / NumPy RNG states required for bit-identical mid-epoch training resumption.
+
+> [!WARNING]
+> Because `state.pt` restores NumPy RNG state dicts and optimizer state, it is loaded with `torch.load(..., weights_only=False)`. **Only resume training checkpoints from trusted sources.** If you only need model weights for inference or fine-tuning, load `model.safetensors` via `stackformer.load_weights(model, path)`. See [Training & Checkpoint Guide](docs/training.md) for details.
+
+---
+
 ## Documentation
 
 - **User Documentation:**
   - [Installation Guide](docs/user_docs/installation.md)
   - [Quickstart Guide](docs/user_docs/quickstart.md)
+  - [Training & Checkpoint Security](docs/training.md)
   - [API Reference](docs/user_docs/api_reference.md)
 - **Developer & Technical Documentation:**
   - [Architecture Specification](docs/developer_docs/architecture.md)
