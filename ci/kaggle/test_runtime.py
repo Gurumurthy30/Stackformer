@@ -94,7 +94,7 @@ def main() -> None:
     for name, fn in (("cpu", run_cpu_test), ("gpu", run_gpu_test)):
         try:
             fn()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             failures.append(f"{name}: {exc}")
             traceback.print_exc()
 
@@ -109,4 +109,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -13,6 +13,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Standalone `stackformer.load_weights`**: Checkpoint loading is centralized via `stackformer.load_weights(model, path)` and `model.load_weights(path)`. Supports direct `.safetensors`, `.pt` files, and checkpoint directories (e.g. `step_00000100`), automatically stripping `module.` (DDP) and `_orig_mod.` (torch.compile) prefixes.
 
 ### Added
+- **Model Categorization and Registry**:
+  - Reorganized model implementations into domain packages `stackformer.models.language` (BERT, GPT, LLaMA, Gemma, RoBERTa, Transformer, Decoder, EncoderDecoder) and `stackformer.models.vision` (ViT, SegFormer).
+  - Added model registry query `stackformer.models.list_models()` and instantiation factory `stackformer.models.get_model(name, **kwargs)`.
 - **Full Distributed Training Stack (Step 7)**:
   - Multi-process Distributed Data Parallel (DDP) on CPU/gloo and CUDA/NCCL.
   - Fully Sharded Data Parallel (FSDP2) via public `torch.distributed.fsdp.fully_shard`.

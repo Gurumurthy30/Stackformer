@@ -2,7 +2,7 @@ import pytest
 import torch
 
 from stackformer import GPT_1, GPT_2, gemma_1_2b, llama_1
-from stackformer.models.llama import llama_2
+from stackformer.models.language import llama_2
 from tests._test_utils import _checkpoint
 
 

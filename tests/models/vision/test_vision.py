@@ -1,16 +1,16 @@
 import pytest
 import torch
 
-from stackformer.vision.segformer import (
+from stackformer.models.vision.segformer import (
     Encoder,
     SegFormer,
     patch,
     transformer_block,
 )
-from stackformer.vision.segformer import (
+from stackformer.models.vision.segformer import (
     Multi_Head_Attention as SegFormerMHA,
 )
-from stackformer.vision.vit import ViT
+from stackformer.models.vision.vit import ViT
 from tests._test_utils import _checkpoint
 
 

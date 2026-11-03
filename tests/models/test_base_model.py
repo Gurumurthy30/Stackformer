@@ -15,7 +15,7 @@ from stackformer.models import (
     RoBERTa,
     Transformer,
 )
-from stackformer.vision import SegFormer, ViT
+from stackformer.models.vision import SegFormer, ViT
 
 
 def test_base_model_instantiation_with_config():

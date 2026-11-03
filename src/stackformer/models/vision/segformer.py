@@ -350,7 +350,7 @@ class StackFormerSegformer(BaseModel):
         resolved_config = cfg or config
         super().__init__(config=resolved_config)
 
-        variant = resolved.get("variant", variant)
+        variant = str(resolved.get("variant", variant)).lower()
         num_labels = resolved.get("num_labels", num_labels)
         dropout = resolved.get("dropout", dropout)
 

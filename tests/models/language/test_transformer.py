@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from stackformer.models.transformer import Transformer
+from stackformer.models.language import Transformer
 from stackformer.modules.attention import Multi_Head_Attention
 from stackformer.modules.feed_forward import FF_ReLU
 from stackformer.modules.position_embedding import SinusoidalPositionalEmbedding
