@@ -10,6 +10,9 @@ on:
         description: "Tag / version to publish (e.g. v1.2.3) — used for re-running a failed publish"
         required: false
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Gate — Run Test Suite
