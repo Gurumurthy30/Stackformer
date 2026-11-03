@@ -316,7 +316,7 @@ def test_load_weights_error_handling(tmp_path):
     # Empty directory
     empty_dir = tmp_path / "empty_dir"
     empty_dir.mkdir()
-    with pytest.raises(FileNotFoundError, match="No model.safetensors or model.pt found"):
+    with pytest.raises(FileNotFoundError, match=r"No model\.safetensors or model\.pt found"):
         stackformer.load_weights(model, empty_dir)
 
     # Strict key mismatch

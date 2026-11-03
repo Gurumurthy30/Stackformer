@@ -188,7 +188,7 @@ def test_compile_availability_and_smoke_or_skip(tmp_path):
     if not available:
         # Assert apply_compile raises clear RuntimeError when compiler is unavailable
         model = GPT2(vocab_size=32, embed_dim=16, num_layers=2, num_heads=2, seq_len=8)
-        with pytest.raises(RuntimeError, match="torch.compile is not available"):
+        with pytest.raises(RuntimeError, match=r"torch\.compile is not available"):
             apply_compile(model)
 
         pytest.skip(f"torch.compile unavailable in current environment: {reason}")

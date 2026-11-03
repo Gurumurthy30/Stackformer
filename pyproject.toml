@@ -105,6 +105,7 @@ target-version = "py310"
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "C4", "RUF"]
 ignore = [
   "E501",  # line length handled by formatter
+  "RUF043",  # pytest.raises match pattern metacharacters
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -112,6 +113,7 @@ ignore = [
 "__init__.py" = ["F401", "E402", "RUF022"]
 # test files use fixtures, local imports, and assert-driven structures
 "tests/*" = ["F401", "F841", "B011", "SIM117"]
+"tests/**" = ["F401", "F841", "B011", "SIM117"]
 # quantization utils contains specialized fsdp hooks
 "src/stackformer/quantization/utils.py" = ["F821"]
 # base logger provides optional default no-op hooks for subclasses

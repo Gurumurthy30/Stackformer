@@ -10,10 +10,22 @@
 from __future__ import annotations
 
 import logging
+import sys
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from enum import StrEnum
 from typing import Any
+
+if sys.version_info >= (3, 11):
+    from enum import StrEnum
+else:
+    from enum import Enum
+
+    class StrEnum(str, Enum):
+        """Fallback StrEnum implementation for Python 3.10."""
+
+        def __str__(self) -> str:
+            return str(self.value)
+
 
 from torch.distributed.device_mesh import DeviceMesh, init_device_mesh
 

@@ -242,7 +242,7 @@ def test_resume_from_auto_and_error_handling(tmp_path):
     # Corrupt directory without state.pt raises FileNotFoundError
     corrupt_dir = tmp_path / "corrupt_ckpt"
     corrupt_dir.mkdir()
-    with pytest.raises(FileNotFoundError, match="does not contain 'state.pt'"):
+    with pytest.raises(FileNotFoundError, match=r"does not contain 'state\.pt'"):
         mgr.load(corrupt_dir)
 
 

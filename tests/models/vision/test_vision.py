@@ -45,6 +45,7 @@ def test_patch_embedding(torch_device):
     p = patch(patch_size=4, stride=4, in_channels=3, hidden_size=16).to(torch_device)
     _checkpoint("Executing patch embedding forward")
     out, h, w = p(img)
+    assert h == 9 and w == 9
 
     # overlapping tokens = ((32 + 2*2 - 4)/4 + 1)^2 = 9^2 = 81
     _checkpoint("Asserting patch output shape", out_shape=out.shape)
