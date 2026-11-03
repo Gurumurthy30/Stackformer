@@ -27,7 +27,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: |
           python -m pip install --upgrade pip
-          pip install ".[dev]"
+          pip install ".[dev,train]"
       - run: pytest -q --maxfail=1 tests/modules tests/utils
       - run: pytest -q --maxfail=1 tests/models
       - run: pytest -q --maxfail=1 tests/integration
@@ -45,7 +45,7 @@ jobs:
           python-version: "3.11"
       - run: |
           python -m pip install --upgrade pip
-          pip install build twine
+          pip install ".[dev]"
       - run: python -m build
       - run: twine check --strict dist/*
       - uses: actions/upload-artifact@v4

@@ -54,7 +54,7 @@ WORKDIR /home/stackformer
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
-        "torch>=2.3,<3.0" \
+        "torch>=2.5,<3.0" \
     && pip install --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         stackformer==${STACKFORMER_VERSION}
