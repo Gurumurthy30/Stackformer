@@ -60,4 +60,3 @@ def run_evaluation(trainer: Any) -> dict[str, float]:
             trainer.save_best_model(eval_metrics)
 
     return eval_metrics
-

@@ -69,4 +69,3 @@ class Perplexity(Metric):
             return 0.0
         mean_loss = self.total_loss.float() / self.total_tokens.float()
         return torch.exp(mean_loss).item()
-

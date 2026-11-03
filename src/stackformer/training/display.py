@@ -146,16 +146,24 @@ class DisplayManager:
             cfg_dict = config
         else:
             cfg_dict = {
-                k: getattr(config, k)
-                for k in dir(config)
-                if not k.startswith("_") and not callable(getattr(config, k))
+                k: getattr(config, k) for k in dir(config) if not k.startswith("_") and not callable(getattr(config, k))
             }
 
         # Show important training settings
         key_order = [
-            "device", "parallel", "mixed_precision", "lr", "weight_decay",
-            "optimizer", "scheduler", "warmup_steps", "grad_accum_steps",
-            "max_grad_norm", "max_epochs", "max_steps", "seed",
+            "device",
+            "parallel",
+            "mixed_precision",
+            "lr",
+            "weight_decay",
+            "optimizer",
+            "scheduler",
+            "warmup_steps",
+            "grad_accum_steps",
+            "max_grad_norm",
+            "max_epochs",
+            "max_steps",
+            "seed",
         ]
         for k in key_order:
             if k in cfg_dict:
@@ -211,7 +219,11 @@ class DisplayManager:
             if val_metrics:
                 v_loss = val_metrics.get("val_loss", "-")
                 v_loss_str = f"{v_loss:.4f}" if isinstance(v_loss, float) else str(v_loss)
-                v_str = " ".join(f"{k}={v:.4f}" if isinstance(v, float) else f"{k}={v}" for k, v in val_metrics.items() if k != "val_loss")
+                v_str = " ".join(
+                    f"{k}={v:.4f}" if isinstance(v, float) else f"{k}={v}"
+                    for k, v in val_metrics.items()
+                    if k != "val_loss"
+                )
                 table.add_row("Val", v_loss_str, v_str or "-")
 
             self._rich_console.print(table)
@@ -292,4 +304,3 @@ class DisplayManager:
             leave=leave,
             enabled=enabled,
         )
-

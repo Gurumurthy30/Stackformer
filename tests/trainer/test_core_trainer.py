@@ -30,6 +30,7 @@ def create_tiny_gpt():
 # 1. Loss Registry Tests
 # =====================================================================
 
+
 def test_loss_registry_by_name():
     ce = get_loss("cross_entropy")
     assert callable(ce)
@@ -64,6 +65,7 @@ def test_loss_registry_custom_registration():
 # =====================================================================
 # 2. TrainConfig Validation & Loose Kwargs Tests
 # =====================================================================
+
 
 def test_train_config_validation():
     # Valid
@@ -118,6 +120,7 @@ def test_device_auto_resolution():
 # =====================================================================
 # 3. Loss Parity: Trainer vs Plain PyTorch Loop
 # =====================================================================
+
 
 def test_loss_parity_with_plain_pytorch_loop(tmp_path):
     """Verify Trainer matches manual PyTorch loop step-for-step."""
@@ -179,6 +182,7 @@ def test_loss_parity_with_plain_pytorch_loop(tmp_path):
 # 4. Max Steps vs Max Epochs Stopping
 # =====================================================================
 
+
 def test_stopping_max_steps_before_max_epochs(tmp_path):
     model = create_tiny_gpt()
     x = torch.randint(0, 64, (20, 16))
@@ -225,6 +229,7 @@ def test_stopping_max_steps_only(tmp_path):
 # 5. Eval Frequency and Max Eval Steps
 # =====================================================================
 
+
 def test_eval_frequency_and_max_eval_steps(tmp_path):
     model = create_tiny_gpt()
     x_train = torch.randint(0, 64, (20, 16))
@@ -260,6 +265,7 @@ def test_eval_frequency_and_max_eval_steps(tmp_path):
 # =====================================================================
 # 6. Gradient Accumulation Equivalence
 # =====================================================================
+
 
 def test_gradient_accumulation_parity(tmp_path):
     """Verify 2 micro-batches with grad_accum_steps=2 matches single large batch."""
@@ -309,6 +315,7 @@ def test_gradient_accumulation_parity(tmp_path):
 # 7. Loss Decrease Tests (LLM next-token shift & Classification)
 # =====================================================================
 
+
 def test_llm_shift_loss_decrease(tmp_path):
     """Verify tiny GPT2 trains and decreases loss on repeated sequences."""
     torch.manual_seed(42)
@@ -357,6 +364,7 @@ def test_classification_loss_decrease(tmp_path):
 # 8. Loss Mode Resolution & Ambiguous Case Tests
 # =====================================================================
 
+
 def test_cross_entropy_loss_mode_paths():
     """Test 'auto', 'lm', and 'classification' modes and ambiguous 3D+2D input case."""
     from stackformer.training.losses import cross_entropy_loss
@@ -402,4 +410,3 @@ def test_cross_entropy_loss_mode_paths():
     # 3. Invalid mode raises ValueError
     with pytest.raises(ValueError, match="'loss_mode' must be one of"):
         TrainConfig(loss_mode="invalid")
-

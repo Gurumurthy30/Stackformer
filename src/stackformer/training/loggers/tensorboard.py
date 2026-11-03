@@ -19,8 +19,7 @@ class TensorBoardLogger(Logger):
             from torch.utils.tensorboard import SummaryWriter
         except ImportError as e:
             raise ImportError(
-                "tensorboard is required for TensorBoardLogger. "
-                "Install it with: pip install tensorboard"
+                "tensorboard is required for TensorBoardLogger. Install it with: pip install tensorboard"
             ) from e
 
         self.log_dir = Path(log_dir or "./checkpoints/logs/tensorboard").resolve()
@@ -44,4 +43,3 @@ class TensorBoardLogger(Logger):
             self.writer.flush()
             self.writer.close()
             self.writer = None
-

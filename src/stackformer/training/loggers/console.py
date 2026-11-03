@@ -33,4 +33,3 @@ class ConsoleLogger(Logger):
         # Avoid duplicating tqdm lines if running inside an active progress bar
         # by using module logger at INFO
         logger.info(msg)
-

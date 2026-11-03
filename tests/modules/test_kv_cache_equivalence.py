@@ -59,8 +59,12 @@ def test_kv_cache_group_query_matches_full_attention_for_last_token(torch_device
     _checkpoint("test_kv_cache_group_query_matches_full_attention_for_last_token setup", device=torch_device)
     x = torch.randn(2, 6, 8, device=torch_device)
 
-    full = Group_query_Attention(embed_dim=8, num_query_heads=2, num_kv_heads=1, dropout=0.0, mask_type=["causal"], device=torch_device)
-    cached = kv_cache_group_query(embed_dim=8, num_query_heads=2, num_kv_heads=1, batch_size=2, kv_seq_len=6, dropout=0.0, device=torch_device)
+    full = Group_query_Attention(
+        embed_dim=8, num_query_heads=2, num_kv_heads=1, dropout=0.0, mask_type=["causal"], device=torch_device
+    )
+    cached = kv_cache_group_query(
+        embed_dim=8, num_query_heads=2, num_kv_heads=1, batch_size=2, kv_seq_len=6, dropout=0.0, device=torch_device
+    )
     _copy_qkv_proj_weights(full, cached)
 
     _checkpoint("Running full GQA forward pass")

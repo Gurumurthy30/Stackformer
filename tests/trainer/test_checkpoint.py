@@ -369,6 +369,7 @@ def test_trainer_save_safetensors_and_base_model_reload(tmp_path):
 def test_safetensors_missing_save_weights_hint(tmp_path, monkeypatch):
     """save_model_weights raises clear ImportError hint if safetensors is missing."""
     import sys
+
     model = create_tiny_model()
     st_path = tmp_path / "model.safetensors"
 
@@ -376,6 +377,7 @@ def test_safetensors_missing_save_weights_hint(tmp_path, monkeypatch):
     monkeypatch.setitem(sys.modules, "safetensors.torch", None)
 
     from stackformer.utils.checkpoint import save_model_weights
+
     with pytest.raises(ImportError, match="Install via `pip install safetensors`"):
         save_model_weights(model, st_path)
 
@@ -397,4 +399,3 @@ def test_checkpoint_manager_warns_and_falls_back_when_safetensors_missing(tmp_pa
 
     assert saved_dir.exists()
     assert (saved_dir / "model.pt").exists()
-

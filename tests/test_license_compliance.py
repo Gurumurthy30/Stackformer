@@ -56,9 +56,7 @@ def test_meta_bsd3_headers_in_derived_files():
         assert "Copyright (c) Meta Platforms, Inc. and affiliates." in first_500, (
             f"Missing Meta copyright in {rel_path}"
         )
-        assert "BSD-style license" in first_500, (
-            f"Missing BSD license notice in {rel_path}"
-        )
+        assert "BSD-style license" in first_500, f"Missing BSD license notice in {rel_path}"
 
 
 def test_notice_files_exist_and_contain_conditions_and_disclaimer():
@@ -128,4 +126,3 @@ def test_wheel_and_sdist_license_distribution(tmp_path):
         assert any("THIRD_PARTY_NOTICES" in name for name in namelist), (
             f"THIRD_PARTY_NOTICES not found in sdist: {namelist}"
         )
-

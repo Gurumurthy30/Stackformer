@@ -65,9 +65,7 @@ def apply_compile(
     """
     available, reason = is_compile_available()
     if not available:
-        raise RuntimeError(
-            f"torch.compile is not available in the current environment: {reason}"
-        )
+        raise RuntimeError(f"torch.compile is not available in the current environment: {reason}")
 
     # Configure Dynamo for robustness under dynamic shapes and activation checkpointing
     try:
@@ -87,4 +85,3 @@ def apply_compile(
     compiled_model = torch.compile(model, mode=compile_mode, backend=backend)
     logger.info(f"Compiled full model with mode={compile_mode}, backend={backend}.")
     return compiled_model
-

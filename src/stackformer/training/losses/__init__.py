@@ -12,9 +12,11 @@ _LOSS_REGISTRY: dict[str, Callable[[Any, Any], torch.Tensor]] = {}
 
 def register_loss(name: str):
     """Decorator to register a custom loss function under a given name."""
+
     def decorator(fn: Callable[[Any, Any], torch.Tensor]):
         _LOSS_REGISTRY[name.lower().strip()] = fn
         return fn
+
     return decorator
 
 
@@ -36,9 +38,7 @@ def get_loss(
     name = loss_name_or_fn.lower().strip()
     if name not in _LOSS_REGISTRY:
         available = sorted(_LOSS_REGISTRY.keys())
-        raise ValueError(
-            f"Unknown loss '{loss_name_or_fn}'. Available registered losses: {available}"
-        )
+        raise ValueError(f"Unknown loss '{loss_name_or_fn}'. Available registered losses: {available}")
     fn = _LOSS_REGISTRY[name]
     if name == "cross_entropy" and loss_mode != "auto":
         return functools.partial(fn, loss_mode=loss_mode)
@@ -225,6 +225,7 @@ def seg_cross_entropy_loss(outputs: torch.Tensor, batch: Any, ignore_index: int 
 # (e.g. fused, chunked, or Triton-backed cross entropy implementations)
 # =========================================================================
 
+
 def set_kernel_cross_entropy(kernel_fn: Callable[[Any, Any], torch.Tensor]) -> None:
     """Register or override the default cross entropy with a custom fused/Triton kernel."""
     register_loss("cross_entropy")(kernel_fn)
@@ -244,4 +245,3 @@ __all__ = [
     "seg_cross_entropy_loss",
     "set_kernel_cross_entropy",
 ]
-

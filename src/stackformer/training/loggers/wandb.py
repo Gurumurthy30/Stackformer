@@ -22,12 +22,10 @@ class WandbLogger(Logger):
     ) -> None:
         try:
             import wandb
+
             self._wandb = wandb
         except ImportError as e:
-            raise ImportError(
-                "wandb is required for WandbLogger. "
-                "Install it with: pip install wandb"
-            ) from e
+            raise ImportError("wandb is required for WandbLogger. Install it with: pip install wandb") from e
 
         self.run = None
         if is_rank_zero():
@@ -45,4 +43,3 @@ class WandbLogger(Logger):
         if self.run is not None and is_rank_zero():
             self.run.finish()
             self.run = None
-

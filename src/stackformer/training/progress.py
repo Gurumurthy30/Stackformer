@@ -27,6 +27,7 @@ class ProgressBar:
         if self.enabled:
             try:
                 from tqdm.auto import tqdm
+
                 self._tqdm_inst = tqdm(
                     iterable=iterable,
                     total=self.total,
@@ -82,4 +83,3 @@ class ProgressBar:
         """Close progress bar."""
         if self._tqdm_inst is not None:
             self._tqdm_inst.close()
-

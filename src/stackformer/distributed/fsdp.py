@@ -57,9 +57,7 @@ def build_fsdp_policies(
         cast_forward_inputs=True,
     )
 
-    offload_policy: OffloadPolicy = (
-        CPUOffloadPolicy(pin_memory=True) if cpu_offload else OffloadPolicy()
-    )
+    offload_policy: OffloadPolicy = CPUOffloadPolicy(pin_memory=True) if cpu_offload else OffloadPolicy()
 
     return mp_policy, offload_policy
 
@@ -141,4 +139,3 @@ def apply_fsdp(
         f"Applied FSDP2 fully_shard across {len(blocks)} blocks and root module (world_size={dist.get_world_size()})."
     )
     return model
-

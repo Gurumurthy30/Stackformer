@@ -25,19 +25,31 @@ from stackformer.vision import SegFormer, ViT
 # 1. Sharding Blocks Structure and Parameter Coverage
 # =====================================================================
 
+
 @pytest.mark.parametrize(
     "model_fn",
     [
         lambda: GPT1(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16),
         lambda: GPT2(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16),
         lambda: Llama1(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16),
-        lambda: Llama2(vocab_size=100, embed_dim=32, num_layers=2, num_query_heads=2, num_kv_heads=1, seq_len=16, hidden_dim=64),
+        lambda: Llama2(
+            vocab_size=100, embed_dim=32, num_layers=2, num_query_heads=2, num_kv_heads=1, seq_len=16, hidden_dim=64
+        ),
         lambda: Gemma1_2B(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16),
         lambda: Gemma1_7B(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16),
         lambda: BERT(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16),
         lambda: RoBERTa(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16),
         lambda: Transformer(vocab_size=100, embed_dim=32, encoder_layers=2, decoder_layers=2, num_heads=2, seq_len=16),
-        lambda: ViT(img_size=16, patch_size=4, in_channels=3, num_classes=5, embed_dim=32, num_layers=2, num_heads=2, hidden_dim=64),
+        lambda: ViT(
+            img_size=16,
+            patch_size=4,
+            in_channels=3,
+            num_classes=5,
+            embed_dim=32,
+            num_layers=2,
+            num_heads=2,
+            hidden_dim=64,
+        ),
         lambda: SegFormer(variant="b0", num_labels=5),
     ],
 )
@@ -94,7 +106,9 @@ def test_model_family_tied_params():
     bert = BERT(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16)
     roberta = RoBERTa(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16)
     gpt = GPT2(vocab_size=100, embed_dim=32, num_layers=2, num_heads=2, seq_len=16)
-    llama = Llama2(vocab_size=100, embed_dim=32, num_layers=2, num_query_heads=2, num_kv_heads=1, seq_len=16, hidden_dim=64)
+    llama = Llama2(
+        vocab_size=100, embed_dim=32, num_layers=2, num_query_heads=2, num_kv_heads=1, seq_len=16, hidden_dim=64
+    )
     trans = Transformer(vocab_size=100, embed_dim=32, encoder_layers=2, decoder_layers=2, num_heads=2, seq_len=16)
 
     assert bert.get_tied_params() == [("token_embedding.weight", "lm_head.weight")]
@@ -106,6 +120,7 @@ def test_model_family_tied_params():
 
 def test_base_model_auto_detection_and_fallback():
     """Verify BaseModel auto-detects repeating layers and raises clear error when missing."""
+
     # 1. Successful auto-detection on custom repeating model
     class CustomTransformer(BaseModel):
         def __init__(self):
@@ -137,13 +152,16 @@ def test_base_model_auto_detection_and_fallback():
 # 2. Five-Step Training Loss Decrease Tests for Every Model Family
 # =====================================================================
 
+
 def test_trainer_loss_decreases_gpt(tmp_path):
     torch.manual_seed(42)
     model = GPT2(vocab_size=64, embed_dim=32, num_layers=2, num_heads=2, seq_len=16)
     tokens = torch.tensor([[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]] * 16)
     loader = DataLoader(TensorDataset(tokens, tokens), batch_size=4, shuffle=True)
 
-    cfg = TrainConfig(max_steps=5, lr=3e-3, optimizer="adamw", scheduler="none", checkpoint_dir=str(tmp_path), save_last=False)
+    cfg = TrainConfig(
+        max_steps=5, lr=3e-3, optimizer="adamw", scheduler="none", checkpoint_dir=str(tmp_path), save_last=False
+    )
     trainer = Trainer(model, cfg, train_loader=loader, val_loader=loader)
     init_loss = trainer.evaluate()["val_loss"]
     trainer.train()
@@ -153,11 +171,15 @@ def test_trainer_loss_decreases_gpt(tmp_path):
 
 def test_trainer_loss_decreases_llama(tmp_path):
     torch.manual_seed(42)
-    model = Llama2(vocab_size=64, embed_dim=32, num_layers=2, num_query_heads=2, num_kv_heads=1, seq_len=16, hidden_dim=64)
+    model = Llama2(
+        vocab_size=64, embed_dim=32, num_layers=2, num_query_heads=2, num_kv_heads=1, seq_len=16, hidden_dim=64
+    )
     tokens = torch.tensor([[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]] * 16)
     loader = DataLoader(TensorDataset(tokens, tokens), batch_size=4, shuffle=True)
 
-    cfg = TrainConfig(max_steps=5, lr=3e-3, optimizer="adamw", scheduler="none", checkpoint_dir=str(tmp_path), save_last=False)
+    cfg = TrainConfig(
+        max_steps=5, lr=3e-3, optimizer="adamw", scheduler="none", checkpoint_dir=str(tmp_path), save_last=False
+    )
     trainer = Trainer(model, cfg, train_loader=loader, val_loader=loader)
     init_loss = trainer.evaluate()["val_loss"]
     trainer.train()
@@ -171,7 +193,9 @@ def test_trainer_loss_decreases_gemma(tmp_path):
     tokens = torch.tensor([[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]] * 16)
     loader = DataLoader(TensorDataset(tokens, tokens), batch_size=4, shuffle=True)
 
-    cfg = TrainConfig(max_steps=5, lr=3e-3, optimizer="adamw", scheduler="none", checkpoint_dir=str(tmp_path), save_last=False)
+    cfg = TrainConfig(
+        max_steps=5, lr=3e-3, optimizer="adamw", scheduler="none", checkpoint_dir=str(tmp_path), save_last=False
+    )
     trainer = Trainer(model, cfg, train_loader=loader, val_loader=loader)
     init_loss = trainer.evaluate()["val_loss"]
     trainer.train()
@@ -185,7 +209,9 @@ def test_trainer_loss_decreases_bert(tmp_path):
     tokens = torch.tensor([[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]] * 16)
     loader = DataLoader(TensorDataset(tokens, tokens), batch_size=4, shuffle=True)
 
-    cfg = TrainConfig(max_steps=5, lr=3e-3, optimizer="adamw", scheduler="none", checkpoint_dir=str(tmp_path), save_last=False)
+    cfg = TrainConfig(
+        max_steps=5, lr=3e-3, optimizer="adamw", scheduler="none", checkpoint_dir=str(tmp_path), save_last=False
+    )
     trainer = Trainer(model, cfg, train_loader=loader, val_loader=loader)
     init_loss = trainer.evaluate()["val_loss"]
     trainer.train()
@@ -199,7 +225,9 @@ def test_trainer_loss_decreases_roberta(tmp_path):
     tokens = torch.tensor([[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]] * 16)
     loader = DataLoader(TensorDataset(tokens, tokens), batch_size=4, shuffle=True)
 
-    cfg = TrainConfig(max_steps=5, lr=3e-3, optimizer="adamw", scheduler="none", checkpoint_dir=str(tmp_path), save_last=False)
+    cfg = TrainConfig(
+        max_steps=5, lr=3e-3, optimizer="adamw", scheduler="none", checkpoint_dir=str(tmp_path), save_last=False
+    )
     trainer = Trainer(model, cfg, train_loader=loader, val_loader=loader)
     init_loss = trainer.evaluate()["val_loss"]
     trainer.train()
@@ -230,7 +258,9 @@ def test_trainer_loss_decreases_transformer(tmp_path):
     tgt = torch.tensor([[10, 11, 12, 13, 14, 15, 16, 17]] * 16)
     loader = DataLoader(Seq2SeqDataset(src, tgt), batch_size=4, shuffle=True)
 
-    cfg = TrainConfig(max_steps=5, lr=3e-3, optimizer="adamw", scheduler="none", checkpoint_dir=str(tmp_path), save_last=False)
+    cfg = TrainConfig(
+        max_steps=5, lr=3e-3, optimizer="adamw", scheduler="none", checkpoint_dir=str(tmp_path), save_last=False
+    )
     trainer = Trainer(model, cfg, train_loader=loader, val_loader=loader)
     init_loss = trainer.evaluate()["val_loss"]
     trainer.train()
@@ -240,12 +270,22 @@ def test_trainer_loss_decreases_transformer(tmp_path):
 
 def test_trainer_loss_decreases_vit(tmp_path):
     torch.manual_seed(42)
-    model = ViT(img_size=16, patch_size=4, in_channels=3, num_classes=2, embed_dim=32, num_layers=2, num_heads=2, hidden_dim=64)
+    model = ViT(
+        img_size=16, patch_size=4, in_channels=3, num_classes=2, embed_dim=32, num_layers=2, num_heads=2, hidden_dim=64
+    )
     images = torch.randn(16, 3, 16, 16)
     labels = (images[:, 0, 0, 0] > 0).long()
     loader = DataLoader(TensorDataset(images, labels), batch_size=4, shuffle=True)
 
-    cfg = TrainConfig(max_steps=5, lr=3e-3, optimizer="adamw", loss="cross_entropy", scheduler="none", checkpoint_dir=str(tmp_path), save_last=False)
+    cfg = TrainConfig(
+        max_steps=5,
+        lr=3e-3,
+        optimizer="adamw",
+        loss="cross_entropy",
+        scheduler="none",
+        checkpoint_dir=str(tmp_path),
+        save_last=False,
+    )
     trainer = Trainer(model, cfg, train_loader=loader, val_loader=loader)
     init_loss = trainer.evaluate()["val_loss"]
     trainer.train()
@@ -262,7 +302,15 @@ def test_trainer_loss_decreases_segformer(tmp_path):
     masks = mask.repeat(20, 1, 1)
     loader = DataLoader(TensorDataset(images, masks), batch_size=4, shuffle=True)
 
-    cfg = TrainConfig(max_steps=5, lr=2e-3, optimizer="adamw", loss="cross_entropy", scheduler="none", checkpoint_dir=str(tmp_path), save_last=False)
+    cfg = TrainConfig(
+        max_steps=5,
+        lr=2e-3,
+        optimizer="adamw",
+        loss="cross_entropy",
+        scheduler="none",
+        checkpoint_dir=str(tmp_path),
+        save_last=False,
+    )
     trainer = Trainer(model, cfg, train_loader=loader, val_loader=loader)
     init_loss = trainer.evaluate()["val_loss"]
     trainer.train()

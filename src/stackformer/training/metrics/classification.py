@@ -270,4 +270,3 @@ class F1(Metric):
             if (p + r) > 0:
                 f1s.append(2 * p * r / (p + r))
         return sum(f1s) / len(f1s) if f1s else 0.0
-

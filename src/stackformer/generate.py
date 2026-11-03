@@ -103,6 +103,7 @@ def _resolve_generation_config(
 
     return generation_config
 
+
 def prefill(model: torch.nn.Module, input_ids: torch.Tensor) -> tuple[torch.Tensor, dict]:
     """Prefill the KV-cache for models that support it.
 
@@ -118,6 +119,7 @@ def prefill(model: torch.nn.Module, input_ids: torch.Tensor) -> tuple[torch.Tens
 
     logits, cache = model.prefill(input_ids)
     return logits, cache
+
 
 def decode(model: torch.nn.Module, next_token: torch.Tensor, cache: dict) -> tuple[torch.Tensor, dict]:
     """Decode the next token using the KV-cache for models that support it.
@@ -135,6 +137,7 @@ def decode(model: torch.nn.Module, next_token: torch.Tensor, cache: dict) -> tup
 
     logits, updated_cache = model.decode(next_token, cache)
     return logits, updated_cache
+
 
 def text_generate(
     model: torch.nn.Module,
@@ -201,17 +204,11 @@ def text_generate(
 
     cache = None
 
-    has_cache_methods = (
-        callable(getattr(model, "prefill", None))
-        and callable(getattr(model, "decode", None))
-    )
+    has_cache_methods = callable(getattr(model, "prefill", None)) and callable(getattr(model, "decode", None))
     explicit_flag = getattr(model, "supports_kv_cache", None)
 
     if explicit_flag is True and not has_cache_methods:
-        raise RuntimeError(
-            "supports_kv_cache=True requires both "
-            "'prefill()' and 'decode()' methods."
-        )
+        raise RuntimeError("supports_kv_cache=True requires both 'prefill()' and 'decode()' methods.")
 
     # Use the cache path whenever the model implements it, unless the model
     # explicitly opts out via supports_kv_cache = False.
@@ -228,7 +225,6 @@ def text_generate(
         logits = logits[:, -1, :]  # (B, T, V) -> (B, V)
 
     for _ in range(config.max_new_tokens):
-
         next_token = _sample_next_token(
             logits,
             config.temperature,

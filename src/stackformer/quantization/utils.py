@@ -6,6 +6,7 @@
 
 from typing import Any
 import torch.nn as nn
+
 Linear = nn.Linear
 
 
@@ -16,9 +17,7 @@ def module_filter_fn(config: Any, fqn: str, filter_fqns: list[str]) -> bool:
     with dimensions divisible by 16 and not matching any filtered FQNs.
     """
     # All dims must be divisible by 16 due to float8 tensorcore hardware requirements.
-    dims_multiples_of_16 = (
-        config.in_features % 16 == 0 and config.out_features % 16 == 0
-    )
+    dims_multiples_of_16 = config.in_features % 16 == 0 and config.out_features % 16 == 0
 
     # If the fqn matches any filtered fqn, then we should not convert this module.
     is_filtered_fqn = any(filter_fqn in fqn for filter_fqn in filter_fqns)

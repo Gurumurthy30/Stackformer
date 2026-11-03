@@ -96,9 +96,7 @@ def apply_activation_checkpointing(
         return model
 
     if mode not in {"selective", "full"}:
-        raise ValueError(
-            f"Unknown activation checkpointing mode '{mode}'. Expected 'none', 'selective', or 'full'."
-        )
+        raise ValueError(f"Unknown activation checkpointing mode '{mode}'. Expected 'none', 'selective', or 'full'.")
 
     # 1. Retrieve blocks via Stackformer protocol or auto-detection
     if hasattr(model, "get_sharding_blocks") and callable(model.get_sharding_blocks):
@@ -161,4 +159,3 @@ def apply_activation_checkpointing(
 
     logger.info(f"Applied {mode} activation checkpointing across {len(blocks)} blocks.")
     return model
-

@@ -71,4 +71,3 @@ class GenerationConfig:
     top_k: int | None = None
     top_p: float = 1.0
     eos_token_id: int | None = None
-

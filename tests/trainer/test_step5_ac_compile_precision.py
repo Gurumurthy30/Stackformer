@@ -17,6 +17,7 @@ from stackformer.training.checkpoint import clean_state_dict
 # 1. AC Equivalence (none vs full vs selective)
 # =====================================================================
 
+
 def test_ac_loss_and_gradients_numerical_parity():
     """Verify AC 'none', 'full', and 'selective' yield identical losses and gradients."""
     torch.manual_seed(100)
@@ -56,8 +57,12 @@ def test_ac_loss_and_gradients_numerical_parity():
     loss_sel.backward()
 
     # Verify losses are equal within numerical tolerance
-    assert torch.allclose(loss_none, loss_full, atol=1e-5), f"Full AC loss mismatch: {loss_none.item()} vs {loss_full.item()}"
-    assert torch.allclose(loss_none, loss_sel, atol=1e-5), f"Selective AC loss mismatch: {loss_none.item()} vs {loss_sel.item()}"
+    assert torch.allclose(loss_none, loss_full, atol=1e-5), (
+        f"Full AC loss mismatch: {loss_none.item()} vs {loss_full.item()}"
+    )
+    assert torch.allclose(loss_none, loss_sel, atol=1e-5), (
+        f"Selective AC loss mismatch: {loss_none.item()} vs {loss_sel.item()}"
+    )
 
     # Verify gradients are identical across all parameters
     params_none = dict(m_none.named_parameters())
@@ -69,16 +74,22 @@ def test_ac_loss_and_gradients_numerical_parity():
             clean_name = name
             assert clean_name in params_full, f"Parameter {clean_name} missing from full AC model"
             assert clean_name in params_sel, f"Parameter {clean_name} missing from selective AC model"
-            assert torch.allclose(p_none.grad, params_full[clean_name].grad, atol=1e-5), f"Gradient mismatch for {name} (full AC)"
-            assert torch.allclose(p_none.grad, params_sel[clean_name].grad, atol=1e-5), f"Gradient mismatch for {name} (selective AC)"
+            assert torch.allclose(p_none.grad, params_full[clean_name].grad, atol=1e-5), (
+                f"Gradient mismatch for {name} (full AC)"
+            )
+            assert torch.allclose(p_none.grad, params_sel[clean_name].grad, atol=1e-5), (
+                f"Gradient mismatch for {name} (selective AC)"
+            )
 
 
 # =====================================================================
 # 2. Recompute-Count Evidence that AC Actually Runs
 # =====================================================================
 
+
 def test_ac_forward_recompute_count_evidence():
     """Verify that Activation Checkpointing triggers forward recomputation during backward."""
+
     class InstrumentedBlock(nn.Module):
         def __init__(self):
             super().__init__()
@@ -117,12 +128,15 @@ def test_ac_forward_recompute_count_evidence():
     # Find the instrumented blocks inside checkpoint wrappers
     underlying_blocks = [m for m in m_ac.modules() if isinstance(m, InstrumentedBlock)]
     assert len(underlying_blocks) == 2
-    assert [b.call_count for b in underlying_blocks] == [2, 2], "Expected each block to execute twice (recompute in backward)"
+    assert [b.call_count for b in underlying_blocks] == [2, 2], (
+        "Expected each block to execute twice (recompute in backward)"
+    )
 
 
 # =====================================================================
 # 3. Mixed Precision: bf16 Loss Decrease & fp16 on CPU Validation
 # =====================================================================
+
 
 def test_trainer_bf16_autocast_loss_decreases(tmp_path):
     """Verify Trainer trains in bf16 mixed precision on CPU and loss decreases."""
@@ -158,6 +172,7 @@ def test_fp16_on_cpu_raises_informative_error():
 # 4. Compile Smoke Test and Environment Availability
 # =====================================================================
 
+
 def test_compile_availability_and_smoke_or_skip(tmp_path):
     """Verify is_compile_available reports status; run compile or skip gracefully with reason."""
     available, reason = is_compile_available()
@@ -182,6 +197,7 @@ def test_compile_availability_and_smoke_or_skip(tmp_path):
 # 5. Unsupported Configurations Raise Clear Errors
 # =====================================================================
 
+
 def test_unsupported_combos_raise_clear_errors():
     """Verify unsupported hyperparameter combinations fail fast with explicit errors."""
     with pytest.raises(ValueError, match="Unsupported activation_checkpointing"):
@@ -197,6 +213,7 @@ def test_unsupported_combos_raise_clear_errors():
 # =====================================================================
 # 6. Checkpoint Save/Resume with AC and Compile (_orig_mod Prefix Cleanliness)
 # =====================================================================
+
 
 def test_clean_state_dict_removes_orig_mod_prefixes():
     """Verify clean_state_dict strips nested _orig_mod. prefixes produced by torch.compile."""
@@ -240,4 +257,3 @@ def test_checkpoint_save_and_resume_with_ac_and_compile(tmp_path):
     fresh_model = GPT2(vocab_size=32, embed_dim=16, num_layers=2, num_heads=2, seq_len=8)
     fresh_model.load_state_dict(saved_state["model"], strict=True)
     fresh_model.load_weights(ckpt_dir / "model.safetensors", strict=True)
-

@@ -57,4 +57,3 @@ def close_loggers(trainer: Any) -> None:
             lg.finish()
         except Exception:
             pass
-

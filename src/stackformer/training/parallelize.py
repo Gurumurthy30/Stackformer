@@ -62,4 +62,3 @@ def apply_model_transformations(model: nn.Module, config: TrainConfig) -> nn.Mod
         )
 
     return model
-

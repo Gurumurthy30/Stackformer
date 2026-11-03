@@ -66,9 +66,7 @@ class Initializer:
         self.strategy_name = strategy.lower().strip()
         if self.strategy_name not in self.STRATEGY_MAP:
             valid = list(self.STRATEGY_MAP.keys())
-            raise ValueError(
-                f"Unknown initialization strategy '{strategy}'. Supported strategies: {valid}"
-            )
+            raise ValueError(f"Unknown initialization strategy '{strategy}'. Supported strategies: {valid}")
         self.strategy_fn = self.STRATEGY_MAP[self.strategy_name]
         self.std = std
         self.mean = mean
@@ -198,4 +196,3 @@ def init_weights(
     """
     initializer = Initializer(strategy=strategy, std=std, mean=mean, gain=gain, **kwargs)
     return initializer.apply(module)
-

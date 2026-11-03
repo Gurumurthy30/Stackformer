@@ -115,9 +115,7 @@ def launch(
     )
 
     port = get_free_port()
-    logger.info(
-        f"Spawning {num_processes} processes with backend='{resolved_backend}' on port {port}."
-    )
+    logger.info(f"Spawning {num_processes} processes with backend='{resolved_backend}' on port {port}.")
 
     try:
         mp.spawn(
@@ -129,4 +127,3 @@ def launch(
     except mp.ProcessRaisedException as exc:
         logger.error(f"Distributed process execution failed: {exc}")
         raise exc
-

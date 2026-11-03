@@ -30,6 +30,7 @@ from stackformer.training.state import TrainState
 # Top-level helper models and functions for multi-process worker spawning
 # ==============================================================================
 
+
 class TinyLinearModel(nn.Module):
     def __init__(self):
         super().__init__()
@@ -136,6 +137,7 @@ def _worker_dcp_save_load(tmp_dir_str: str) -> None:
 # Platform Guard & Validation Unit Tests (Fast, Single-Process)
 # ==============================================================================
 
+
 def test_platform_guard_windows_nccl(monkeypatch):
     """Platform guard: Requesting NCCL on native Windows must raise a clear RuntimeError."""
     monkeypatch.setattr(sys, "platform", "win32")
@@ -232,9 +234,11 @@ def test_checkpoint_manager_use_dcp_interface(tmp_path):
 # Multi-Process CPU / Gloo Tests via launch()
 # ==============================================================================
 
+
 def _is_loopback_socket_accessible() -> bool:
     """Check if loopback sockets can be bound and connected across processes in current environment."""
     import socket
+
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind(("127.0.0.1", 0))
@@ -250,7 +254,7 @@ def _is_loopback_socket_accessible() -> bool:
 
 @pytest.mark.skipif(
     not _is_loopback_socket_accessible(),
-    reason="Multi-process socket rendezvous requires loopback socket access (run outside sandbox)."
+    reason="Multi-process socket rendezvous requires loopback socket access (run outside sandbox).",
 )
 def test_launch_notebook_style_function(tmp_path):
     """Test launch() running a notebook-style custom function across 2 CPU processes."""
@@ -266,7 +270,7 @@ def test_launch_notebook_style_function(tmp_path):
 
 @pytest.mark.skipif(
     not _is_loopback_socket_accessible(),
-    reason="Multi-process socket rendezvous requires loopback socket access (run outside sandbox)."
+    reason="Multi-process socket rendezvous requires loopback socket access (run outside sandbox).",
 )
 def test_ddp_two_processes_loss_and_gradient_parity(tmp_path):
     """Test DDP on 2 CPU processes achieves synchronization and loss decrease."""
@@ -279,7 +283,7 @@ def test_ddp_two_processes_loss_and_gradient_parity(tmp_path):
 
 @pytest.mark.skipif(
     not _is_loopback_socket_accessible(),
-    reason="Multi-process socket rendezvous requires loopback socket access (run outside sandbox)."
+    reason="Multi-process socket rendezvous requires loopback socket access (run outside sandbox).",
 )
 def test_ddp_checkpoint_save_and_resume_parity(tmp_path):
     """Test DDP checkpoint saving strips 'module.' prefix and reload gives identical outputs."""
@@ -288,7 +292,7 @@ def test_ddp_checkpoint_save_and_resume_parity(tmp_path):
 
 @pytest.mark.skipif(
     not _is_loopback_socket_accessible(),
-    reason="Multi-process socket rendezvous requires loopback socket access (run outside sandbox)."
+    reason="Multi-process socket rendezvous requires loopback socket access (run outside sandbox).",
 )
 def test_dcp_two_processes_save_and_load(tmp_path):
     """Test DCP save and load across 2 CPU processes with DDP model."""

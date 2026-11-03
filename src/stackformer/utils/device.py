@@ -65,7 +65,7 @@ def format_memory(bytes_value: int) -> str:
     Returns:
         str: Formatted string (e.g. "16.00 GB").
     """
-    return f"{bytes_value / (1024 ** 3):.2f} GB"
+    return f"{bytes_value / (1024**3):.2f} GB"
 
 
 def print_device_info() -> None:
@@ -97,4 +97,3 @@ def synchronize() -> None:
     """Synchronize current CUDA device operations if CUDA is available."""
     if torch.cuda.is_available():
         torch.cuda.synchronize()
-

@@ -179,7 +179,9 @@ class BERT(BaseModel):
         x = self.embed_norm(x)
         x = self.embed_dropout(x)
 
-        padding_mask = (input_ids != pad_token_id).unsqueeze(1).unsqueeze(2) if (input_ids == pad_token_id).any() else False
+        padding_mask = (
+            (input_ids != pad_token_id).unsqueeze(1).unsqueeze(2) if (input_ids == pad_token_id).any() else False
+        )
         x = self.backbone(x, mask=padding_mask)  # (B, T, C)
         return self.lm_head(x)  # (B, T, V)
 

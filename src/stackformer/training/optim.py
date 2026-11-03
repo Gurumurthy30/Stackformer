@@ -48,9 +48,7 @@ def build_optimizer(model: nn.Module, config: TrainConfig) -> Optimizer:
         raise ValueError(f"Unknown optimizer '{config.optimizer}', expected 'adamw', 'adam', or 'sgd'.")
 
 
-def build_scheduler(
-    optimizer: Optimizer, config: TrainConfig, total_steps: int
-) -> LRScheduler | None:
+def build_scheduler(optimizer: Optimizer, config: TrainConfig, total_steps: int) -> LRScheduler | None:
     """Build learning rate scheduler with optional warmup and decay."""
     sched_name = config.scheduler.lower().strip()
     if sched_name in {"none", ""}:
@@ -71,4 +69,3 @@ def build_scheduler(
         return 1.0
 
     return LambdaLR(optimizer, lr_lambda=lr_lambda)
-

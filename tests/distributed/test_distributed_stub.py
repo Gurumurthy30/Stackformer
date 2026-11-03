@@ -7,4 +7,3 @@ Distributed execution primitives are maintained in the standalone trainer reposi
 def test_distributed_subsystem_standalone():
     """Verify distributed subsystem stub."""
     assert True
-

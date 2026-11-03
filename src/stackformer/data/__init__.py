@@ -14,8 +14,7 @@ import torch
 class Dataset(Protocol):
     """Protocol for map-style or iterable dataset primitives."""
 
-    def __iter__(self) -> Iterator[dict[str, Any]]:
-        ...
+    def __iter__(self) -> Iterator[dict[str, Any]]: ...
 
 
 class DataCollator:

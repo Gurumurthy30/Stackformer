@@ -6,7 +6,9 @@ from stackformer.modules.position_embedding import AbsolutePositionEmbedding, Ro
 
 @pytest.mark.parametrize("batch,seq", [(1, 4), (2, 6)])
 def test_absolute_position_embedding_shapes_and_stability(batch, seq, torch_device):
-    _checkpoint("test_absolute_position_embedding_shapes_and_stability setup", batch=batch, seq=seq, device=torch_device)
+    _checkpoint(
+        "test_absolute_position_embedding_shapes_and_stability setup", batch=batch, seq=seq, device=torch_device
+    )
     torch.manual_seed(0)
     layer = AbsolutePositionEmbedding(seq_len=8, embed_dim=8, device=torch_device)
     x = torch.randint(0, 16, (batch, seq), device=torch_device)
@@ -19,7 +21,9 @@ def test_absolute_position_embedding_shapes_and_stability(batch, seq, torch_devi
 
 @pytest.mark.parametrize("batch,seq", [(1, 4), (2, 6)])
 def test_sinusoidal_position_embedding_shapes_and_stability(batch, seq, torch_device):
-    _checkpoint("test_sinusoidal_position_embedding_shapes_and_stability setup", batch=batch, seq=seq, device=torch_device)
+    _checkpoint(
+        "test_sinusoidal_position_embedding_shapes_and_stability setup", batch=batch, seq=seq, device=torch_device
+    )
     torch.manual_seed(0)
     layer = SinusoidalPositionalEmbedding(seq_len=8, embed_dim=8, device=torch_device)
     x = torch.randn(batch, seq, 8, device=torch_device)

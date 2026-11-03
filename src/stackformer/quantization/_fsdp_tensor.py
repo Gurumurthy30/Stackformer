@@ -188,10 +188,7 @@ _FSDP_UNSHARDED_FACTORY_OPS = {
 def _unsharded_inner_tensor_names(operands_cls: type) -> tuple[str, ...]:
     """Return the names of the unsharded inner tensors an operands dataclass owns."""
     if not is_dataclass(operands_cls):
-        raise TypeError(
-            "An operands must be a dataclass of tensors; got "
-            f"{operands_cls.__name__}."
-        )
+        raise TypeError(f"An operands must be a dataclass of tensors; got {operands_cls.__name__}.")
     return tuple(field.name for field in fields(operands_cls))
 
 
@@ -205,10 +202,7 @@ def _unsharded_inner_tensors(operands: Any) -> tuple[torch.Tensor, ...]:
     tell which field was the derived one. Derived views belong in properties,
     which ``fields()`` skips.
     """
-    tensors = tuple(
-        getattr(operands, name)
-        for name in _unsharded_inner_tensor_names(type(operands))
-    )
+    tensors = tuple(getattr(operands, name) for name in _unsharded_inner_tensor_names(type(operands)))
     storages = {tensor.untyped_storage()._cdata for tensor in tensors}
     if len(storages) != len(tensors):
         raise ValueError(
@@ -225,14 +219,9 @@ def _validate_refilled_tensor_identity(
 ) -> None:
     """Require a refill to preserve every tensor object managed by FSDP."""
     if len(unsharded_inner_tensors) != len(refilled_tensors) or any(
-        previous is not current
-        for previous, current in zip(
-            unsharded_inner_tensors, refilled_tensors, strict=True
-        )
+        previous is not current for previous, current in zip(unsharded_inner_tensors, refilled_tensors, strict=True)
     ):
-        raise RuntimeError(
-            "FSDP unsharded-operands refill replaced inner tensor storage"
-        )
+        raise RuntimeError("FSDP unsharded-operands refill replaced inner tensor storage")
 
 
 class _FSDPTensorBase(torch.Tensor):
@@ -245,9 +234,7 @@ class _FSDPTensorBase(torch.Tensor):
             cls,
             kwargs.get("_logical_size", tensor.size()),
             strides=kwargs.get("_logical_stride", tensor.stride()),
-            storage_offset=kwargs.get(
-                "_logical_storage_offset", tensor.storage_offset()
-            ),
+            storage_offset=kwargs.get("_logical_storage_offset", tensor.storage_offset()),
             dtype=kwargs.get("_logical_dtype", tensor.dtype),
             layout=tensor.layout,
             device=kwargs.get("_logical_device", tensor.device),
@@ -349,9 +336,7 @@ class _ShardedFSDPTensor(_FSDPTensorBase):
         # https://github.com/pytorch/pytorch/blob/c7da99c173f2b67905ee798576a644b6b32cbfee/torch/distributed/fsdp/_fully_shard/_fsdp_param.py#L323-L331
         sharded_dims = [
             dim
-            for dim, (local, logical) in enumerate(
-                zip(self._tensor.shape, outer_size, strict=True)
-            )
+            for dim, (local, logical) in enumerate(zip(self._tensor.shape, outer_size, strict=True))
             if local != logical
         ]
         if len(sharded_dims) > 1:
@@ -387,17 +372,13 @@ class _ShardedFSDPTensor(_FSDPTensorBase):
             # Allocate the padded buffer directly in the comm dtype and let the
             # copy do the cast, rather than casting the whole shard first and
             # then copying that into a second buffer.
-            source = self._tensor.new_zeros(
-                (padded_rows, *self._tensor.shape[1:]), dtype=dtype
-            )
+            source = self._tensor.new_zeros((padded_rows, *self._tensor.shape[1:]), dtype=dtype)
             source.narrow(0, 0, self._tensor.size(0)).copy_(self._tensor)
         else:
             source = self._tensor.to(dtype)
         return (source,), outer_size
 
-    def fsdp_post_all_gather(
-        self, all_gather_outputs, metadata, param_dtype, *, out=None
-    ):
+    def fsdp_post_all_gather(self, all_gather_outputs, metadata, param_dtype, *, out=None):
         """Create or refill the unsharded tensor operands after all-gather."""
         del param_dtype
         (logical_tensor,) = all_gather_outputs
@@ -437,9 +418,7 @@ class _ShardedFSDPTensor(_FSDPTensorBase):
             torch.autograd._unsafe_preserve_version_counter(unsharded_inner_tensors),
         ):
             refilled = self._build_operands(logical_tensor, out=existing)
-        _validate_refilled_tensor_identity(
-            unsharded_inner_tensors, _unsharded_inner_tensors(refilled)
-        )
+        _validate_refilled_tensor_identity(unsharded_inner_tensors, _unsharded_inner_tensors(refilled))
         target._operands = refilled
 
 
@@ -502,10 +481,7 @@ class _UnshardedFSDPTensor(_FSDPTensorBase):
     @staticmethod
     def __tensor_unflatten__(inner_tensors, metadata, outer_size, outer_stride):
         operands_cls, dtype = metadata
-        unsharded_inner_tensors = [
-            inner_tensors[f"_{name}"]
-            for name in _unsharded_inner_tensor_names(operands_cls)
-        ]
+        unsharded_inner_tensors = [inner_tensors[f"_{name}"] for name in _unsharded_inner_tensor_names(operands_cls)]
         operands = operands_cls(*unsharded_inner_tensors)
         # FSDP supplies the logical shape; any unsharded inner tensor can stand in for
         # the rest, since they share the unsharded tensor's device and layout.
@@ -560,21 +536,15 @@ class _UnshardedFSDPTensor(_FSDPTensorBase):
             )
 
         original_args, original_kwargs = args, kwargs or {}
-        args, kwargs = pytree.tree_map_only(
-            cls, unwrap, (original_args, original_kwargs)
-        )
+        args, kwargs = pytree.tree_map_only(cls, unwrap, (original_args, original_kwargs))
         assert template is not None
         if func in _FSDP_UNSHARDED_FACTORY_OPS:
             kwargs["device"] = template.device
             return func(*args, **kwargs)
         if func not in _FSDP_UNSHARDED_VIEW_OPS:
-            raise RuntimeError(
-                f"{func} attempted to read a storage-free FSDP unsharded tensor"
-            )
+            raise RuntimeError(f"{func} attempted to read a storage-free FSDP unsharded tensor")
         wrapped = pytree.tree_map_only(torch.Tensor, wrap_view, func(*args, **kwargs))
-        return return_and_correct_aliasing(
-            func, original_args, original_kwargs, wrapped
-        )
+        return return_and_correct_aliasing(func, original_args, original_kwargs, wrapped)
 
     @property
     def operands(self) -> Any:

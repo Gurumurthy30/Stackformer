@@ -192,8 +192,8 @@ class Self_Attention(nn.Module):
         B, T, C = x.shape
 
         # Project Q, K, V
-        qkv = self.qkv_proj(x)                      # (B, T, 3*C)
-        q, k, v = qkv.split(self.embed_dim, dim=-1)    # each (B, T, C)
+        qkv = self.qkv_proj(x)  # (B, T, 3*C)
+        q, k, v = qkv.split(self.embed_dim, dim=-1)  # each (B, T, C)
 
         # Add single head dimension for SDPA / FlexAttention
         q = q.unsqueeze(1)  # (B, 1, T, C)
@@ -202,7 +202,9 @@ class Self_Attention(nn.Module):
 
         out = _run_attention(
             backend=self.backend,
-            q=q, k=k, v=v,
+            q=q,
+            k=k,
+            v=v,
             mask_type=self.mask_type if mask else None,
             seq_len=T,
             device=x.device,
@@ -216,6 +218,7 @@ class Self_Attention(nn.Module):
         out = out.squeeze(1)  # (B, T, C)
 
         return self.out_proj(out)
+
 
 class Multi_Head_Attention(nn.Module):
     """Standard multi-head self-attention (MHA).
@@ -248,10 +251,20 @@ class Multi_Head_Attention(nn.Module):
         >>> layer = Multi_Head_Attention(embed_dim=512, num_heads=8)
         >>> y = layer(torch.randn(2, 128, 512), mask=True)
     """
-    def __init__(self, embed_dim, num_heads, dropout=0.0, mask_type=None,
-                 qkv_bias=False, device='cpu', dtype=torch.float32,
-                 backend: Literal["sdpa", "flex"] = "sdpa", combine: Literal["or", "and"] = "or",
-                 **mask_kwargs):
+
+    def __init__(
+        self,
+        embed_dim,
+        num_heads,
+        dropout=0.0,
+        mask_type=None,
+        qkv_bias=False,
+        device="cpu",
+        dtype=torch.float32,
+        backend: Literal["sdpa", "flex"] = "sdpa",
+        combine: Literal["or", "and"] = "or",
+        **mask_kwargs,
+    ):
         super().__init__()
         assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
         if backend not in ("sdpa", "flex"):
@@ -269,7 +282,7 @@ class Multi_Head_Attention(nn.Module):
         self.mask_kwargs = mask_kwargs
 
         # Linear layer
-        self.qkv_proj = nn.Linear(embed_dim, embed_dim*3, bias=qkv_bias, device=device, dtype=self.dtype)
+        self.qkv_proj = nn.Linear(embed_dim, embed_dim * 3, bias=qkv_bias, device=device, dtype=self.dtype)
 
         # Final output projection after attention
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=qkv_bias, device=device, dtype=self.dtype)
@@ -302,8 +315,8 @@ class Multi_Head_Attention(nn.Module):
     def forward(self, x, mask=True):
         B, T, C = x.shape
 
-        qkv = self.qkv_proj(x)                      # (B, T, 3*C)
-        q, k, v = qkv.split(self.embed_dim, dim=-1)    # each (B, T, C)
+        qkv = self.qkv_proj(x)  # (B, T, 3*C)
+        q, k, v = qkv.split(self.embed_dim, dim=-1)  # each (B, T, C)
 
         # Reshape for multi-head attention:
         # (B, T, C) → (B, T, num_heads, head_dim) → (B, num_heads, T, head_dim)
@@ -313,7 +326,9 @@ class Multi_Head_Attention(nn.Module):
 
         out = _run_attention(
             backend=self.backend,
-            q=q, k=k, v=v,
+            q=q,
+            k=k,
+            v=v,
             mask_type=self.mask_type if mask else None,
             seq_len=T,
             device=x.device,
@@ -327,6 +342,7 @@ class Multi_Head_Attention(nn.Module):
 
         # Final linear projection
         return self.out_proj(out)  # (B, T, C)
+
 
 class Multi_Head_Attention_With_RoPE(nn.Module):
     """Multi-head self-attention with Rotary Positional Embedding (RoPE).
@@ -353,9 +369,20 @@ class Multi_Head_Attention_With_RoPE(nn.Module):
     Returns:
         torch.Tensor: ``(B, T, C)``.
     """
-    def __init__(self, embed_dim, num_heads, dropout=0.0, mask_type=None, qkv_bias=False,
-                 device='cpu', dtype=torch.float32, backend: Literal["sdpa", "flex"] = "sdpa",
-                 combine: Literal["or", "and"] = "or", **mask_kwargs):
+
+    def __init__(
+        self,
+        embed_dim,
+        num_heads,
+        dropout=0.0,
+        mask_type=None,
+        qkv_bias=False,
+        device="cpu",
+        dtype=torch.float32,
+        backend: Literal["sdpa", "flex"] = "sdpa",
+        combine: Literal["or", "and"] = "or",
+        **mask_kwargs,
+    ):
         super().__init__()
         assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
         if backend not in ("sdpa", "flex"):
@@ -402,10 +429,12 @@ class Multi_Head_Attention_With_RoPE(nn.Module):
             **self.mask_kwargs,
         )
 
-    def _precompute_theta_position_frequency(self, head_dim: int, seq_len: int, device: torch.device,theta: float = 10000.0):
+    def _precompute_theta_position_frequency(
+        self, head_dim: int, seq_len: int, device: torch.device, theta: float = 10000.0
+    ):
         return _build_rope_frequency(head_dim, seq_len, device, self.dtype, theta=theta)
 
-    def forward(self, x, mask=True, theta: float=10000.0):
+    def forward(self, x, mask=True, theta: float = 10000.0):
         B, T, C = x.shape
 
         qkv = self.qkv_proj(x)  # (B, T, 3*C)
@@ -417,13 +446,15 @@ class Multi_Head_Attention_With_RoPE(nn.Module):
         k = k.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
         v = v.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
 
-        freq = self._precompute_theta_position_frequency(self.head_dim, T, device=x.device,theta=theta)
+        freq = self._precompute_theta_position_frequency(self.head_dim, T, device=x.device, theta=theta)
         q = _apply_rotary_position_embedding(q, freq)
         k = _apply_rotary_position_embedding(k, freq)
 
         out = _run_attention(
             backend=self.backend,
-            q=q, k=k, v=v,
+            q=q,
+            k=k,
+            v=v,
             mask_type=self.mask_type if mask else None,
             seq_len=T,
             device=x.device,
@@ -437,6 +468,7 @@ class Multi_Head_Attention_With_RoPE(nn.Module):
 
         # Final linear projection
         return self.out_proj(out)  # (B, T, C)
+
 
 class Cross_MultiHead_Attention(nn.Module):
     """Cross-attention: queries from ``x``, keys/values from ``context``.
@@ -459,9 +491,20 @@ class Cross_MultiHead_Attention(nn.Module):
     Returns:
         torch.Tensor: ``(B, T, C)``.
     """
-    def __init__(self, embed_dim, num_heads, dropout=0.0, mask_type=None, qkv_bias=False,
-                 device='cpu', dtype=torch.float32, backend: Literal["sdpa", "flex"] = "sdpa",
-                 combine: Literal["or", "and"] = "or", **mask_kwargs):
+
+    def __init__(
+        self,
+        embed_dim,
+        num_heads,
+        dropout=0.0,
+        mask_type=None,
+        qkv_bias=False,
+        device="cpu",
+        dtype=torch.float32,
+        backend: Literal["sdpa", "flex"] = "sdpa",
+        combine: Literal["or", "and"] = "or",
+        **mask_kwargs,
+    ):
         super().__init__()
         assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
         if backend not in ("sdpa", "flex"):
@@ -525,12 +568,16 @@ class Cross_MultiHead_Attention(nn.Module):
 
         if attn_mask is not None:
             if attn_mask.dim() == 2 and attn_mask.shape != (T, S):
-                raise ValueError(f"Cross attention mask must have shape (T, S)=({T}, {S}); got {tuple(attn_mask.shape)}")
+                raise ValueError(
+                    f"Cross attention mask must have shape (T, S)=({T}, {S}); got {tuple(attn_mask.shape)}"
+                )
             causal_mask = attn_mask
             effective_mask_type = None
         elif mask:
             if T != S:
-                raise ValueError("Causal cross-attention mask requires T == S. Provide explicit attn_mask with shape (T, S).")
+                raise ValueError(
+                    "Causal cross-attention mask requires T == S. Provide explicit attn_mask with shape (T, S)."
+                )
             causal_mask = None
             effective_mask_type = self.mask_type
         else:
@@ -539,7 +586,9 @@ class Cross_MultiHead_Attention(nn.Module):
 
         out = _run_attention(
             backend=self.backend,
-            q=q, k=k, v=v,
+            q=q,
+            k=k,
+            v=v,
             attn_mask=causal_mask,
             mask_type=effective_mask_type,
             seq_len=T,
@@ -554,6 +603,7 @@ class Cross_MultiHead_Attention(nn.Module):
 
         # Final output projection
         return self.out_proj(out)
+
 
 class Multi_query_Attention(nn.Module):
     """Multi-Query Attention (MQA): many query heads, one shared K/V head.
@@ -595,9 +645,20 @@ class Multi_query_Attention(nn.Module):
         >>> mqa_flex = Multi_query_Attention(embed_dim=512, num_heads=8,
         ...                                   mask_type="causal", backend="flex")
     """
-    def __init__(self, embed_dim, num_heads, dropout=0.0, mask_type=None, qkv_bias=False,
-                 device='cpu', dtype=torch.float32, backend: Literal["sdpa", "flex"] = "sdpa",
-                 combine: Literal["or", "and"] = "or", **mask_kwargs):
+
+    def __init__(
+        self,
+        embed_dim,
+        num_heads,
+        dropout=0.0,
+        mask_type=None,
+        qkv_bias=False,
+        device="cpu",
+        dtype=torch.float32,
+        backend: Literal["sdpa", "flex"] = "sdpa",
+        combine: Literal["or", "and"] = "or",
+        **mask_kwargs,
+    ):
         super().__init__()
         assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
         if backend not in ("sdpa", "flex"):
@@ -630,32 +691,42 @@ class Multi_query_Attention(nn.Module):
     def _get_or_create_mask(self, seq_len: int, device):
         if self.backend == "sdpa":
             return _get_attention_mask(
-                self._causal_mask_cache, self.mask_type, seq_len, device,
-                combine=self.combine, **self.mask_kwargs,
+                self._causal_mask_cache,
+                self.mask_type,
+                seq_len,
+                device,
+                combine=self.combine,
+                **self.mask_kwargs,
             )
         return _get_block_mask(
-            self._causal_mask_cache, self.mask_type, seq_len, device,
-            combine=self.combine, **self.mask_kwargs,
+            self._causal_mask_cache,
+            self.mask_type,
+            seq_len,
+            device,
+            combine=self.combine,
+            **self.mask_kwargs,
         )
 
     def forward(self, x, mask=True):
         B, T, C = x.shape
 
         # Project
-        q = self.q_proj(x)                    # (B, T, C)
-        kv = self.kv_proj(x)                  # (B, T, 2*D)
-        k, v = kv.split(self.head_dim, dim=-1) # (B, T, D) each
+        q = self.q_proj(x)  # (B, T, C)
+        kv = self.kv_proj(x)  # (B, T, 2*D)
+        k, v = kv.split(self.head_dim, dim=-1)  # (B, T, D) each
 
         # Multi-head queries
-        q = q.view(B, T, self.num_heads, self.head_dim).transpose(1, 2) # (B, H, T, D)
+        q = q.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)  # (B, H, T, D)
         # Single shared K/V head -- left at (B, 1, T, D). enable_gqa below
         # does the broadcast to H heads inside the kernel; no .expand() here.
-        k = k.unsqueeze(1)                    # (B, 1, T, D)
-        v = v.unsqueeze(1)                    # (B, 1, T, D)
+        k = k.unsqueeze(1)  # (B, 1, T, D)
+        v = v.unsqueeze(1)  # (B, 1, T, D)
 
         out = _run_attention(
             backend=self.backend,
-            q=q, k=k, v=v,
+            q=q,
+            k=k,
+            v=v,
             mask_type=self.mask_type if mask else None,
             seq_len=T,
             device=x.device,
@@ -669,6 +740,7 @@ class Multi_query_Attention(nn.Module):
         out = out.transpose(1, 2).reshape(B, T, C)
 
         return self.out_proj(out)
+
 
 class Multi_query_Attention_With_RoPE(nn.Module):
     """MQA with RoPE on queries and the shared key.
@@ -699,9 +771,20 @@ class Multi_query_Attention_With_RoPE(nn.Module):
     Returns:
         torch.Tensor: ``(B, T, C)``.
     """
-    def __init__(self, embed_dim, num_heads, dropout=0.0, mask_type=None, qkv_bias=False,
-                 device='cpu', dtype=torch.float32, backend: Literal["sdpa", "flex"] = "sdpa",
-                 combine: Literal["or", "and"] = "or", **mask_kwargs):
+
+    def __init__(
+        self,
+        embed_dim,
+        num_heads,
+        dropout=0.0,
+        mask_type=None,
+        qkv_bias=False,
+        device="cpu",
+        dtype=torch.float32,
+        backend: Literal["sdpa", "flex"] = "sdpa",
+        combine: Literal["or", "and"] = "or",
+        **mask_kwargs,
+    ):
         super().__init__()
         assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
         if backend not in ("sdpa", "flex"):
@@ -732,23 +815,33 @@ class Multi_query_Attention_With_RoPE(nn.Module):
     def _get_or_create_mask(self, seq_len: int, device):
         if self.backend == "sdpa":
             return _get_attention_mask(
-                self._causal_mask_cache, self.mask_type, seq_len, device,
-                combine=self.combine, **self.mask_kwargs,
+                self._causal_mask_cache,
+                self.mask_type,
+                seq_len,
+                device,
+                combine=self.combine,
+                **self.mask_kwargs,
             )
         return _get_block_mask(
-            self._causal_mask_cache, self.mask_type, seq_len, device,
-            combine=self.combine, **self.mask_kwargs,
+            self._causal_mask_cache,
+            self.mask_type,
+            seq_len,
+            device,
+            combine=self.combine,
+            **self.mask_kwargs,
         )
 
-    def _precompute_theta_position_frequency(self, head_dim: int, seq_len: int, device: torch.device,theta: float = 10000.0):
+    def _precompute_theta_position_frequency(
+        self, head_dim: int, seq_len: int, device: torch.device, theta: float = 10000.0
+    ):
         return _build_rope_frequency(head_dim, seq_len, device, self.dtype, theta=theta)
 
     def forward(self, x, mask=True, theta: float = 10000.0):
         B, T, C = x.shape
 
         # Project
-        q = self.q_proj(x)                    # (B, T, C)
-        kv = self.kv_proj(x)                  # (B, T, 2*D)
+        q = self.q_proj(x)  # (B, T, C)
+        kv = self.kv_proj(x)  # (B, T, 2*D)
         k, v = kv.split(self.head_dim, dim=-1)  # each (B, T, D)
 
         # Reshape
@@ -773,7 +866,9 @@ class Multi_query_Attention_With_RoPE(nn.Module):
         # inside the kernel.
         out = _run_attention(
             backend=self.backend,
-            q=q, k=k, v=v,
+            q=q,
+            k=k,
+            v=v,
             mask_type=self.mask_type if mask else None,
             seq_len=T,
             device=x.device,
@@ -788,6 +883,7 @@ class Multi_query_Attention_With_RoPE(nn.Module):
         out = out.transpose(1, 2).reshape(B, T, C)
 
         return self.out_proj(out)
+
 
 class Group_query_Attention(nn.Module):
     """Grouped-Query Attention (GQA): intermediate between MHA and MQA.
@@ -825,10 +921,21 @@ class Group_query_Attention(nn.Module):
         >>> gqa_flex = Group_query_Attention(embed_dim=512, num_query_heads=8, num_kv_heads=2,
         ...                                   backend="flex", mask_type="sliding_window", window_size=64)
     """
-    def __init__(self, embed_dim, num_query_heads, num_kv_heads, qkv_bias=False, dropout=0.0,
-                 mask_type=None, device='cpu', dtype=torch.float32,
-                 backend: Literal["sdpa", "flex"] = "sdpa", combine: Literal["or", "and"] = "or",
-                 **mask_kwargs):
+
+    def __init__(
+        self,
+        embed_dim,
+        num_query_heads,
+        num_kv_heads,
+        qkv_bias=False,
+        dropout=0.0,
+        mask_type=None,
+        device="cpu",
+        dtype=torch.float32,
+        backend: Literal["sdpa", "flex"] = "sdpa",
+        combine: Literal["or", "and"] = "or",
+        **mask_kwargs,
+    ):
         super().__init__()
         assert embed_dim % num_query_heads == 0, "embed_dim must be divisible by num_query_heads"
         assert num_query_heads % num_kv_heads == 0, "num_query_heads must be divisible by num_kv_heads"
@@ -862,12 +969,20 @@ class Group_query_Attention(nn.Module):
     def _get_or_create_mask(self, seq_len: int, device):
         if self.backend == "sdpa":
             return _get_attention_mask(
-                self._causal_mask_cache, self.mask_type, seq_len, device,
-                combine=self.combine, **self.mask_kwargs,
+                self._causal_mask_cache,
+                self.mask_type,
+                seq_len,
+                device,
+                combine=self.combine,
+                **self.mask_kwargs,
             )
         return _get_block_mask(
-            self._causal_mask_cache, self.mask_type, seq_len, device,
-            combine=self.combine, **self.mask_kwargs,
+            self._causal_mask_cache,
+            self.mask_type,
+            seq_len,
+            device,
+            combine=self.combine,
+            **self.mask_kwargs,
         )
 
     def forward(self, x, mask=True):
@@ -881,8 +996,8 @@ class Group_query_Attention(nn.Module):
 
         # Reshape projections
         q = q.view(B, T, self.num_query_heads, self.head_dim).transpose(1, 2)  # (B, num_query_heads, T, head_dim)
-        k = k.view(B, T, self.num_kv_heads, self.head_dim).transpose(1, 2)     # (B, num_kv_heads, T, head_dim)
-        v = v.view(B, T, self.num_kv_heads, self.head_dim).transpose(1, 2)     # (B, num_kv_heads, T, head_dim)
+        k = k.view(B, T, self.num_kv_heads, self.head_dim).transpose(1, 2)  # (B, num_kv_heads, T, head_dim)
+        v = v.view(B, T, self.num_kv_heads, self.head_dim).transpose(1, 2)  # (B, num_kv_heads, T, head_dim)
 
         # No repeat_interleave here -- enable_gqa lets the kernel broadcast
         # num_kv_heads -> num_query_heads internally instead of materializing
@@ -890,7 +1005,9 @@ class Group_query_Attention(nn.Module):
 
         out = _run_attention(
             backend=self.backend,
-            q=q, k=k, v=v,
+            q=q,
+            k=k,
+            v=v,
             mask_type=self.mask_type if mask else None,
             seq_len=T,
             device=x.device,
@@ -904,6 +1021,7 @@ class Group_query_Attention(nn.Module):
         out = out.transpose(1, 2).contiguous().view(B, T, C)
 
         return self.out_proj(out)
+
 
 class Group_query_Attention_With_RoPE(nn.Module):
     """GQA with RoPE for relative-position-aware grouped attention.
@@ -936,10 +1054,21 @@ class Group_query_Attention_With_RoPE(nn.Module):
     Returns:
         torch.Tensor: ``(B, T, C)``.
     """
-    def __init__(self, embed_dim, num_query_heads, num_kv_heads, qkv_bias=False, dropout=0.0,
-                 mask_type=None, device='cpu', dtype=torch.float32,
-                 backend: Literal["sdpa", "flex"] = "sdpa", combine: Literal["or", "and"] = "or",
-                 **mask_kwargs):
+
+    def __init__(
+        self,
+        embed_dim,
+        num_query_heads,
+        num_kv_heads,
+        qkv_bias=False,
+        dropout=0.0,
+        mask_type=None,
+        device="cpu",
+        dtype=torch.float32,
+        backend: Literal["sdpa", "flex"] = "sdpa",
+        combine: Literal["or", "and"] = "or",
+        **mask_kwargs,
+    ):
         super().__init__()
         assert embed_dim % num_query_heads == 0, "embed_dim must be divisible by num_query_heads"
         assert num_query_heads % num_kv_heads == 0, "num_query_heads must be divisible by num_kv_heads"
@@ -973,18 +1102,28 @@ class Group_query_Attention_With_RoPE(nn.Module):
     def _get_or_create_mask(self, seq_len: int, device):
         if self.backend == "sdpa":
             return _get_attention_mask(
-                self._causal_mask_cache, self.mask_type, seq_len, device,
-                combine=self.combine, **self.mask_kwargs,
+                self._causal_mask_cache,
+                self.mask_type,
+                seq_len,
+                device,
+                combine=self.combine,
+                **self.mask_kwargs,
             )
         return _get_block_mask(
-            self._causal_mask_cache, self.mask_type, seq_len, device,
-            combine=self.combine, **self.mask_kwargs,
+            self._causal_mask_cache,
+            self.mask_type,
+            seq_len,
+            device,
+            combine=self.combine,
+            **self.mask_kwargs,
         )
 
-    def _precompute_theta_position_frequency(self, head_dim: int, seq_len: int, device: torch.device,theta: float = 10000.0):
+    def _precompute_theta_position_frequency(
+        self, head_dim: int, seq_len: int, device: torch.device, theta: float = 10000.0
+    ):
         return _build_rope_frequency(head_dim, seq_len, device, self.dtype, theta=theta)
 
-    def forward(self, x, mask=True, theta: float=10000.0):
+    def forward(self, x, mask=True, theta: float = 10000.0):
         B, T, C = x.shape
 
         # Project Q, K, V
@@ -995,10 +1134,10 @@ class Group_query_Attention_With_RoPE(nn.Module):
 
         # Reshape projections
         q = q.view(B, T, self.num_query_heads, self.head_dim).transpose(1, 2)  # (B, num_query_heads, T, head_dim)
-        k = k.view(B, T, self.num_kv_heads, self.head_dim).transpose(1, 2)     # (B, num_kv_heads, T, head_dim)
-        v = v.view(B, T, self.num_kv_heads, self.head_dim).transpose(1, 2)     # (B, num_kv_heads, T, head_dim)
+        k = k.view(B, T, self.num_kv_heads, self.head_dim).transpose(1, 2)  # (B, num_kv_heads, T, head_dim)
+        v = v.view(B, T, self.num_kv_heads, self.head_dim).transpose(1, 2)  # (B, num_kv_heads, T, head_dim)
 
-        freq = self._precompute_theta_position_frequency(self.head_dim, T, device=x.device,theta=theta)
+        freq = self._precompute_theta_position_frequency(self.head_dim, T, device=x.device, theta=theta)
         q = _apply_rotary_position_embedding(q, freq)
         k = _apply_rotary_position_embedding(k, freq)
 
@@ -1007,7 +1146,9 @@ class Group_query_Attention_With_RoPE(nn.Module):
 
         out = _run_attention(
             backend=self.backend,
-            q=q, k=k, v=v,
+            q=q,
+            k=k,
+            v=v,
             mask_type=self.mask_type if mask else None,
             seq_len=T,
             device=x.device,
@@ -1021,6 +1162,7 @@ class Group_query_Attention_With_RoPE(nn.Module):
         out = out.transpose(1, 2).contiguous().view(B, T, C)
 
         return self.out_proj(out)
+
 
 class kv_cache_multihead(nn.Module):
     """MHA with persistent KV cache for incremental decoding.
@@ -1045,10 +1187,23 @@ class kv_cache_multihead(nn.Module):
     Returns:
         torch.Tensor: ``(B, T, C)``.
     """
-    def __init__(self, embed_dim, num_heads, batch_size, kv_seq_len, mask_type=None,
-                 qkv_bias=False, dropout=0.0, device='cpu', dtype=torch.float32,
-                 backend: Literal["sdpa", "flex"] = "sdpa", combine: Literal["or", "and"] = "or",
-                 cache_policy=None, **mask_kwargs):
+
+    def __init__(
+        self,
+        embed_dim,
+        num_heads,
+        batch_size,
+        kv_seq_len,
+        mask_type=None,
+        qkv_bias=False,
+        dropout=0.0,
+        device="cpu",
+        dtype=torch.float32,
+        backend: Literal["sdpa", "flex"] = "sdpa",
+        combine: Literal["or", "and"] = "or",
+        cache_policy=None,
+        **mask_kwargs,
+    ):
         super().__init__()
         assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
         if backend not in ("sdpa", "flex"):
@@ -1080,11 +1235,18 @@ class kv_cache_multihead(nn.Module):
         # Cache storage/retrieval is delegated entirely to a KVCachePolicy —
         # this module no longer owns cache_keys/cache_values directly.
         self.cache = cache_policy or StaticKVCache()
-        self.cache.allocate(batch_size=batch_size, num_heads=num_heads,
-                             head_dim=self.head_dim, max_len=kv_seq_len,
-                             device=device, dtype=dtype)
+        self.cache.allocate(
+            batch_size=batch_size,
+            num_heads=num_heads,
+            head_dim=self.head_dim,
+            max_len=kv_seq_len,
+            device=device,
+            dtype=dtype,
+        )
 
-    def _precompute_theta_position_frequency(self, head_dim: int, seq_len: int, device: torch.device, theta: float = 10000.0):
+    def _precompute_theta_position_frequency(
+        self, head_dim: int, seq_len: int, device: torch.device, theta: float = 10000.0
+    ):
         return _build_rope_frequency(head_dim, seq_len, device, self.dtype, theta=theta)
 
     def _get_or_create_kv_mask(self, T, S, start_pos, device, max_cache_size=64):
@@ -1108,14 +1270,15 @@ class kv_cache_multihead(nn.Module):
         self.cache.reset()
         self._causal_mask_cache.clear()
 
-    def forward(self, x: torch.Tensor, start_pos: int = 0, mask: bool = True, rope: bool = True, theta: float = 10000.0):
+    def forward(
+        self, x: torch.Tensor, start_pos: int = 0, mask: bool = True, rope: bool = True, theta: float = 10000.0
+    ):
         B, T, C = x.shape
 
         assert C == self.embed_dim, "Input embed_dim mismatch"
         end_pos = start_pos + T
         assert end_pos <= self.kv_seq_len, (
-            f"KV cache capacity exceeded: start_pos={start_pos} + T={T} = {end_pos} "
-            f"> cache length {self.kv_seq_len}"
+            f"KV cache capacity exceeded: start_pos={start_pos} + T={T} = {end_pos} > cache length {self.kv_seq_len}"
         )
 
         # Project Q, K, V
@@ -1124,7 +1287,7 @@ class kv_cache_multihead(nn.Module):
         k, v = kv.chunk(2, dim=-1)
 
         # Reshape to multi-head
-        q = q.view(B, T, self.num_heads, self.head_dim).transpose(1, 2) # (B, H, T, D)
+        q = q.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)  # (B, H, T, D)
         k = k.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
         v = v.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
 
@@ -1160,6 +1323,7 @@ class kv_cache_multihead(nn.Module):
         out = context.transpose(1, 2).contiguous().view(B, T, C)
         return self.out_proj(out)
 
+
 class kv_cache_group_query(nn.Module):
     """GQA with KV cache for production-grade decoding throughput.
 
@@ -1194,7 +1358,23 @@ class kv_cache_group_query(nn.Module):
     Returns:
         torch.Tensor: ``(B, T, C)``.
     """
-    def __init__(self, embed_dim, num_query_heads, num_kv_heads, kv_seq_len, batch_size, mask_type=None, qkv_bias=False, dropout=0.0, device='cpu', dtype=torch.float32, backend: Literal["sdpa", "flex"] = "sdpa", combine: Literal["or", "and"] = "or", **mask_kwargs):
+
+    def __init__(
+        self,
+        embed_dim,
+        num_query_heads,
+        num_kv_heads,
+        kv_seq_len,
+        batch_size,
+        mask_type=None,
+        qkv_bias=False,
+        dropout=0.0,
+        device="cpu",
+        dtype=torch.float32,
+        backend: Literal["sdpa", "flex"] = "sdpa",
+        combine: Literal["or", "and"] = "or",
+        **mask_kwargs,
+    ):
         super().__init__()
         assert embed_dim % num_query_heads == 0, "embed_dim must be divisible by num_query_heads"
         assert num_query_heads % num_kv_heads == 0, "num_query_heads must be divisible by num_kv_heads"
@@ -1227,11 +1407,18 @@ class kv_cache_group_query(nn.Module):
         self._causal_mask_cache = OrderedDict()
 
         self.cache = StaticKVCache()
-        self.cache.allocate(batch_size=batch_size, num_heads=num_kv_heads,
-                             head_dim=self.head_dim, max_len=kv_seq_len,
-                             device=device, dtype=dtype)
+        self.cache.allocate(
+            batch_size=batch_size,
+            num_heads=num_kv_heads,
+            head_dim=self.head_dim,
+            max_len=kv_seq_len,
+            device=device,
+            dtype=dtype,
+        )
 
-    def _precompute_theta_position_frequency(self, head_dim: int, seq_len: int, device: torch.device, theta: float = 10000.0):
+    def _precompute_theta_position_frequency(
+        self, head_dim: int, seq_len: int, device: torch.device, theta: float = 10000.0
+    ):
         return _build_rope_frequency(head_dim, seq_len, device, self.dtype, theta=theta)
 
     def _get_or_create_kv_mask(self, T, S, start_pos, device, max_cache_size=64):
@@ -1260,8 +1447,7 @@ class kv_cache_group_query(nn.Module):
         assert C == self.embed_dim, "Input embed_dim mismatch"
         end_pos = start_pos + T
         assert end_pos <= self.kv_seq_len, (
-            f"KV cache capacity exceeded: start_pos={start_pos} + T={T} = {end_pos} "
-            f"> cache length {self.kv_seq_len}"
+            f"KV cache capacity exceeded: start_pos={start_pos} + T={T} = {end_pos} > cache length {self.kv_seq_len}"
         )
 
         # Project Q, K, V
@@ -1296,7 +1482,9 @@ class kv_cache_group_query(nn.Module):
 
         context = _run_attention(
             backend=self.backend,
-            q=q, k=k_full, v=v_full,
+            q=q,
+            k=k_full,
+            v=v_full,
             attn_mask=attn_mask,
             dropout_p=self.dropout_p if self.training else 0.0,
             enable_gqa=True,

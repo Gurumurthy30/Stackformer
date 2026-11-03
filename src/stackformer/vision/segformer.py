@@ -30,9 +30,7 @@ except ImportError:
         dropout_p: float = 0.0,
         is_causal: bool = False,
     ) -> torch.Tensor:
-        return F.scaled_dot_product_attention(
-            q, k, v, attn_mask=attn_mask, dropout_p=dropout_p, is_causal=is_causal
-        )
+        return F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask, dropout_p=dropout_p, is_causal=is_causal)
 
 
 MIT_CONFIGS = {
@@ -69,9 +67,7 @@ class OverlapPatchEmbeddings(nn.Module):
 
     def __init__(self, patch_size: int, stride: int, in_channels: int, hidden_size: int) -> None:
         super().__init__()
-        self.proj = nn.Conv2d(
-            in_channels, hidden_size, kernel_size=patch_size, stride=stride, padding=patch_size // 2
-        )
+        self.proj = nn.Conv2d(in_channels, hidden_size, kernel_size=patch_size, stride=stride, padding=patch_size // 2)
         self.layer_norm = nn.LayerNorm(hidden_size)
 
     def forward(self, pixel_values: torch.Tensor) -> tuple[torch.Tensor, int, int]:
@@ -168,9 +164,7 @@ class MixFFN(nn.Module):
 class Block(nn.Module):
     """Pre-norm SegFormer encoder block with Spatial Reduction Attention (SRA) and Mix-FFN."""
 
-    def __init__(
-        self, hidden_size: int, num_heads: int, sr_ratio: int, mlp_ratio: int, dropout: float = 0.0
-    ) -> None:
+    def __init__(self, hidden_size: int, num_heads: int, sr_ratio: int, mlp_ratio: int, dropout: float = 0.0) -> None:
         super().__init__()
         self.layernorm_before = nn.LayerNorm(hidden_size)
         self.attention = EfficientAttention(hidden_size, num_heads, sr_ratio)
@@ -200,9 +194,7 @@ class Stage(nn.Module):
     ) -> None:
         super().__init__()
         self.patch_embeddings = OverlapPatchEmbeddings(patch_size, stride, in_channels, hidden_size)
-        self.blocks = nn.ModuleList(
-            [Block(hidden_size, num_heads, sr_ratio, mlp_ratio, dropout) for _ in range(depth)]
-        )
+        self.blocks = nn.ModuleList([Block(hidden_size, num_heads, sr_ratio, mlp_ratio, dropout) for _ in range(depth)])
         self.layer_norm = nn.LayerNorm(hidden_size)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -378,14 +370,13 @@ class StackFormerSegformer(BaseModel):
         features = self.segformer(pixel_values)
         logits = self.decode_head(features)
         if upsample_to_input:
-            logits = F.interpolate(
-                logits, size=pixel_values.shape[2:], mode="bilinear", align_corners=False
-            )
+            logits = F.interpolate(logits, size=pixel_values.shape[2:], mode="bilinear", align_corners=False)
         return logits
 
     def get_sharding_blocks(self) -> list[nn.Module]:
         """Return the 4 hierarchical vision encoder stages for sharding and checkpointing."""
         return list(self.segformer.stages)
+
     def get_block_groups(self) -> dict[str, list[nn.Module]]:
         """Return named groups of repeating blocks corresponding to the 4 hierarchical stages."""
         return {"stages": list(self.segformer.stages)}

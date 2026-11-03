@@ -71,9 +71,7 @@ class PatchEmbedding(nn.Module):
         self.embed_dim = embed_dim
         self.num_patches = (img_size // patch_size) ** 2
 
-        self.projection = nn.Conv2d(
-            in_channels, embed_dim, kernel_size=patch_size, stride=patch_size
-        )
+        self.projection = nn.Conv2d(in_channels, embed_dim, kernel_size=patch_size, stride=patch_size)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x: (B, C, H, W) -> (B, N, C)
@@ -192,10 +190,12 @@ class Encoder(nn.Module):
         super().__init__()
         if Emb_dim is not None:
             embed_dim = Emb_dim
-        self.layers = nn.ModuleList([
-            Block(embed_dim, num_heads, dropout, hidden_dim, eps, device=device, dtype=dtype)
-            for _ in range(num_layers)
-        ])
+        self.layers = nn.ModuleList(
+            [
+                Block(embed_dim, num_heads, dropout, hidden_dim, eps, device=device, dtype=dtype)
+                for _ in range(num_layers)
+            ]
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         for layer in self.layers:

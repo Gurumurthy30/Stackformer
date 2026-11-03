@@ -68,4 +68,3 @@ class Metric(abc.ABC):
             for attr_name, val in self.__dict__.items():
                 if isinstance(val, torch.Tensor):
                     torch.distributed.all_reduce(val, op=torch.distributed.ReduceOp.SUM)
-

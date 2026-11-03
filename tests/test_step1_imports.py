@@ -41,9 +41,6 @@ def test_meta_bsd3_headers():
             assert "Copyright (c) Meta Platforms, Inc. and affiliates." in first_500, (
                 f"Missing Meta copyright in {py_file}"
             )
-            assert "BSD-style license" in first_500, (
-                f"Missing BSD license notice in {py_file}"
-            )
+            assert "BSD-style license" in first_500, f"Missing BSD license notice in {py_file}"
 
     assert checked_files >= 9, f"Expected at least 9 files checked, got {checked_files}"
-

@@ -122,9 +122,7 @@ class BlockConfig:
             self.num_kv_heads = self.num_heads
 
         if self.embed_dim % self.num_heads != 0:
-            raise ValueError(
-                f"embed_dim ({self.embed_dim}) must be divisible by " f"num_heads ({self.num_heads})"
-            )
+            raise ValueError(f"embed_dim ({self.embed_dim}) must be divisible by num_heads ({self.num_heads})")
 
         if ("gqa" in self.attention or "mqa" in self.attention) and self.num_heads % self.num_kv_heads != 0:
             raise ValueError(
@@ -170,11 +168,12 @@ def _build_attention(cfg: BlockConfig) -> nn.Module:
 def _build_cross_attention(cfg: BlockConfig) -> nn.Module:
     """Return a cross-attention module (queries from target, K/V from memory)."""
     return Cross_MultiHead_Attention(
-        cfg.embed_dim, cfg.num_heads,
-        dropout  = cfg.dropout,
-        qkv_bias = cfg.qkv_bias,
-        device   = cfg.device,
-        dtype    = cfg.dtype,
+        cfg.embed_dim,
+        cfg.num_heads,
+        dropout=cfg.dropout,
+        qkv_bias=cfg.qkv_bias,
+        device=cfg.device,
+        dtype=cfg.dtype,
     )
 
 
@@ -200,9 +199,9 @@ def _build_ffn(cfg: BlockConfig) -> nn.Module:
         return FF_GeGLU(E, M, D, **hw)
     else:
         raise ValueError(
-            f"Unknown FFN '{cfg.ffn}'. "
-            f"Available: ['relu', 'leakyrelu', 'gelu', 'sigmoid', 'silu', 'swiglu', 'geglu']"
+            f"Unknown FFN '{cfg.ffn}'. Available: ['relu', 'leakyrelu', 'gelu', 'sigmoid', 'silu', 'swiglu', 'geglu']"
         )
+
 
 def _build_norm(cfg: BlockConfig) -> nn.Module:
     """Return one normalization layer described by *cfg*."""
@@ -214,10 +213,8 @@ def _build_norm(cfg: BlockConfig) -> nn.Module:
     elif key == "rmsnorm":
         return RMSNormalization(cfg.embed_dim, eps=cfg.eps, **hw)
     else:
-        raise ValueError(
-            f"Unknown norm '{cfg.norm}'. "
-            f"Available: ['layernorm', 'rmsnorm']"
-        )
+        raise ValueError(f"Unknown norm '{cfg.norm}'. Available: ['layernorm', 'rmsnorm']")
+
 
 def _build_pos_embedding(
     name: str | None,
@@ -237,14 +234,11 @@ def _build_pos_embedding(
 
     registry: dict[str, nn.Module] = {
         "sinusoidal": SinusoidalPositionalEmbedding(max_seq_len, cfg.embed_dim, **hw),
-        "absolute":   AbsolutePositionEmbedding(max_seq_len, cfg.embed_dim, **hw),
+        "absolute": AbsolutePositionEmbedding(max_seq_len, cfg.embed_dim, **hw),
     }
     key = name.lower()
     if key not in registry:
-        raise ValueError(
-            f"Unknown positional embedding '{name}'. "
-            f"Available: {list(registry)}"
-        )
+        raise ValueError(f"Unknown positional embedding '{name}'. Available: {list(registry)}")
     return registry[key]
 
 
@@ -277,7 +271,6 @@ class EncoderBlock(nn.Module):
         >>> y.shape
         torch.Size([2, 64, 512])
     """
-
 
     def __init__(self, cfg: BlockConfig) -> None:
         super().__init__()
@@ -348,15 +341,11 @@ class DecoderBlock(nn.Module):
         # x: (B, T, C), memory: (B, S, C)
         if self.pre_norm:
             x = x + self.self_attn(self.norm1(x), mask=self_mask)
-            x = x + self.cross_attn(
-                self.norm2(x), memory, mask=cross_mask, attn_mask=cross_attn_mask
-            )
+            x = x + self.cross_attn(self.norm2(x), memory, mask=cross_mask, attn_mask=cross_attn_mask)
             x = x + self.ffn(self.norm3(x))
         else:  # post-norm
             x = self.norm1(x + self.self_attn(x, mask=self_mask))
-            x = self.norm2(
-                x + self.cross_attn(x, memory, mask=cross_mask, attn_mask=cross_attn_mask)
-            )
+            x = self.norm2(x + self.cross_attn(x, memory, mask=cross_mask, attn_mask=cross_attn_mask))
             x = self.norm3(x + self.ffn(x))
         return x  # (B, T, C)
 

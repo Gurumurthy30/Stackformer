@@ -17,17 +17,20 @@ from types import ModuleType
 import torch
 from torch._utils import _get_available_device_type, _get_device_module
 
+
 # Replaced structured_logger with lightweight no-op stub
 class _SLStub:
     @staticmethod
     def log_trace_span(name: str):
         def decorator(fn):
             return fn
+
         return decorator
 
     @staticmethod
     def add_step_tag(tag: str) -> None:
         pass
+
 
 sl = _SLStub()
 
@@ -42,9 +45,7 @@ def round_up(value: int, multiple: int) -> int:
 def has_cuda_capability(major: int, minor: int) -> bool:
     # torch.version.hip is None excludes ROCm (capability is a tuple on AMD too).
     return (
-        torch.cuda.is_available()
-        and torch.version.hip is None
-        and torch.cuda.get_device_capability() >= (major, minor)
+        torch.cuda.is_available() and torch.version.hip is None and torch.cuda.get_device_capability() >= (major, minor)
     )
 
 
@@ -94,10 +95,7 @@ def get_local_device() -> torch.device:
     try:
         local_rank = int(local_rank_str)
     except ValueError as e:
-        raise ValueError(
-            "LOCAL_RANK environment variable must be a valid integer, "
-            f"got: {local_rank_str}"
-        ) from e
+        raise ValueError(f"LOCAL_RANK environment variable must be a valid integer, got: {local_rank_str}") from e
     if local_rank < 0:
         raise ValueError(f"LOCAL_RANK must be non-negative, got: {local_rank}")
 
@@ -160,11 +158,7 @@ def get_peak_flops(device_name: str) -> float:
         # Run the lspci command and capture the output
         result = subprocess.run(["lspci"], stdout=subprocess.PIPE, text=True)
         # Filter the output for lines containing both "NVIDIA" and "H100"
-        filtered_lines = [
-            line
-            for line in result.stdout.splitlines()
-            if "NVIDIA" in line and "H100" in line
-        ]
+        filtered_lines = [line for line in result.stdout.splitlines() if "NVIDIA" in line and "H100" in line]
         # Join all filtered lines into a single string
         device_name = " ".join(filtered_lines) or device_name
     except FileNotFoundError as e:
@@ -245,9 +239,7 @@ def get_peak_flops(device_name: str) -> float:
             # https://awsdocs-neuron.readthedocs-hosted.com/en/latest/about-neuron/arch/neuron-hardware/neuron-core-v4.html
             return 79e12 * 2
         else:
-            logger.warning(
-                f"Unknown neuron device: {neuron_device_name}, fallback to trn2/trn3"
-            )
+            logger.warning(f"Unknown neuron device: {neuron_device_name}, fallback to trn2/trn3")
             return 79e12 * 2
 
     elif device_name.startswith("TPU"):
@@ -266,9 +258,7 @@ def get_peak_flops(device_name: str) -> float:
             # its two TensorCores as a separate device, so halve for per-device.
             return 2307e12 / 2
         else:
-            logger.warning(
-                f"Peak flops undefined for TPU: {device_name}, fallback to A100"
-            )
+            logger.warning(f"Peak flops undefined for TPU: {device_name}, fallback to A100")
             return 312e12
 
     else:  # for other GPU types, assume A100
@@ -306,9 +296,9 @@ class NoColor:
     turquoise = ""
 
 
-assert set(NoColor.__dataclass_fields__.keys()) == set(
-    Color.__dataclass_fields__.keys()
-), "NoColor must have the same fields as Color."
+assert set(NoColor.__dataclass_fields__.keys()) == set(Color.__dataclass_fields__.keys()), (
+    "NoColor must have the same fields as Color."
+)
 
 
 def check_if_feature_in_pytorch(

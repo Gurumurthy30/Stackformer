@@ -77,8 +77,7 @@ class StaticKVCache(nn.Module):
         B, H, T, D = k.shape
         end_pos = start_pos + T
         assert end_pos <= self.max_len, (
-            f"KV cache capacity exceeded: start_pos={start_pos} + T={T} = {end_pos} "
-            f"> cache length {self.max_len}"
+            f"KV cache capacity exceeded: start_pos={start_pos} + T={T} = {end_pos} > cache length {self.max_len}"
         )
         assert k.dtype == self.cache_keys.dtype, (
             f"KV cache dtype mismatch: got {k.dtype}, cache is {self.cache_keys.dtype}. "
@@ -118,9 +117,7 @@ class StaticKVCache(nn.Module):
         v_full = _grad_safe_splice(v_full, v_live, sp, ep)
         return k_full, v_full
 
-    def peek_kv(
-        self, start_pos: int = 0, end_pos: int | None = None
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def peek_kv(self, start_pos: int = 0, end_pos: int | None = None) -> tuple[torch.Tensor, torch.Tensor]:
         """Read-only inspection of key and value buffers without autograd node splicing.
 
         Args:

@@ -37,4 +37,3 @@ class Logger(abc.ABC):
     def finish(self) -> None:
         """Flush buffers and cleanly finalize logger sessions."""
         pass
-

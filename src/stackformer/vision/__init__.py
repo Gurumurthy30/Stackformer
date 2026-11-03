@@ -12,4 +12,3 @@ __all__ = [
     "SegFormerB0",
     "ViT",
 ]
-

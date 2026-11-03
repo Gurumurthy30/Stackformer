@@ -163,4 +163,3 @@ def ones_init_(tensor: torch.Tensor) -> torch.Tensor:
         torch.Tensor: The initialized tensor.
     """
     return init.ones_(tensor)
-

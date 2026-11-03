@@ -6,9 +6,9 @@ from stackformer.modules.attention import Multi_Head_Attention
 from stackformer.modules.feed_forward import FF_ReLU
 from stackformer.modules.position_embedding import SinusoidalPositionalEmbedding
 
+
 @pytest.mark.parametrize("batch,seq,embed_dim,heads", [(1, 4, 8, 1), (2, 6, 16, 4)])
 def test_transformer_forward_shape_finite_and_backward(batch, seq, embed_dim, heads, torch_device):
-
     _checkpoint("test_transformer_forward_shape_finite_and_backward setup", batch=batch, seq=seq, device=torch_device)
     torch.manual_seed(0)
     vocab_size = 32
@@ -44,7 +44,9 @@ def test_module_interoperability_embedding_pos_attention_ff_pipeline(torch_devic
     batch, seq, vocab_size, embed_dim = 2, 6, 32, 8
     token_embedding = torch.nn.Embedding(vocab_size, embed_dim, device=torch_device)
     pos_embedding = SinusoidalPositionalEmbedding(seq_len=seq, embed_dim=embed_dim, device=torch_device)
-    attention = Multi_Head_Attention(embed_dim=embed_dim, num_heads=2, mask_type=["no"], dropout=0.0, device=torch_device)
+    attention = Multi_Head_Attention(
+        embed_dim=embed_dim, num_heads=2, mask_type=["no"], dropout=0.0, device=torch_device
+    )
     ff = FF_ReLU(embed_dim=embed_dim, hidden_dim=16, dropout=0.0, device=torch_device)
 
     ids = torch.randint(0, vocab_size, (batch, seq), device=torch_device)

@@ -62,12 +62,8 @@ class AbsolutePositionEmbedding(nn.Module):
         # x: (B, T, C) or token_ids (B, T)
         batch_size, seq_len = x.shape[0], x.shape[1]
         if seq_len > self.seq_len:
-            raise ValueError(
-                f"Sequence length {seq_len} exceeds maximum {self.seq_len}."
-            )
-        positions = torch.arange(
-            seq_len, device=self.embedding.weight.device, dtype=torch.long
-        )
+            raise ValueError(f"Sequence length {seq_len} exceeds maximum {self.seq_len}.")
+        positions = torch.arange(seq_len, device=self.embedding.weight.device, dtype=torch.long)
         abs_pos = self.embedding(positions)  # (T, C)
         out = abs_pos.unsqueeze(0).expand(batch_size, seq_len, -1)  # (B, T, C)
         return out
@@ -114,10 +110,7 @@ class SinusoidalPositionalEmbedding(nn.Module):
         factory_kwargs = {"device": device, "dtype": dtype}
 
         position = torch.arange(seq_len, **factory_kwargs).unsqueeze(1)
-        div_term = torch.exp(
-            torch.arange(0, embed_dim, 2, **factory_kwargs)
-            * -(math.log(10000.0) / embed_dim)
-        )
+        div_term = torch.exp(torch.arange(0, embed_dim, 2, **factory_kwargs) * -(math.log(10000.0) / embed_dim))
 
         pe = torch.zeros(seq_len, embed_dim, **factory_kwargs)
         pe[:, 0::2] = torch.sin(position * div_term)
@@ -129,9 +122,7 @@ class SinusoidalPositionalEmbedding(nn.Module):
         # x: (B, T, C)
         B, T = x.shape[:2]
         if T > self.pe.size(0):
-            raise ValueError(
-                f"Sequence length {T} exceeds maximum {self.pe.size(0)}."
-            )
+            raise ValueError(f"Sequence length {T} exceeds maximum {self.pe.size(0)}.")
         return self.pe[:T].unsqueeze(0).expand(B, T, -1)  # (B, T, C)
 
 
@@ -177,9 +168,7 @@ class RoPE(nn.Module):
         freq_complex = self._precompute_theta_position_frequency(head_dim, seq_len, theta)
         self.register_buffer("freq_complex", freq_complex, persistent=True)
 
-    def _precompute_theta_position_frequency(
-        self, head_dim: int, seq_len: int, theta: float
-    ) -> torch.Tensor:
+    def _precompute_theta_position_frequency(self, head_dim: int, seq_len: int, theta: float) -> torch.Tensor:
         """Precompute complex rotary frequency spectrum tensor.
 
         Args:
@@ -193,9 +182,7 @@ class RoPE(nn.Module):
         if head_dim % 2 != 0:
             raise ValueError("head_dim must be even for RoPE")
         dim_half = head_dim // 2
-        inv_freq = 1.0 / (
-            theta ** (torch.arange(0, dim_half, **self.factory_kwargs) / dim_half)
-        )
+        inv_freq = 1.0 / (theta ** (torch.arange(0, dim_half, **self.factory_kwargs) / dim_half))
         pos = torch.arange(seq_len, **self.factory_kwargs)
         freqs = torch.outer(pos, inv_freq)
         freq_complex = torch.polar(torch.ones_like(freqs), freqs)
@@ -218,13 +205,11 @@ class RoPE(nn.Module):
         x_complex = torch.view_as_complex(x_r.float())  # (B, H, T, D // 2)
 
         if T > self.freq_complex.size(0):
-            raise ValueError(
-                f"Sequence length {T} exceeds maximum {self.freq_complex.size(0)}."
-            )
+            raise ValueError(f"Sequence length {T} exceeds maximum {self.freq_complex.size(0)}.")
         freqs = self.freq_complex[:T].unsqueeze(0).unsqueeze(0)  # (1, 1, T, D // 2)
         freqs = freqs.to(x_complex)
 
         x_rot = x_complex * freqs  # (B, H, T, D // 2)
 
         x_out = torch.view_as_real(x_rot).reshape(B, H, T, D)
-        return x_out.to(dtype=x.dtype, device=x.device)  # (B, H, T, D)
+        return x_out.to(dtype=x.dtype, device=x.device)  # (B, H, T, D)

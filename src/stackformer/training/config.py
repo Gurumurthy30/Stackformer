@@ -99,21 +99,15 @@ class TrainConfig:
         if self.warmup_steps < 0:
             raise ValueError(f"'warmup_steps' must be >= 0, got {self.warmup_steps}")
         if self.loss_mode not in ("auto", "lm", "classification"):
-            raise ValueError(
-                f"'loss_mode' must be one of ('auto', 'lm', 'classification'), got '{self.loss_mode}'"
-            )
+            raise ValueError(f"'loss_mode' must be one of ('auto', 'lm', 'classification'), got '{self.loss_mode}'")
 
         valid_optimizers = {"adamw", "adam", "sgd"}
         if self.optimizer.lower() not in valid_optimizers:
-            raise ValueError(
-                f"Unsupported optimizer '{self.optimizer}'. Supported: {sorted(valid_optimizers)}"
-            )
+            raise ValueError(f"Unsupported optimizer '{self.optimizer}'. Supported: {sorted(valid_optimizers)}")
 
         valid_schedulers = {"cosine", "linear", "none", ""}
         if self.scheduler.lower() not in valid_schedulers:
-            raise ValueError(
-                f"Unsupported scheduler '{self.scheduler}'. Supported: {sorted(valid_schedulers)}"
-            )
+            raise ValueError(f"Unsupported scheduler '{self.scheduler}'. Supported: {sorted(valid_schedulers)}")
 
         valid_precision = {"no", "fp16", "bf16"}
         if self.mixed_precision.lower() not in valid_precision:
@@ -123,9 +117,7 @@ class TrainConfig:
 
         dev = self.resolve_device()
         if dev.type == "cpu" and self.mixed_precision.lower() == "fp16":
-            raise ValueError(
-                "mixed_precision='fp16' is not supported on CPU. Use 'bf16' or 'no' on CPU."
-            )
+            raise ValueError("mixed_precision='fp16' is not supported on CPU. Use 'bf16' or 'no' on CPU.")
 
         if self.compile and self.compile_mode is not None:
             valid_compile_modes = {"default", "reduce-overhead", "max-autotune"}
@@ -136,9 +128,7 @@ class TrainConfig:
 
         valid_parallel = {"none", "ddp", "fsdp2"}
         if self.parallel.lower() not in valid_parallel:
-            raise ValueError(
-                f"Unsupported parallel mode '{self.parallel}'. Supported: {sorted(valid_parallel)}"
-            )
+            raise ValueError(f"Unsupported parallel mode '{self.parallel}'. Supported: {sorted(valid_parallel)}")
 
         valid_ac = {"none", "selective", "full"}
         if self.activation_checkpointing.lower() not in valid_ac:
@@ -157,15 +147,11 @@ class TrainConfig:
 
         valid_verbosity = {"quiet", "normal", "verbose"}
         if self.verbosity.lower() not in valid_verbosity:
-            raise ValueError(
-                f"Unsupported verbosity '{self.verbosity}'. Supported: {sorted(valid_verbosity)}"
-            )
+            raise ValueError(f"Unsupported verbosity '{self.verbosity}'. Supported: {sorted(valid_verbosity)}")
 
         valid_display = {"auto", "rich", "plain"}
         if self.display.lower() not in valid_display:
-            raise ValueError(
-                f"Unsupported display '{self.display}'. Supported: {sorted(valid_display)}"
-            )
+            raise ValueError(f"Unsupported display '{self.display}'. Supported: {sorted(valid_display)}")
 
     def resolve_device(self) -> torch.device:
         """Resolve 'auto' device to torch.device (cuda > mps > cpu)."""
@@ -210,4 +196,3 @@ class TrainConfig:
         valid_keys = {f.name for f in cls.__dataclass_fields__.values()}
         filtered = {k: v for k, v in d.items() if k in valid_keys}
         return cls(**filtered)
-

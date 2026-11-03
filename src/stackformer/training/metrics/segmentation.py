@@ -106,4 +106,3 @@ class Dice(Metric):
             if tot > 0:
                 dices.append((2.0 * self.intersection[c].float() / tot).item())
         return sum(dices) / len(dices) if dices else 0.0
-

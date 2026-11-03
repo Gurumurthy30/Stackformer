@@ -25,4 +25,3 @@ class LRMonitor(Callback):
 
         for logger in trainer.loggers:
             logger.log_metrics(lr_metrics, step=step)
-

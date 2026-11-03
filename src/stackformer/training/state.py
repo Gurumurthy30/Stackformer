@@ -58,4 +58,3 @@ class TrainState:
         for key, val in state_dict.items():
             if hasattr(self, key):
                 setattr(self, key, val)
-

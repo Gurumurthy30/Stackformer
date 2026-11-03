@@ -86,9 +86,14 @@ class Trainer:
         self.display = DisplayManager(mode=self.config.display, verbosity=self.config.verbosity, rank_zero_only=True)
 
         self.checkpoint_manager = CheckpointManager(
-            checkpoint_dir=self.config.checkpoint_dir, keep_last_n=self.config.keep_last_n,
-            save_best=self.config.save_best, monitor=self.config.monitor, mode=self.config.mode,
-            save_best_state=self.config.save_best_state, async_checkpoint=self.config.async_checkpoint, use_dcp=(self.config.parallel == "fsdp2"),
+            checkpoint_dir=self.config.checkpoint_dir,
+            keep_last_n=self.config.keep_last_n,
+            save_best=self.config.save_best,
+            monitor=self.config.monitor,
+            mode=self.config.mode,
+            save_best_state=self.config.save_best_state,
+            async_checkpoint=self.config.async_checkpoint,
+            use_dcp=(self.config.parallel == "fsdp2"),
         )
 
     def _estimate_total_steps(self) -> int:
@@ -198,9 +203,7 @@ class Trainer:
                     if self.state.total_micro_batches % accum_steps == 0:
                         if self.config.max_grad_norm is not None:
                             self.precision.unscale_(self.optimizer)
-                            torch.nn.utils.clip_grad_norm_(
-                                self.model.parameters(), self.config.max_grad_norm
-                            )
+                            torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.max_grad_norm)
 
                         self.precision.step(self.optimizer)
                         self.optimizer.zero_grad(set_to_none=True)
@@ -216,9 +219,15 @@ class Trainer:
                         pbar.set_postfix(loss=running_loss, lr=lr_curr, step=self.state.global_step)
                         dispatch_step_end(self, self.state.global_step, {"loss": running_loss, "lr": lr_curr})
 
-                        if self.config.save_every_n_steps and self.state.global_step % self.config.save_every_n_steps == 0:
+                        if (
+                            self.config.save_every_n_steps
+                            and self.state.global_step % self.config.save_every_n_steps == 0
+                        ):
                             self.save_checkpoint()
-                        if self.config.eval_every_n_steps and self.state.global_step % self.config.eval_every_n_steps == 0:
+                        if (
+                            self.config.eval_every_n_steps
+                            and self.state.global_step % self.config.eval_every_n_steps == 0
+                        ):
                             self.evaluate()
                             self.model.train()
 
@@ -258,8 +267,12 @@ class Trainer:
     def save_checkpoint(self) -> Path:
         """Save a full training checkpoint to the checkpoint directory."""
         path = self.checkpoint_manager.save(
-            model=self.model, train_state=self.state, optimizer=self.optimizer,
-            scheduler=self.scheduler, scaler=self.precision.scaler, config=self.config,
+            model=self.model,
+            train_state=self.state,
+            optimizer=self.optimizer,
+            scheduler=self.scheduler,
+            scaler=self.precision.scaler,
+            config=self.config,
         )
         dispatch_checkpoint_save(self, str(path))
         return path
@@ -267,8 +280,12 @@ class Trainer:
     def save_best_model(self, metrics: dict[str, float] | None = None) -> Path:
         """Save the best-performing model weights to the best/ directory."""
         return self.checkpoint_manager.save_best(
-            model=self.model, train_state=self.state, metrics=metrics,
-            optimizer=self.optimizer, scheduler=self.scheduler, scaler=self.precision.scaler,
+            model=self.model,
+            train_state=self.state,
+            metrics=metrics,
+            optimizer=self.optimizer,
+            scheduler=self.scheduler,
+            scaler=self.precision.scaler,
             config=self.config,
         )
 

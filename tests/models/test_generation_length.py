@@ -14,7 +14,12 @@ VOCAB = 32
 @pytest.mark.parametrize("model_cls", [GPT_1, GPT_2])
 @pytest.mark.parametrize("max_new_tokens", [1, 3])
 def test_generation_length_growth_never_truncates_context(model_cls, max_new_tokens, torch_device):
-    _checkpoint("test_generation_length_growth setup", model=model_cls.__name__, max_new_tokens=max_new_tokens, device=torch_device)
+    _checkpoint(
+        "test_generation_length_growth setup",
+        model=model_cls.__name__,
+        max_new_tokens=max_new_tokens,
+        device=torch_device,
+    )
     torch.manual_seed(0)
     x = torch.randint(0, VOCAB, (1, SEQ), device=torch_device)
 

@@ -362,7 +362,6 @@ class Gemma1_7B(BaseModel):
             eos_token_id=eos_token_id,
         )
 
-
     def get_sharding_blocks(self) -> list[nn.Module]:
         """Return repeating transformer layer blocks for sharding and checkpointing."""
         return list(self.backbone.layers)

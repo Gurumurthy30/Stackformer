@@ -39,4 +39,3 @@ class Callback:
     def on_train_end(self, trainer: Any) -> None:
         """Called at the end of training, even if aborted early."""
         pass
-

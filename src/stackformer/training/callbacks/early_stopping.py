@@ -61,4 +61,3 @@ class EarlyStopping(Callback):
                     f"Early stopping triggered! '{self.monitor}' did not improve for {self.wait_count} evaluations."
                 )
                 trainer.state.should_stop = True
-

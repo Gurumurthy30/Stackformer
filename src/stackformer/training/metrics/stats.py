@@ -53,4 +53,3 @@ class TrainStats:
             stats["gpu_mem_max_mb"] = torch.cuda.max_memory_allocated() / (1024 * 1024)
 
         return stats
-

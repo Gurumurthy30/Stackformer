@@ -33,7 +33,9 @@ def resolve_model_config(
     if first_arg is not None:
         if isinstance(first_arg, (int, float, str, bool)):
             pass
-        elif hasattr(first_arg, "__dict__") or hasattr(first_arg, "__dataclass_fields__") or isinstance(first_arg, dict):
+        elif (
+            hasattr(first_arg, "__dict__") or hasattr(first_arg, "__dataclass_fields__") or isinstance(first_arg, dict)
+        ):
             config = first_arg
 
     if config is not None:

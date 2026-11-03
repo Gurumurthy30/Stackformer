@@ -369,10 +369,7 @@ class Llama2(BaseModel):
 
         self.embedding = nn.Embedding(vocab_size, embed_dim, dtype=dtype, device=device)
 
-        self.layers = nn.ModuleList([
-            _Llama2Block(cfg_block)
-            for _ in range(num_layers)
-        ])
+        self.layers = nn.ModuleList([_Llama2Block(cfg_block) for _ in range(num_layers)])
 
         self.final_norm = _build_norm(cfg_block)
         self.lm_head = nn.Linear(embed_dim, vocab_size, bias=False, dtype=dtype, device=device)
@@ -435,7 +432,6 @@ class Llama2(BaseModel):
             top_p=top_p,
             eos_token_id=eos_token_id,
         )
-
 
     def get_sharding_blocks(self) -> list[nn.Module]:
         """Return repeating transformer layer blocks for sharding and checkpointing."""

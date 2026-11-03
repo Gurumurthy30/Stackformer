@@ -92,6 +92,7 @@ def test_jsonl_logger_lifecycle_and_append(tmp_path):
 def test_tensorboard_logger_import_hint(monkeypatch, tmp_path):
     """Verify TensorBoardLogger gives helpful install hint when tensorboard package is missing."""
     import builtins
+
     orig_import = builtins.__import__
 
     def mock_import(name, *args, **kwargs):
@@ -108,6 +109,7 @@ def test_tensorboard_logger_import_hint(monkeypatch, tmp_path):
 def test_wandb_logger_import_hint(monkeypatch):
     """Verify WandbLogger gives helpful install hint when wandb is missing."""
     import builtins
+
     orig_import = builtins.__import__
 
     def mock_import(name, *args, **kwargs):
@@ -119,4 +121,3 @@ def test_wandb_logger_import_hint(monkeypatch):
 
     with pytest.raises(ImportError, match="pip install wandb"):
         WandbLogger(project="test-proj")
-

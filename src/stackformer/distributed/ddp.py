@@ -60,7 +60,5 @@ def apply_ddp(
         bucket_cap_mb=bucket_cap_mb,
     )
 
-    logger.info(
-        f"Applied DDP across world_size={dist.get_world_size()} ranks (rank={dist.get_rank()})."
-    )
+    logger.info(f"Applied DDP across world_size={dist.get_world_size()} ranks (rank={dist.get_rank()}).")
     return ddp_model

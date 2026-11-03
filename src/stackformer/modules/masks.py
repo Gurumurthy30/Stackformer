@@ -10,6 +10,7 @@ import inspect
 from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 
 import torch
+
 try:
     from torch.nn.attention.flex_attention import (
         BlockMask,
@@ -35,9 +36,7 @@ def causal_mask(seq_len: int, device: torch.device | str | None = None) -> torch
     return torch.tril(torch.ones(seq_len, seq_len, dtype=torch.bool, device=device))
 
 
-def sliding_window(
-    seq_len: int, window_size: int, device: torch.device | str | None = None
-) -> torch.Tensor:
+def sliding_window(seq_len: int, window_size: int, device: torch.device | str | None = None) -> torch.Tensor:
     """Sliding window causal attention mask."""
     if window_size <= 0:
         raise ValueError("window_size must be > 0")
@@ -51,9 +50,7 @@ def sliding_window(
     return in_past & in_window
 
 
-def dilated_causal(
-    seq_len: int, dilation: int, device: torch.device | str | None = None
-) -> torch.Tensor:
+def dilated_causal(seq_len: int, dilation: int, device: torch.device | str | None = None) -> torch.Tensor:
     """Dilated causal attention mask."""
     if dilation <= 0:
         raise ValueError("dilation must be > 0")
@@ -75,21 +72,14 @@ def random_mask(
     """Random sparse causal attention mask."""
     if num_random < 0 or num_random > seq_len:
         raise ValueError("num_random must be between 0 and seq_len")
-    cols = (
-        torch.rand(seq_len, seq_len, device=device, generator=generator)
-        .tril()
-        .topk(num_random, dim=1)
-        .indices
-    )
+    cols = torch.rand(seq_len, seq_len, device=device, generator=generator).tril().topk(num_random, dim=1).indices
 
     mask = torch.zeros(seq_len, seq_len, dtype=torch.bool, device=device)
     mask.scatter_(1, cols, True)
     return mask
 
 
-def global_mask(
-    seq_len: int, global_index: List[int], device: torch.device | str | None = None
-) -> torch.Tensor:
+def global_mask(seq_len: int, global_index: List[int], device: torch.device | str | None = None) -> torch.Tensor:
     """Global attention mask."""
     if len(global_index) == 0:
         raise ValueError("global_index must contain at least one index")
@@ -113,8 +103,7 @@ def document_mask(
     """Document (packed-sequence) attention mask."""
     if document_ids.dim() != 1 or document_ids.shape[0] != seq_len:
         raise ValueError(
-            f"document_ids must be a 1D tensor of length seq_len={seq_len}, "
-            f"got shape {tuple(document_ids.shape)}"
+            f"document_ids must be a 1D tensor of length seq_len={seq_len}, got shape {tuple(document_ids.shape)}"
         )
 
     document_ids = document_ids.to(device=device)
@@ -126,13 +115,9 @@ def no_mask(seq_len: int, device: torch.device | str | None = None) -> torch.Ten
     return torch.ones(seq_len, seq_len, dtype=torch.bool, device=device)
 
 
-def mistral(
-    seq_len: int, window_size: int, dilation: int, device: torch.device | str | None = None
-) -> torch.Tensor:
+def mistral(seq_len: int, window_size: int, dilation: int, device: torch.device | str | None = None) -> torch.Tensor:
     """Mistral-style hybrid sliding window + dilated attention mask."""
-    return sliding_window(seq_len, window_size, device=device) | dilated_causal(
-        seq_len, dilation, device=device
-    )
+    return sliding_window(seq_len, window_size, device=device) | dilated_causal(seq_len, dilation, device=device)
 
 
 MASK_REGISTRY: Dict[str, Callable] = {
@@ -178,9 +163,7 @@ def make_mask(
     for name in mask_types:
         name = name.lower()
         if name not in MASK_REGISTRY:
-            raise ValueError(
-                f"Unknown mask '{name}'. Available: {list(MASK_REGISTRY.keys())}"
-            )
+            raise ValueError(f"Unknown mask '{name}'. Available: {list(MASK_REGISTRY.keys())}")
 
         fn = MASK_REGISTRY[name]
         sig = inspect.signature(fn)
@@ -280,8 +263,7 @@ def document_mask_mod(seq_len: int, document_ids: torch.Tensor) -> MaskMod:
     """Factory for a document (packed-sequence) mask_mod."""
     if document_ids.dim() != 1 or document_ids.shape[0] != seq_len:
         raise ValueError(
-            f"document_ids must be a 1D tensor of length seq_len={seq_len}, "
-            f"got shape {tuple(document_ids.shape)}"
+            f"document_ids must be a 1D tensor of length seq_len={seq_len}, got shape {tuple(document_ids.shape)}"
         )
 
     def document_fn(b, h, q_idx, kv_idx):
@@ -312,12 +294,19 @@ def _dilated_causal_builder(seq_len: int, *, dilation: int, **kwargs) -> MaskMod
 
 
 def _random_mask_builder(
-    seq_len: int, *, num_random: int, generator: Optional[torch.Generator] = None, device: torch.device | str | None = None, **kwargs
+    seq_len: int,
+    *,
+    num_random: int,
+    generator: Optional[torch.Generator] = None,
+    device: torch.device | str | None = None,
+    **kwargs,
 ) -> MaskMod:
     return random_mask_mod(seq_len, num_random, generator=generator, device=device)
 
 
-def _global_mask_builder(seq_len: int, *, global_index: List[int], device: torch.device | str | None = None, **kwargs) -> MaskMod:
+def _global_mask_builder(
+    seq_len: int, *, global_index: List[int], device: torch.device | str | None = None, **kwargs
+) -> MaskMod:
     return global_mask_mod(seq_len, global_index, device=device)
 
 
@@ -353,8 +342,7 @@ def make_block_mask(
     """Construct a compiled FlexAttention BlockMask from named mask strategies."""
     if Q_LEN != KV_LEN:
         raise ValueError(
-            "make_block_mask currently assumes self-attention (Q_LEN == KV_LEN); "
-            f"got Q_LEN={Q_LEN}, KV_LEN={KV_LEN}"
+            f"make_block_mask currently assumes self-attention (Q_LEN == KV_LEN); got Q_LEN={Q_LEN}, KV_LEN={KV_LEN}"
         )
 
     if mask_types is None:
@@ -373,9 +361,7 @@ def make_block_mask(
     for name in mask_types:
         name = name.lower()
         if name not in MASK_MOD_REGISTRY:
-            raise ValueError(
-                f"Unknown mask '{name}'. Available: {list(MASK_MOD_REGISTRY.keys())}"
-            )
+            raise ValueError(f"Unknown mask '{name}'. Available: {list(MASK_MOD_REGISTRY.keys())}")
 
         builder = MASK_MOD_REGISTRY[name]
         sig = inspect.signature(builder)

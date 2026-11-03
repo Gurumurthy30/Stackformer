@@ -82,4 +82,3 @@ class PrecisionManager:
         """Load scaler state dictionary."""
         if self.scaler is not None and state_dict:
             self.scaler.load_state_dict(state_dict)
-

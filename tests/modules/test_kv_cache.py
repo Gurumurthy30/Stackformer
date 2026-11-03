@@ -26,7 +26,9 @@ def test_kv_cache_multihead_updates_cache_and_stays_stable(batch, torch_device):
 
 def test_kv_cache_group_query_updates_cache_and_stays_stable(torch_device):
     _checkpoint("test_kv_cache_group_query_updates_cache_and_stays_stable setup", device=torch_device)
-    layer = kv_cache_group_query(embed_dim=8, num_query_heads=2, num_kv_heads=1, batch_size=2, kv_seq_len=6, dropout=0.0, device=torch_device)
+    layer = kv_cache_group_query(
+        embed_dim=8, num_query_heads=2, num_kv_heads=1, batch_size=2, kv_seq_len=6, dropout=0.0, device=torch_device
+    )
 
     x1 = torch.randn(2, 2, 8, device=torch_device)
     y1 = layer(x1, start_pos=0, rope=False)

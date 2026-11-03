@@ -32,4 +32,3 @@ def test_get_tied_params_bert_roberta_meta():
 
     assert bert.get_tied_params() == [("token_embedding.weight", "lm_head.weight")]
     assert roberta.get_tied_params() == [("token_embedding.weight", "lm_head.weight")]
-

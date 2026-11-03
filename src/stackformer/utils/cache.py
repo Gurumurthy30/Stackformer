@@ -9,9 +9,7 @@ from __future__ import annotations
 import torch
 
 
-def _grad_safe_splice(
-    cached: torch.Tensor, live: torch.Tensor, start_pos: int, end_pos: int
-) -> torch.Tensor:
+def _grad_safe_splice(cached: torch.Tensor, live: torch.Tensor, start_pos: int, end_pos: int) -> torch.Tensor:
     """Splice live autograd-tracked tensors over detached historical buffer slices.
 
     When autograd is enabled, in-place writes into persistent buffers corrupt computation graphs.

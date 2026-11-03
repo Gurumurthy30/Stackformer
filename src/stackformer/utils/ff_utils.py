@@ -37,4 +37,4 @@ def hidden_dim_helper(
     if multiple_of > 1:
         hidden_dim = ((hidden_dim + multiple_of - 1) // multiple_of) * multiple_of
 
-    return hidden_dim
+    return hidden_dim

@@ -152,6 +152,7 @@ class CheckpointManager:
         target_dir = self.checkpoint_dir / dir_name
 
         from stackformer.distributed.utils import is_distributed_initialized, is_rank_zero
+
         is_dist = is_distributed_initialized() and torch.distributed.get_world_size() > 1
 
         if self.use_dcp and is_dist:
@@ -159,6 +160,7 @@ class CheckpointManager:
             target_dir.mkdir(parents=True, exist_ok=True)
             dcp_dir = target_dir / "dcp"
             from stackformer.distributed.dcp import save_dcp
+
             model_state = clean_state_dict(model.state_dict())
             state_dict = {
                 "model": model_state,
@@ -213,6 +215,7 @@ class CheckpointManager:
             if self.use_dcp:
                 dcp_dir = temp_dir / "dcp"
                 from stackformer.distributed.dcp import save_dcp
+
                 save_dcp(state_dict, dcp_dir)
             else:
                 torch.save(state_dict, temp_dir / "state.pt")
@@ -273,7 +276,9 @@ class CheckpointManager:
             try:
                 name = latest_file.read_text(encoding="utf-8").strip()
                 p = self.checkpoint_dir / name
-                if p.is_dir() and ((p / "state.pt").exists() or (p / "dcp").exists() or (p / "model.safetensors").exists()):
+                if p.is_dir() and (
+                    (p / "state.pt").exists() or (p / "dcp").exists() or (p / "model.safetensors").exists()
+                ):
                     return p
             except Exception:
                 pass
@@ -464,4 +469,3 @@ class CheckpointManager:
             model.load_state_dict(ckpt["model"])
         else:
             raise FileNotFoundError(f"No weights file found in best checkpoint directory: {best_dir}")
-

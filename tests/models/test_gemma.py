@@ -33,7 +33,16 @@ def test_google_models_forward_and_generate(torch_device):
         _check_model_forward(model_cls, torch_device)
 
     x = torch.randint(0, 32, (1, 6), device=torch_device)
-    model = gemma_1_2b(vocab_size=32, num_layers=1, embed_dim=8, num_heads=2, seq_len=6, dropout=0.0, hidden_dim=16, device=torch_device)
+    model = gemma_1_2b(
+        vocab_size=32,
+        num_layers=1,
+        embed_dim=8,
+        num_heads=2,
+        seq_len=6,
+        dropout=0.0,
+        hidden_dim=16,
+        device=torch_device,
+    )
     _checkpoint("Running Gemma generate")
     generated = model.generate(x[0], max_context_len=6, max_new_tokens=2)
     _checkpoint("Asserting Gemma generated output shape", shape=generated.shape)

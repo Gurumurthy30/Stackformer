@@ -32,6 +32,7 @@ def save_model_weights(model: nn.Module, path: str | Path) -> None:
     if path_obj.suffix.lower() == ".safetensors":
         try:
             import safetensors.torch
+
             safetensors.torch.save_model(model, str(path_obj))
         except ImportError as e:
             raise ImportError(
@@ -74,6 +75,7 @@ def load_model_weights(
     if path_obj.suffix.lower() == ".safetensors":
         try:
             import safetensors.torch
+
             safetensors.torch.load_model(model, str(path_obj), strict=strict, device=str(device))
         except ImportError as e:
             raise ImportError(

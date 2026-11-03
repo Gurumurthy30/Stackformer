@@ -51,11 +51,29 @@ def test_gpt_determinism_fixed_seed(torch_device):
 
     _checkpoint("Instantiating GPT_1 models for determinism test")
     torch.manual_seed(0)
-    m1 = GPT_1(vocab_size=32, num_layers=1, embed_dim=8, num_heads=2, seq_len=6, dropout=0.0, hidden_dim=16, device=torch_device)
+    m1 = GPT_1(
+        vocab_size=32,
+        num_layers=1,
+        embed_dim=8,
+        num_heads=2,
+        seq_len=6,
+        dropout=0.0,
+        hidden_dim=16,
+        device=torch_device,
+    )
     y1 = m1(x)
 
     torch.manual_seed(0)
-    m2 = GPT_1(vocab_size=32, num_layers=1, embed_dim=8, num_heads=2, seq_len=6, dropout=0.0, hidden_dim=16, device=torch_device)
+    m2 = GPT_1(
+        vocab_size=32,
+        num_layers=1,
+        embed_dim=8,
+        num_heads=2,
+        seq_len=6,
+        dropout=0.0,
+        hidden_dim=16,
+        device=torch_device,
+    )
     y2 = m2(x)
 
     _checkpoint("Asserting GPT output determinism", y1_shape=y1.shape, y2_shape=y2.shape)

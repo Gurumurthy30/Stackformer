@@ -11,7 +11,16 @@ def test_save_load_after_training_keeps_predictions(tmp_path, model_cls, torch_d
     torch.manual_seed(0)
     x = torch.randint(0, 32, (2, 6), device=torch_device)
 
-    model = model_cls(vocab_size=32, num_layers=1, embed_dim=8, num_heads=2, seq_len=6, dropout=0.0, hidden_dim=16, device=torch_device)
+    model = model_cls(
+        vocab_size=32,
+        num_layers=1,
+        embed_dim=8,
+        num_heads=2,
+        seq_len=6,
+        dropout=0.0,
+        hidden_dim=16,
+        device=torch_device,
+    )
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
     model.train()
@@ -30,7 +39,16 @@ def test_save_load_after_training_keeps_predictions(tmp_path, model_cls, torch_d
     _checkpoint("Saving model state_dict", path=str(path))
     torch.save(model.state_dict(), path)
 
-    reloaded = model_cls(vocab_size=32, num_layers=1, embed_dim=8, num_heads=2, seq_len=6, dropout=0.0, hidden_dim=16, device=torch_device)
+    reloaded = model_cls(
+        vocab_size=32,
+        num_layers=1,
+        embed_dim=8,
+        num_heads=2,
+        seq_len=6,
+        dropout=0.0,
+        hidden_dim=16,
+        device=torch_device,
+    )
     reloaded.load_state_dict(torch.load(path, map_location=str(torch_device)))
     reloaded.eval()
 

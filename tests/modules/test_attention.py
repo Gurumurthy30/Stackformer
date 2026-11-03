@@ -80,7 +80,9 @@ def test_cross_attention_shape_and_gradients(torch_device):
     _checkpoint("test_cross_attention_shape_and_gradients setup", device=torch_device)
     q = torch.randn(BATCH, SEQ, EMB, requires_grad=True, device=torch_device)
     ctx = torch.randn(BATCH, SEQ, EMB, device=torch_device)
-    layer = Cross_MultiHead_Attention(embed_dim=EMB, num_heads=HEADS, dropout=0.0, mask_type=["causal"], device=torch_device)
+    layer = Cross_MultiHead_Attention(
+        embed_dim=EMB, num_heads=HEADS, dropout=0.0, mask_type=["causal"], device=torch_device
+    )
 
     _checkpoint("Executing Cross_MultiHead_Attention forward pass")
     out = layer(q, context=ctx)
@@ -90,7 +92,9 @@ def test_cross_attention_shape_and_gradients(torch_device):
 @pytest.mark.parametrize("batch", [1, 2])
 def test_kv_cache_multihead_multiple_decode_steps(batch, torch_device):
     _checkpoint("test_kv_cache_multihead_multiple_decode_steps setup", batch=batch, device=torch_device)
-    cache = kv_cache_multihead(embed_dim=EMB, num_heads=HEADS, batch_size=2, kv_seq_len=SEQ, dropout=0.0, device=torch_device)
+    cache = kv_cache_multihead(
+        embed_dim=EMB, num_heads=HEADS, batch_size=2, kv_seq_len=SEQ, dropout=0.0, device=torch_device
+    )
 
     x0 = torch.randn(batch, 2, EMB, device=torch_device)
     _checkpoint("KV cache step 0 forward", x0_shape=x0.shape)
@@ -221,15 +225,40 @@ def test_run_attention_invalid_backend_raises(torch_device):
     "ctor",
     [
         lambda dev, backend: Self_Attention(EMB, dropout=0.0, device=dev, backend=backend),
-        lambda dev, backend: Multi_Head_Attention(embed_dim=EMB, num_heads=HEADS, dropout=0.0, device=dev, backend=backend),
-        lambda dev, backend: Multi_Head_Attention_With_RoPE(embed_dim=EMB, num_heads=HEADS, dropout=0.0, device=dev, backend=backend),
-        lambda dev, backend: Cross_MultiHead_Attention(embed_dim=EMB, num_heads=HEADS, dropout=0.0, device=dev, backend=backend),
-        lambda dev, backend: Multi_query_Attention(embed_dim=EMB, num_heads=HEADS, dropout=0.0, device=dev, backend=backend),
-        lambda dev, backend: Multi_query_Attention_With_RoPE(embed_dim=EMB, num_heads=HEADS, dropout=0.0, device=dev, backend=backend),
-        lambda dev, backend: Group_query_Attention(embed_dim=EMB, num_query_heads=HEADS, num_kv_heads=KV_HEADS, dropout=0.0, device=dev, backend=backend),
-        lambda dev, backend: Group_query_Attention_With_RoPE(embed_dim=EMB, num_query_heads=HEADS, num_kv_heads=KV_HEADS, dropout=0.0, device=dev, backend=backend),
-        lambda dev, backend: kv_cache_multihead(embed_dim=EMB, num_heads=HEADS, batch_size=BATCH, kv_seq_len=SEQ, dropout=0.0, device=dev, backend=backend),
-        lambda dev, backend: kv_cache_group_query(embed_dim=EMB, num_query_heads=HEADS, num_kv_heads=KV_HEADS, batch_size=BATCH, kv_seq_len=SEQ, dropout=0.0, device=dev, backend=backend),
+        lambda dev, backend: Multi_Head_Attention(
+            embed_dim=EMB, num_heads=HEADS, dropout=0.0, device=dev, backend=backend
+        ),
+        lambda dev, backend: Multi_Head_Attention_With_RoPE(
+            embed_dim=EMB, num_heads=HEADS, dropout=0.0, device=dev, backend=backend
+        ),
+        lambda dev, backend: Cross_MultiHead_Attention(
+            embed_dim=EMB, num_heads=HEADS, dropout=0.0, device=dev, backend=backend
+        ),
+        lambda dev, backend: Multi_query_Attention(
+            embed_dim=EMB, num_heads=HEADS, dropout=0.0, device=dev, backend=backend
+        ),
+        lambda dev, backend: Multi_query_Attention_With_RoPE(
+            embed_dim=EMB, num_heads=HEADS, dropout=0.0, device=dev, backend=backend
+        ),
+        lambda dev, backend: Group_query_Attention(
+            embed_dim=EMB, num_query_heads=HEADS, num_kv_heads=KV_HEADS, dropout=0.0, device=dev, backend=backend
+        ),
+        lambda dev, backend: Group_query_Attention_With_RoPE(
+            embed_dim=EMB, num_query_heads=HEADS, num_kv_heads=KV_HEADS, dropout=0.0, device=dev, backend=backend
+        ),
+        lambda dev, backend: kv_cache_multihead(
+            embed_dim=EMB, num_heads=HEADS, batch_size=BATCH, kv_seq_len=SEQ, dropout=0.0, device=dev, backend=backend
+        ),
+        lambda dev, backend: kv_cache_group_query(
+            embed_dim=EMB,
+            num_query_heads=HEADS,
+            num_kv_heads=KV_HEADS,
+            batch_size=BATCH,
+            kv_seq_len=SEQ,
+            dropout=0.0,
+            device=dev,
+            backend=backend,
+        ),
     ],
 )
 def test_attention_modules_backend_support(ctor, torch_device):
@@ -242,4 +271,3 @@ def test_attention_modules_backend_support(ctor, torch_device):
 
     with pytest.raises(ValueError):
         ctor(torch_device, "unsupported_backend")
-

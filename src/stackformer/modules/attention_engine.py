@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, Literal, Optional
 
 import torch
 import torch.nn.functional as F
+
 try:
     from torch.nn.attention.flex_attention import flex_attention
 except ImportError:
@@ -145,12 +146,8 @@ def _run_attention(
             if cache is None:
                 attn_mask = make_mask(mask_type, seq_len=seq_len, device=device, combine=combine, **mask_kwargs)
             else:
-                attn_mask = _get_attention_mask(
-                    cache, mask_type, seq_len, device, combine=combine, **mask_kwargs
-                )
-        return _run_sdpa(
-            q, k, v, attn_mask=attn_mask, dropout_p=dropout_p, scale=scale, enable_gqa=enable_gqa
-        )
+                attn_mask = _get_attention_mask(cache, mask_type, seq_len, device, combine=combine, **mask_kwargs)
+        return _run_sdpa(q, k, v, attn_mask=attn_mask, dropout_p=dropout_p, scale=scale, enable_gqa=enable_gqa)
 
     if backend == "flex":
         block_mask = attn_mask
@@ -160,10 +157,7 @@ def _run_attention(
                     mask_type, B=1, H=1, Q_LEN=seq_len, KV_LEN=seq_len, device=device, combine=combine, **mask_kwargs
                 )
             else:
-                block_mask = _get_block_mask(
-                    cache, mask_type, seq_len, device, combine=combine, **mask_kwargs
-                )
+                block_mask = _get_block_mask(cache, mask_type, seq_len, device, combine=combine, **mask_kwargs)
         return _run_flex_attention(
             q, k, v, score_mod=score_mod, block_mask=block_mask, scale=scale, enable_gqa=enable_gqa
         )
-

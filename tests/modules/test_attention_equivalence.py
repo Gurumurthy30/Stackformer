@@ -9,7 +9,9 @@ def test_self_attention_equivalent_to_single_head_mha_when_weights_are_shared(to
 
     _checkpoint("Instantiating Self_Attention and single-head Multi_Head_Attention")
     sa = Self_Attention(embed_dim=8, dropout=0.0, qkv_bias=True, mask_type=["causal"], device=torch_device)
-    mha = Multi_Head_Attention(embed_dim=8, num_heads=1, dropout=0.0, qkv_bias=True, mask_type=["causal"], device=torch_device)
+    mha = Multi_Head_Attention(
+        embed_dim=8, num_heads=1, dropout=0.0, qkv_bias=True, mask_type=["causal"], device=torch_device
+    )
 
     _checkpoint("Copying projection weights from SA to MHA")
     with torch.no_grad():

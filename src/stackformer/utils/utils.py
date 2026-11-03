@@ -96,4 +96,3 @@ def print_once(*args: Any, **kwargs: Any) -> None:
     """Print message to stdout only on global rank 0 process."""
     if is_main_process():
         print(*args, **kwargs)
-

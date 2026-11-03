@@ -45,5 +45,3 @@ def _canonical_device(device: str | torch.device) -> torch.device:
         dev = torch.device(f"cuda:{current}")
 
     return dev
-
-
