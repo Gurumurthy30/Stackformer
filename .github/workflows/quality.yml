@@ -37,4 +37,5 @@ jobs:
 
       - name: Vulture Dead Code Analysis (Report Only)
         if: always()
-        run: python -m vulture src/stackformer --min-confidence 80 --exclude src/stackformer/torchtitan || true
+        run: python -m vulture src/stackformer --min-confidence 80 || true
+

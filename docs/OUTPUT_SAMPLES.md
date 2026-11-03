@@ -162,3 +162,4 @@ When testing or demonstrating Stackformer within a JupyterLab, VS Code Jupyter N
 - **Check:** When `trainer.train()` finishes:
   - The cell returns a populated `TrainState` object (`step`, `epoch`, `best_metric`, `elapsed_time`).
   - No background worker threads or zombie sub-processes remain active.
+
