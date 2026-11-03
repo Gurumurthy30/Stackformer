@@ -18,7 +18,6 @@ This document catalogs all placeholder directories, planned architectural subsys
 | `src/stackformer/quantization/` | Low-precision representations and transforms (FP8 GEMMs available via `torchao`, INT8/INT4 planned) | Partially implemented (Float8 active; INT8/INT4 planned) | Phase 3 |
 | `benchmarks/` | Reproducible throughput (tokens/s), peak memory, and distributed scaling benchmark scripts | Planned, not implemented | Phase 4 |
 | `docs/tutorials/` | End-to-end practical tutorials (pre-training, semantic segmentation, distributed training, deployment) | Planned, not implemented | Phase 4 |
-| `scripts/` | Repository automation and verification utilities (e.g., link integrity checker) | Active development utilities | Phase 1 / Active |
 
 ---
 

@@ -15,7 +15,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 - **Documentation & README Modernization**:
   - Complete rewrite of `README.md` reflecting current library API, model zoo by category, training capabilities, and verified code snippets.
-  - Added repository link integrity checker `scripts/check_links.py`.
   - Added planned subsystems index `docs/PLANNED.md` and organization migration reference `docs/ORG_RENAME.md`.
 - **Model Categorization and Registry**:
   - Reorganized model implementations into domain packages `stackformer.models.language` (BERT, GPT, LLaMA, Gemma, RoBERTa, Transformer, Decoder, EncoderDecoder) and `stackformer.models.vision` (ViT, SegFormer).
