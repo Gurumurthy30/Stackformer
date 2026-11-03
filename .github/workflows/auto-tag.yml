@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.PAT_TOKEN }}   # PAT so the tag push below can trigger cd.yml/publish.yml
+          token: ${{ secrets.PAT_TOKEN || github.token }}   # Falls back to github.token if PAT_TOKEN secret is not set
 
       - name: Extract version from pyproject.toml
         id: version
