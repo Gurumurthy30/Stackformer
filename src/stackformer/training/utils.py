@@ -48,3 +48,24 @@ def forward_batch(model: nn.Module, batch: Any) -> Any:
         raise ValueError("Cannot forward empty batch sequence to model.")
 
     return model(batch)
+
+
+def warn_if_unseeded_shuffle(loader: Any) -> None:
+    """Warn if a DataLoader has shuffle enabled without an explicit seeded torch.Generator."""
+    import warnings
+
+    has_unseeded = (
+        getattr(loader, "shuffle", False)
+        or (
+            hasattr(loader, "sampler")
+            and isinstance(getattr(loader, "sampler", None), torch.utils.data.RandomSampler)
+        )
+    ) and getattr(loader, "generator", None) is None
+
+    if has_unseeded:
+        warnings.warn(
+            "DataLoader has shuffle=True but no generator configured with a fixed seed. "
+            "For bit-identical mid-epoch resume, instantiate DataLoader with a seeded torch.Generator.",
+            UserWarning,
+            stacklevel=3,
+        )

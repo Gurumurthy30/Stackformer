@@ -11,7 +11,7 @@ Exposes:
 
 from .attn_utils import _get_attention_mask, _normalize_mask_type
 from .cache import _grad_safe_splice
-from .checkpoint import load_model_weights, save_model_weights
+from .checkpoint import load_model_weights, load_weights, save_model_weights
 from .device import (
     clear_cuda_cache,
     format_memory,
@@ -54,5 +54,6 @@ __all__ = [
     "_grad_safe_splice",
     "save_model_weights",
     "load_model_weights",
+    "load_weights",
     "download_and_load_pretrained",
 ]

@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [0.2.0] - 2026-11-03
+
+### Breaking Changes
+- **Single Save Path via Trainer**: Removed `save_weights()` from `BaseModel` and model classes to eliminate duplicate/conflicting checkpointing code paths. All weight saving must now be performed via `Trainer` (`trainer.save(path)`, `trainer.save_checkpoint()`, `trainer.save_best_model()`).
+- **Standalone `stackformer.load_weights`**: Checkpoint loading is centralized via `stackformer.load_weights(model, path)` and `model.load_weights(path)`. Supports direct `.safetensors`, `.pt` files, and checkpoint directories (e.g. `step_00000100`), automatically stripping `module.` (DDP) and `_orig_mod.` (torch.compile) prefixes.
+
+### Added
+- **Full Distributed Training Stack (Step 7)**:
+  - Multi-process Distributed Data Parallel (DDP) on CPU/gloo and CUDA/NCCL.
+  - Fully Sharded Data Parallel (FSDP2) via public `torch.distributed.fsdp.fully_shard`.
+  - Distributed Checkpointing (DCP) support for sharded state saving and consolidation.
+  - Platform guard for native Windows multi-GPU recommending WSL2.
+  - Single-command multi-process launcher (`stackformer.training.launch`) setting `USE_LIBUV=0` on Windows.
+- **Pretty Output Display**: `DisplayManager` supporting Rich console output with fallback to clean plain text mode.
+- **Zero-Warning Code Quality Pipeline**: Ruff linting & formatting (select `E`, `F`, `W`, `I`, `B`, `UP`, `SIM`, `C4`, `RUF`), Pyright typing baseline, and Bandit security scanning.
+- **Runnable Notebooks**: 5 runnable Jupyter notebooks in `examples/` covering GPT-2, BERT, ViT, SegFormer, and Seq2Seq Transformer.
+
+### Changed
+- Core dependency `safetensors>=0.4.0` moved into primary package dependencies.
+- Updated `torch>=2.5,<3.0` and `numpy>=1.24,<3.0`.
+- Deleted legacy TorchTitan source copies in favor of 15 clean BSD-3 licensed modules in `ops/`, `quantization/`, and `distributed/`.
+
+---
+
 ## [0.1.10] - 2026-10-31
 
 ### Added
@@ -43,4 +67,3 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Core `BlockConfig` layer composition.
 - Model zoo implementations: GPT-1, GPT-2, LLaMA-1, Gemma-1, BERT, RoBERTa, Vaswani Transformer, ViT, SegFormer.
 - Initial modular Transformer core blocks.
-

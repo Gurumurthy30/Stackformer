@@ -491,3 +491,32 @@ class CheckpointManager:
             raise FileNotFoundError(
                 f"No weights file found in best checkpoint directory: {best_dir}"
             )
+
+    def restore_training_state(
+        self,
+        path: str | Path,
+        model: nn.Module,
+        optimizer: torch.optim.Optimizer | None = None,
+        scheduler: Any = None,
+        scaler: Any = None,
+        train_state: TrainState | None = None,
+    ) -> bool:
+        """Restore model, optimizer, scheduler, scaler, RNG, and training state from checkpoint."""
+        ckpt = self.load(path, model=model, optimizer=optimizer)
+        if ckpt is None:
+            return False
+        unwrap_model(model).load_state_dict(clean_state_dict(ckpt["model"]))
+        for key, target in [("optimizer", optimizer), ("scheduler", scheduler)]:
+            if target is not None and ckpt.get(key) is not None:
+                target.load_state_dict(ckpt[key])
+        if (
+            scaler is not None
+            and ckpt.get("scaler") is not None
+            and hasattr(scaler, "load_state_dict")
+        ):
+            scaler.load_state_dict(ckpt["scaler"])
+        if ckpt.get("rng"):
+            self._set_rng_state(ckpt["rng"])
+        if train_state is not None and ckpt.get("train_state"):
+            train_state.load_dict(ckpt["train_state"])
+        return True

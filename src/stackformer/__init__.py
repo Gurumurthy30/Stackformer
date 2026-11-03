@@ -87,6 +87,7 @@ from .modules import (
 )
 from .modules.attention_engine import _run_attention, _run_flex_attention, _run_sdpa
 from .modules.masks import make_mask
+from .utils.checkpoint import load_weights
 from .vision import SegFormer, ViT
 
 __all__ = [
@@ -163,6 +164,7 @@ __all__ = [
     "kv_cache_multihead",
     "llama_1",
     "llama_2",
+    "load_weights",
     "make_mask",
     "text_generate",
 ]

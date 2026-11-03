@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import copy
-import warnings
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
@@ -12,27 +11,19 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
+from stackformer.training import events
 from stackformer.utils.checkpoint import save_model_weights
 
-from .checkpoint import CheckpointManager, clean_state_dict, unwrap_model
+from .checkpoint import CheckpointManager
 from .config import TrainConfig
 from .display import DisplayManager
 from .evaluation import run_evaluation
-from .events import (
-    close_loggers,
-    dispatch_checkpoint_save,
-    dispatch_epoch_end,
-    dispatch_epoch_start,
-    dispatch_step_end,
-    dispatch_train_end,
-    dispatch_train_start,
-)
 from .losses import get_loss
 from .optim import build_optimizer, build_scheduler
 from .parallelize import apply_model_transformations
 from .precision import PrecisionManager
 from .state import TrainState
-from .utils import forward_batch, prepare_inputs
+from .utils import forward_batch, prepare_inputs, warn_if_unseeded_shuffle
 
 
 class Trainer:
@@ -56,26 +47,25 @@ class Trainer:
 
         if config is None:
             self.config = TrainConfig(**kwargs) if kwargs else TrainConfig()
-        elif kwargs:
-            cfg_dict = config.to_dict()
-            cfg_dict.update(kwargs)
-            self.config = TrainConfig.from_dict(cfg_dict)
         else:
-            self.config = copy.deepcopy(config)
+            self.config = (
+                TrainConfig.from_dict({**config.to_dict(), **kwargs})
+                if kwargs
+                else copy.deepcopy(config)
+            )
 
         if loss is not None:
             self.config.loss = loss
 
         self.device = self.config.resolve_device()
         self.model.to(self.device)
-
         self.model = apply_model_transformations(self.model, self.config)
 
-        if isinstance(self.config.loss, str):
-            self.loss_fn = get_loss(self.config.loss, loss_mode=self.config.loss_mode)
-        else:
-            self.loss_fn = self.config.loss
-
+        self.loss_fn = (
+            get_loss(self.config.loss, loss_mode=self.config.loss_mode)
+            if isinstance(self.config.loss, str)
+            else self.config.loss
+        )
         self.precision = PrecisionManager(self.config.mixed_precision, self.device)
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -109,8 +99,11 @@ class Trainer:
         if self.config.max_steps is not None:
             return self.config.max_steps
         if self.train_loader is not None and hasattr(self.train_loader, "__len__"):
-            steps_per_epoch = max(1, len(self.train_loader) // max(1, self.config.grad_accum_steps))
-            return max(1, (self.config.max_epochs or 1) * steps_per_epoch)
+            return max(
+                1,
+                (self.config.max_epochs or 1)
+                * max(1, len(self.train_loader) // max(1, self.config.grad_accum_steps)),
+            )
         return 1000
 
     def _prepare_inputs(self, batch: Any) -> Any:
@@ -120,24 +113,17 @@ class Trainer:
         return forward_batch(self.model, batch)
 
     def _restore_checkpoint_if_requested(self) -> bool:
-        if not self.config.resume_from:
-            return False
-        ckpt = self.checkpoint_manager.load(
-            self.config.resume_from, model=self.model, optimizer=self.optimizer
+        return bool(
+            self.config.resume_from
+            and self.checkpoint_manager.restore_training_state(
+                self.config.resume_from,
+                self.model,
+                self.optimizer,
+                self.scheduler,
+                self.precision.scaler,
+                self.state,
+            )
         )
-        if ckpt is None:
-            return False
-        unwrap_model(self.model).load_state_dict(clean_state_dict(ckpt["model"]))
-        for key, target in [("optimizer", self.optimizer), ("scheduler", self.scheduler)]:
-            if target is not None and ckpt.get(key) is not None:
-                target.load_state_dict(ckpt[key])
-        if ckpt.get("scaler") is not None and hasattr(self.precision.scaler, "load_state_dict"):
-            self.precision.scaler.load_state_dict(ckpt["scaler"])
-        if ckpt.get("rng"):
-            self.checkpoint_manager._set_rng_state(ckpt["rng"])
-        if ckpt.get("train_state"):
-            self.state.load_dict(ckpt["train_state"])
-        return True
 
     def train(self) -> TrainState:
         """Execute the training loop with support for mid-epoch resume, callbacks, and metrics."""
@@ -145,23 +131,7 @@ class Trainer:
             raise ValueError("Cannot call trainer.train() without a train_loader.")
 
         resumed = self._restore_checkpoint_if_requested()
-
-        has_unseeded_shuffle = (
-            getattr(self.train_loader, "shuffle", False)
-            or (
-                hasattr(self.train_loader, "sampler")
-                and isinstance(
-                    getattr(self.train_loader, "sampler", None), torch.utils.data.RandomSampler
-                )
-            )
-        ) and getattr(self.train_loader, "generator", None) is None
-        if has_unseeded_shuffle:
-            warnings.warn(
-                "DataLoader has shuffle=True but no generator configured with a fixed seed. "
-                "For bit-identical mid-epoch resume, instantiate DataLoader with a seeded torch.Generator.",
-                UserWarning,
-                stacklevel=2,
-            )
+        warn_if_unseeded_shuffle(self.train_loader)
 
         self.model.train()
         self.state.should_stop = False
@@ -169,7 +139,7 @@ class Trainer:
         max_steps = self.config.max_steps
         max_epochs = self.config.max_epochs
 
-        dispatch_train_start(self)
+        events.dispatch_train_start(self)
 
         try:
             epoch = self.state.epoch
@@ -183,7 +153,7 @@ class Trainer:
                 skip_batches = self.state.step_in_epoch if resumed else 0
                 resumed = False
 
-                dispatch_epoch_start(self, epoch)
+                events.dispatch_epoch_start(self, epoch)
 
                 if hasattr(self.train_loader, "sampler") and hasattr(
                     self.train_loader.sampler, "set_epoch"
@@ -237,18 +207,19 @@ class Trainer:
 
                         lr_curr = self.optimizer.param_groups[0]["lr"]
                         pbar.set_postfix(loss=running_loss, lr=lr_curr, step=self.state.global_step)
-                        dispatch_step_end(
+                        events.dispatch_step_end(
                             self, self.state.global_step, {"loss": running_loss, "lr": lr_curr}
                         )
 
+                        step = self.state.global_step
                         if (
                             self.config.save_every_n_steps
-                            and self.state.global_step % self.config.save_every_n_steps == 0
+                            and step % self.config.save_every_n_steps == 0
                         ):
                             self.save_checkpoint()
                         if (
                             self.config.eval_every_n_steps
-                            and self.state.global_step % self.config.eval_every_n_steps == 0
+                            and step % self.config.eval_every_n_steps == 0
                         ):
                             self.evaluate()
                             self.model.train()
@@ -261,17 +232,12 @@ class Trainer:
 
                 pbar.close()
 
-                dispatch_epoch_end(self, epoch, {"epoch_loss": running_loss})
+                events.dispatch_epoch_end(self, epoch, {"epoch_loss": running_loss})
 
-                if (
-                    self.config.save_every_n_epochs
-                    and (epoch + 1) % self.config.save_every_n_epochs == 0
-                ):
+                ep_1 = epoch + 1
+                if self.config.save_every_n_epochs and ep_1 % self.config.save_every_n_epochs == 0:
                     self.save_checkpoint()
-                if (
-                    self.config.eval_every_n_epochs
-                    and (epoch + 1) % self.config.eval_every_n_epochs == 0
-                ):
+                if self.config.eval_every_n_epochs and ep_1 % self.config.eval_every_n_epochs == 0:
                     self.evaluate()
                     self.model.train()
 
@@ -285,7 +251,7 @@ class Trainer:
                 self.save_checkpoint()
             raise
         finally:
-            dispatch_train_end(self)
+            events.dispatch_train_end(self)
             self.close()
 
         return self.state
@@ -297,26 +263,26 @@ class Trainer:
     def save_checkpoint(self) -> Path:
         """Save a full training checkpoint to the checkpoint directory."""
         path = self.checkpoint_manager.save(
-            model=self.model,
-            train_state=self.state,
-            optimizer=self.optimizer,
-            scheduler=self.scheduler,
-            scaler=self.precision.scaler,
-            config=self.config,
+            self.model,
+            self.state,
+            self.optimizer,
+            self.scheduler,
+            self.precision.scaler,
+            self.config,
         )
-        dispatch_checkpoint_save(self, str(path))
+        events.dispatch_checkpoint_save(self, str(path))
         return path
 
     def save_best_model(self, metrics: dict[str, float] | None = None) -> Path:
         """Save the best-performing model weights to the best/ directory."""
         return self.checkpoint_manager.save_best(
-            model=self.model,
-            train_state=self.state,
-            metrics=metrics,
-            optimizer=self.optimizer,
-            scheduler=self.scheduler,
-            scaler=self.precision.scaler,
-            config=self.config,
+            self.model,
+            self.state,
+            metrics,
+            self.optimizer,
+            self.scheduler,
+            self.precision.scaler,
+            self.config,
         )
 
     def load_best_model(self) -> None:
@@ -329,4 +295,4 @@ class Trainer:
 
     def close(self) -> None:
         """Close and flush all active loggers."""
-        close_loggers(self)
+        events.close_loggers(self)

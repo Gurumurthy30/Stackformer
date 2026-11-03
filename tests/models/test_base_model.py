@@ -132,7 +132,10 @@ def test_base_model_save_and_load_weights_pt(tmp_path):
     before = model(x)
 
     pt_path = tmp_path / "checkpoint.pt"
-    model.save_weights(pt_path)
+    from stackformer.training import TrainConfig, Trainer
+
+    trainer = Trainer(model=model, config=TrainConfig(checkpoint_dir=str(tmp_path)))
+    trainer.save(pt_path)
     assert pt_path.exists()
 
     new_model = GPT1(config)
@@ -160,7 +163,10 @@ def test_base_model_save_and_load_weights_safetensors(tmp_path):
     before = model(x)
 
     st_path = tmp_path / "checkpoint.safetensors"
-    model.save_weights(st_path)
+    from stackformer.training import TrainConfig, Trainer
+
+    trainer = Trainer(model=model, config=TrainConfig(checkpoint_dir=str(tmp_path)))
+    trainer.save(st_path)
     assert st_path.exists()
 
     new_model = GPT2(config)
@@ -205,7 +211,10 @@ def test_vit_base_model_lifecycle(tmp_path):
     before = model(x)
 
     st_path = tmp_path / "vit.safetensors"
-    model.save_weights(st_path)
+    from stackformer.training import TrainConfig, Trainer
+
+    trainer = Trainer(model=model, config=TrainConfig(checkpoint_dir=str(tmp_path)))
+    trainer.save(st_path)
     assert st_path.exists()
 
     new_model = ViT(
@@ -221,6 +230,105 @@ def test_vit_base_model_lifecycle(tmp_path):
     new_model.load_weights(st_path)
     after = new_model(x)
     assert torch.allclose(before, after)
+
+
+def test_base_model_has_no_save_weights():
+    """Verify single save path contract: models have no save_weights attribute."""
+    config = ModelConfig(
+        vocab_size=32, embed_dim=16, num_layers=1, num_heads=2, seq_len=8, hidden_dim=32
+    )
+    model = GPT2(config)
+    assert not hasattr(model, "save_weights"), "Model must not have save_weights method"
+    assert not hasattr(BaseModel, "save_weights"), "BaseModel must not have save_weights method"
+
+
+def test_standalone_load_weights_and_dir_loading(tmp_path):
+    """Test stackformer.load_weights loads from file and directory checkpoints."""
+    import stackformer
+    from stackformer.training import TrainConfig, Trainer
+
+    config = ModelConfig(
+        vocab_size=64, embed_dim=16, num_layers=1, num_heads=2, seq_len=8, hidden_dim=32
+    )
+    model = GPT2(config)
+    model.eval()
+
+    x = torch.randint(0, 64, (2, 4))
+    expected = model(x)
+
+    # 1. Save via trainer.save()
+    file_path = tmp_path / "model.safetensors"
+    trainer = Trainer(model=model, config=TrainConfig(checkpoint_dir=str(tmp_path)))
+    trainer.save(file_path)
+
+    fresh_model1 = GPT2(config)
+    fresh_model1.eval()
+    stackformer.load_weights(fresh_model1, file_path)
+    assert torch.allclose(fresh_model1(x), expected)
+
+    # 2. Save via trainer.save_checkpoint() to directory
+    ckpt_path = trainer.save_checkpoint()
+    fresh_model2 = GPT2(config)
+    fresh_model2.eval()
+    stackformer.load_weights(fresh_model2, ckpt_path)
+    assert torch.allclose(fresh_model2(x), expected)
+
+
+def test_load_weights_prefix_stripping(tmp_path):
+    """Test loading weights with module. and _orig_mod. prefixes strips cleanly."""
+    import stackformer
+
+    config = ModelConfig(
+        vocab_size=64, embed_dim=16, num_layers=1, num_heads=2, seq_len=8, hidden_dim=32
+    )
+    model = GPT2(config)
+    model.eval()
+
+    raw_state = model.state_dict()
+    prefixed_state = {}
+    for k, v in raw_state.items():
+        prefixed_state[f"module._orig_mod.{k}"] = v
+
+    pt_path = tmp_path / "prefixed.pt"
+    torch.save(prefixed_state, pt_path)
+
+    fresh = GPT2(config)
+    fresh.eval()
+    stackformer.load_weights(fresh, pt_path)
+
+    x = torch.randint(0, 64, (2, 4))
+    assert torch.allclose(fresh(x), model(x))
+
+
+def test_load_weights_error_handling(tmp_path):
+    """Test load_weights error paths: missing file, empty dir, strict key mismatch."""
+    import stackformer
+
+    config = ModelConfig(
+        vocab_size=64, embed_dim=16, num_layers=1, num_heads=2, seq_len=8, hidden_dim=32
+    )
+    model = GPT2(config)
+
+    # Non-existent file
+    with pytest.raises(FileNotFoundError, match="Checkpoint path not found"):
+        stackformer.load_weights(model, tmp_path / "non_existent.safetensors")
+
+    # Empty directory
+    empty_dir = tmp_path / "empty_dir"
+    empty_dir.mkdir()
+    with pytest.raises(FileNotFoundError, match="No model.safetensors or model.pt found"):
+        stackformer.load_weights(model, empty_dir)
+
+    # Strict key mismatch
+    diff_config = ModelConfig(
+        vocab_size=128, embed_dim=32, num_layers=2, num_heads=4, seq_len=8, hidden_dim=64
+    )
+    other_model = GPT2(diff_config)
+    other_file = tmp_path / "other.pt"
+    torch.save(other_model.state_dict(), other_file)
+
+    with pytest.raises(RuntimeError):
+        stackformer.load_weights(model, other_file, strict=True)
 
 
 def test_all_model_families_materialize_and_finite_parameters():

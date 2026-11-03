@@ -13,7 +13,7 @@ import torch
 import torch.nn as nn
 
 from stackformer.initialization import Initializer
-from stackformer.utils.checkpoint import load_model_weights, save_model_weights
+from stackformer.utils.checkpoint import load_weights
 from stackformer.utils.pretrained import download_and_load_pretrained
 
 
@@ -72,7 +72,6 @@ class BaseModel(nn.Module):
     - Parameter initialization via `create_weights(method=...)`
     - Meta-device tensor allocation via `materialize(device=...)`
     - Checkpoint loading from file or remote repository via `load_weights(path=...)`
-    - Checkpoint serialization to PyTorch or SafeTensors format via `save_weights(path)`
     - Parameter counting via `parameter_count(trainable_only=...)`
 
     Example:
@@ -83,7 +82,6 @@ class BaseModel(nn.Module):
         >>> model.create_weights()
         GPT2(...)
         >>> count = model.parameter_count()
-        >>> model.save_weights("checkpoint.safetensors")
         >>> model.load_weights("checkpoint.safetensors")
         GPT2(...)
 
@@ -190,17 +188,6 @@ class BaseModel(nn.Module):
 
         return self
 
-    def save_weights(self, path: str | Path) -> None:
-        """Save model state dictionary to disk.
-
-        Automatically selects SafeTensors format if the file extension is '.safetensors',
-        otherwise saves as a PyTorch checkpoint.
-
-        Args:
-            path (str | Path): Destination file path.
-        """
-        save_model_weights(self, path)
-
     def load_weights(
         self,
         path: str | Path | None = None,
@@ -210,8 +197,9 @@ class BaseModel(nn.Module):
         """Load model state dictionary from local path or fetch pretrained weights.
 
         Args:
-            path (str | Path | None, default=None): Checkpoint file path (.pt or .safetensors).
-                If None, calls `download_and_load_pretrained()` to fetch canonical weights.
+            path (str | Path | None, default=None): Checkpoint file path (.pt or .safetensors)
+                or checkpoint directory. If None, calls `download_and_load_pretrained()`
+                to fetch canonical weights.
             strict (bool, default=True): Enforce strict state dict matching.
             device (torch.device | str, default='cpu'): Target device for loaded weights.
 
@@ -221,7 +209,7 @@ class BaseModel(nn.Module):
         if path is None:
             download_and_load_pretrained(self)
         else:
-            load_model_weights(self, path=path, strict=strict, device=device)
+            load_weights(self, path=path, strict=strict, device=device)
         return self
 
     def parameter_count(self, trainable_only: bool = False) -> int:
