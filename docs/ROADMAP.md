@@ -4,7 +4,7 @@ This document outlines the architectural roadmap for Stackformer, detailing curr
 
 ---
 
-## 1. Version 1.0: Core Foundation & Scalable Data Parallelism
+## 1. Version 1.0: Core Foundation & Scalable Data Parallelism (Completed)
 
 The primary goal of Stackformer 1.0 is providing a clean, hackable transformer architecture library paired with a lean, Accelerate-style distributed `Trainer`.
 
@@ -21,13 +21,18 @@ The primary goal of Stackformer 1.0 is providing a clean, hackable transformer a
   - Integration with **`torch.compile`** at the per-block level.
   - Mixed precision training support (`bf16` on CPU/CUDA, `fp16` on CUDA).
 - **Persistence & Checkpointing**:
-  - Atomic single-file checkpoints (`safetensors` and PyTorch `.pt`).
+  - Atomic single-file checkpoints (`safetensors` in core dependencies and PyTorch `.pt`).
   - PyTorch **Distributed Checkpoint (DCP)** integration across sharded ranks.
   - Mid-epoch exact resume, `latest` pointer, and automated `best/` metric tracking with pruning.
-- **Observability**:
+- **Observability & Presentation**:
+  - Structured pretty output **`DisplayManager`** with Rich formatting, clean plain fallback, rank-0 gating, and verbosity controls (`quiet`, `normal`, `verbose`).
   - Modular metrics base (`Accuracy`, `Perplexity`, classification metrics).
   - Multi-backend loggers (Console, CSV, JSONL, TensorBoard, Weights & Biases).
   - Lifecycle callbacks (`Callback`, `EarlyStopping`, `LRMonitor`).
+- **Packaging & Dependency Architecture**:
+  - Single source of truth in `pyproject.toml` with `torch>=2.5,<3.0`, `numpy>=1.24,<3.0`, and `safetensors>=0.4.0` in core dependencies.
+  - Modular extras: `train` (`tqdm`, `rich`), `tensorboard`, `wandb`, `float8` (`torchao`), `dev`.
+  - Zero-vulnerability dependency tree verified via `pip-audit`.
 
 ---
 
@@ -48,16 +53,17 @@ To keep the 1.0 codebase lean, testable, and stable across platforms (including 
 
 ## 3. Post-1.0 Roadmap
 
-### Milestone v2: High-Context & Scalable Data Pipelines
+### Phase 2: High-Context & Reintegrated Parallelisms
+- **Reintegration of TP / PP / CP**: Native mesh coordination combining Data Parallelism with Tensor and Pipeline Parallelism.
 - **Context Parallelism (CP)**: Integration of ring attention with `AttentionEngine` and FlexAttention.
-- **Multimodal Resumable Data System**: Native streaming dataset loading with stateful resumption, token packing, and multimodal batching.
 - **Declarative Configuration**: Ergonomic YAML/TOML configuration layer with schema validation.
-- **Expanded Callbacks**: Gradient clipping monitors, model export callbacks, and dynamic LR adjustments.
 
-### Milestone v3: Adaptation, Quantization & Frontier Scaling
-- **Parameter-Efficient Fine-Tuning (PEFT)**: Native `LoRALinear` and `DoRALinear` adapters implemented directly within `BlockConfig`.
+### Phase 3: Adaptation, Quantization & Frontier Scaling
+- **Parameter-Efficient Fine-Tuning (PEFT)**: Native `LoRA` and `DoRA` adapters implemented directly within `BlockConfig`.
 - **Low-Precision Quantization**: Native `torchao` integration (INT8, INT4 weight-only, Float8, and NF4).
-- **Mixture of Experts (MoE)**: Expert parallel dispatchers and sparse routing kernels.
+- **Model Exporters**: Standardized ONNX and TorchDynamo AOT export helpers.
+
+### Phase 4: Data Ingestion & Evaluation Benchmarks
+- **Multimodal Resumable Data System**: Native streaming dataset loading with stateful resumption, token packing, and multimodal batching.
+- **Evaluation Harness**: Standardized task benchmarks (perplexity, zero-shot evaluation, generation benchmarks).
 - **Alignment Trainers**: Native DPO (Direct Preference Optimization) and GRPO (Group Relative Policy Optimization) trainer classes.
-- **Ecosystem Interoperability**: Bi-directional Hugging Face safetensors converters and vLLM / GGUF model export.
-- **Automated Execution Planner**: Analytical VRAM planner (`plan_training`) providing automatic sharding and batch-size recommendations.

@@ -153,3 +153,25 @@ def test_trainer_integration_with_display(tmp_path):
     assert trainer.display.is_quiet
     state = trainer.train()
     assert state.global_step == 4
+
+
+def test_display_rich_mode_missing_raises_informative_error(monkeypatch):
+    """Verify display='rich' raises an informative ImportError if rich is not installed."""
+    import sys
+    monkeypatch.setitem(sys.modules, "rich", None)
+    monkeypatch.setitem(sys.modules, "rich.console", None)
+
+    with pytest.raises(ImportError, match="pip install 'stackformer\\[train\\]'"):
+        DisplayManager(mode="rich")
+
+
+def test_display_auto_mode_missing_rich_falls_back_to_plain(monkeypatch):
+    """Verify display='auto' seamlessly falls back to plain when rich is not installed."""
+    import sys
+    monkeypatch.setitem(sys.modules, "rich", None)
+    monkeypatch.setitem(sys.modules, "rich.console", None)
+
+    display = DisplayManager(mode="auto")
+    assert display.mode == "plain"
+    assert display._has_rich is False
+

@@ -80,7 +80,12 @@ class DisplayManager:
                     highlight=False,
                 )
                 self._has_rich = True
-            except ImportError:
+            except ImportError as e:
+                if self.raw_mode == "rich":
+                    raise ImportError(
+                        "rich is required for DisplayManager(mode='rich'). "
+                        "Install it with: pip install 'stackformer[train]' or pip install rich"
+                    ) from e
                 self._has_rich = False
 
         if self.raw_mode == "plain":
