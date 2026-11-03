@@ -25,6 +25,7 @@ logs/
 
 # Checkpoints
 checkpoints/
+checkpoints*/
 
 # IDE / Editor
 .vscode/
