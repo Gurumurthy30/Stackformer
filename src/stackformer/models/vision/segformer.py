@@ -93,7 +93,7 @@ class SequenceReduction(nn.Module):
         self.layer_norm = nn.LayerNorm(hidden_size)
 
     def forward(self, x: torch.Tensor, h: int, w: int) -> torch.Tensor:
-        b, n, c = x.shape
+        b, _n, c = x.shape
         x = x.transpose(1, 2).reshape(b, c, h, w)
         x = self.sequence_reduction(x)
         x = x.reshape(b, c, -1).transpose(1, 2)
@@ -141,7 +141,7 @@ class DepthWiseConv(nn.Module):
         self.dwconv = nn.Conv2d(dim, dim, kernel_size=3, stride=1, padding=1, groups=dim)
 
     def forward(self, x: torch.Tensor, h: int, w: int) -> torch.Tensor:
-        b, n, c = x.shape
+        b, _n, c = x.shape
         x = x.transpose(1, 2).view(b, c, h, w)
         x = self.dwconv(x)
         return x.flatten(2).transpose(1, 2)

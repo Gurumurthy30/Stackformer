@@ -75,7 +75,7 @@ class StaticKVCache(nn.Module):
             v (torch.Tensor): Value projection tensor of shape ``(B, H, T, D)``.
             start_pos (int): Starting sequence index.
         """
-        B, H, T, D = k.shape
+        B, _H, T, _D = k.shape
         end_pos = start_pos + T
         assert end_pos <= self.max_len, (
             f"KV cache capacity exceeded: start_pos={start_pos} + T={T} = {end_pos} > cache length {self.max_len}"

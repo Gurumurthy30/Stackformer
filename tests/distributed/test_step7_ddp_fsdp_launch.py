@@ -176,11 +176,11 @@ def test_fsdp2_apply_on_cpu_raises_clear_error():
 
 def test_fsdp2_policy_construction_wiring():
     """Wiring test: Verify MixedPrecisionPolicy and OffloadPolicy construction (wiring, not numerical)."""
-    mp_bf16, offload_cpu = build_fsdp_policies(mixed_precision="bf16", cpu_offload=True)
+    mp_bf16, _offload_cpu = build_fsdp_policies(mixed_precision="bf16", cpu_offload=True)
     assert mp_bf16.param_dtype == torch.bfloat16
     assert mp_bf16.reduce_dtype == torch.float32
 
-    mp_none, offload_none = build_fsdp_policies(mixed_precision="no", cpu_offload=False)
+    mp_none, _offload_none = build_fsdp_policies(mixed_precision="no", cpu_offload=False)
     assert mp_none.param_dtype is None
 
 

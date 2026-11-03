@@ -197,7 +197,7 @@ class Self_Attention(nn.Module):
         )
 
     def forward(self, x, mask=True):
-        B, T, C = x.shape
+        _B, T, _C = x.shape
 
         # Project Q, K, V
         qkv = self.qkv_proj(x)  # (B, T, 3*C)

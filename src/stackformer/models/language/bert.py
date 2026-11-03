@@ -170,7 +170,7 @@ class BERT(BaseModel):
         token_type_ids: torch.Tensor | None = None,
         pad_token_id: int = 0,
     ) -> torch.Tensor:
-        B, T = input_ids.shape
+        _B, _T = input_ids.shape
 
         if token_type_ids is None:
             token_type_ids = torch.zeros_like(input_ids)
