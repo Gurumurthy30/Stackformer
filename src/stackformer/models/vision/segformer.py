@@ -336,6 +336,8 @@ class StackFormerSegformer(BaseModel):
         variant: str = "b4",
         num_labels: int = 150,
         dropout: float = 0.0,
+        device: torch.device | str | None = None,
+        dtype: torch.dtype | None = None,
         config: Any = None,
         **kwargs: Any,
     ) -> None:
@@ -345,6 +347,8 @@ class StackFormerSegformer(BaseModel):
             variant=variant,
             num_labels=num_labels,
             dropout=dropout,
+            device=device,
+            dtype=dtype,
             **kwargs,
         )
         resolved_config = cfg or config
@@ -353,11 +357,16 @@ class StackFormerSegformer(BaseModel):
         variant = str(resolved.get("variant", variant)).lower()
         num_labels = resolved.get("num_labels", num_labels)
         dropout = resolved.get("dropout", dropout)
+        device = resolved.get("device", device)
+        dtype = resolved.get("dtype", dtype)
 
         self.segformer = MixVisionEncoder(variant, dropout=dropout)
         self.decode_head = DecodeHead(variant, num_labels, dropout=0.1)
 
         self.create_weights()
+
+        if device is not None or dtype is not None:
+            self.to(device=device, dtype=dtype)
 
     def _init_weights(self, m: nn.Module) -> None:
         if isinstance(m, nn.Linear):

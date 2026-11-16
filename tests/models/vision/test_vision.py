@@ -51,8 +51,17 @@ def test_vit_device_and_dtype():
         device="cpu",
         dtype=torch.float64,
     )
+    assert model.cls_token.dtype == torch.float64, "cls_token must match dtype"
+    assert model.pos_embed.dtype == torch.float64, "pos_embed must match dtype"
     for name, p in model.named_parameters():
-        assert p.dtype == torch.float64, f"Parameter {name} has wrong dtype {p.dtype}"
+        assert p.dtype == torch.float64, f"ViT parameter {name} has wrong dtype {p.dtype}"
+
+
+def test_segformer_device_and_dtype():
+    """Finding #41: SegFormer should accept device and dtype and apply to all parameters."""
+    model = SegFormer(variant="b0", num_labels=5, device="cpu", dtype=torch.float64)
+    for name, p in model.named_parameters():
+        assert p.dtype == torch.float64, f"SegFormer parameter {name} has wrong dtype {p.dtype}"
 
 
 def test_patch_embedding(torch_device):
