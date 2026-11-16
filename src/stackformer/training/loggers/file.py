@@ -100,6 +100,10 @@ class CSVLogger(Logger):
         self._writer.writerow(row)
         self._file.flush()
 
+    def flush(self) -> None:
+        if self._file is not None and not self._file.closed:
+            self._file.flush()
+
     def finish(self) -> None:
         if self._file is not None and not self._file.closed:
             self._file.flush()
@@ -161,6 +165,10 @@ class JSONLLogger(Logger):
         }
         self._file.write(json.dumps(record) + "\n")
         self._file.flush()
+
+    def flush(self) -> None:
+        if self._file is not None and not self._file.closed:
+            self._file.flush()
 
     def finish(self) -> None:
         if self._file is not None and not self._file.closed:

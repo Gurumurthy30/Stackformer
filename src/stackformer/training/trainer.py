@@ -3,9 +3,16 @@
 from __future__ import annotations
 
 import copy
+import random
+import warnings
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
+
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 import torch
 import torch.nn as nn
@@ -26,8 +33,30 @@ from .state import TrainState
 from .utils import forward_batch, prepare_inputs, warn_if_unseeded_shuffle
 
 
+def _seed_training_rngs(seed: int) -> None:
+    """Seed random, numpy, and torch RNGs for training reproducibility.
+
+    Note:
+        Seeding in Trainer cannot affect model weight initialization performed
+        earlier by the caller.
+    """
+    random.seed(seed)
+    if np is not None:
+        np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
 class Trainer:
-    """Small, readable, Accelerate-like Trainer for Stackformer models."""
+    """Small, readable, Accelerate-like Trainer for Stackformer models.
+
+    Note:
+        Random seeds in `TrainConfig.seed` are applied during `Trainer` initialization
+        to seed Python, NumPy, and PyTorch RNGs for training reproducibility (dropout,
+        data shuffling, sampling). This cannot affect model weight initialization
+        performed earlier by the caller.
+    """
 
     def __init__(
         self,
@@ -45,6 +74,12 @@ class Trainer:
     ) -> None:
         self.model = model
 
+        if kwargs:
+            valid_fields = {f.name for f in TrainConfig.__dataclass_fields__.values()}
+            unknown = set(kwargs) - valid_fields
+            if unknown:
+                raise TypeError(f"Unknown Trainer/TrainConfig argument(s): {sorted(unknown)}")
+
         if config is None:
             self.config = TrainConfig(**kwargs) if kwargs else TrainConfig()
         else:
@@ -52,6 +87,17 @@ class Trainer:
                 TrainConfig.from_dict({**config.to_dict(), **kwargs})
                 if kwargs
                 else copy.deepcopy(config)
+            )
+
+        _seed_training_rngs(self.config.seed)
+
+        self._closed = False
+        if self.config.metrics_on_train:
+            warnings.warn(
+                "TrainConfig.metrics_on_train is not implemented and will be ignored. "
+                "Training metrics are not computed per batch.",
+                UserWarning,
+                stacklevel=2,
             )
 
         if loss is not None:
@@ -112,6 +158,40 @@ class Trainer:
     def _forward(self, batch: Any) -> torch.Tensor:
         return forward_batch(self.model, batch)
 
+    def _optimizer_step(self, num_accumulated: int, accum_loss: float) -> float:
+        accum_steps = self.config.grad_accum_steps
+        self.precision.unscale_(self.optimizer)
+
+        if num_accumulated != accum_steps:
+            scale_factor = accum_steps / num_accumulated
+            for p in self.model.parameters():
+                if p.grad is not None:
+                    p.grad.mul_(scale_factor)
+
+        if self.config.max_grad_norm is not None:
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.max_grad_norm)
+
+        self.precision.step(self.optimizer)
+        self.optimizer.zero_grad(set_to_none=True)
+
+        if self.scheduler is not None:
+            self.scheduler.step()
+
+        self.state.global_step += 1
+        step_loss = accum_loss / num_accumulated
+
+        lr_curr = self.optimizer.param_groups[0]["lr"]
+        events.dispatch_step_end(self, self.state.global_step, {"loss": step_loss, "lr": lr_curr})
+
+        step = self.state.global_step
+        if self.config.save_every_n_steps and step % self.config.save_every_n_steps == 0:
+            self.save_checkpoint()
+        if self.config.eval_every_n_steps and step % self.config.eval_every_n_steps == 0:
+            self.evaluate()
+            self.model.train()
+
+        return step_loss
+
     def _restore_checkpoint_if_requested(self) -> bool:
         return bool(
             self.config.resume_from
@@ -170,6 +250,7 @@ class Trainer:
 
                 running_loss = 0.0
                 accum_loss = 0.0
+                accum_count = 0
                 skipped = 0
 
                 for batch in pbar:
@@ -188,42 +269,17 @@ class Trainer:
 
                     self.precision.scale_loss(scaled_loss).backward()
                     accum_loss += loss.item()
+                    accum_count += 1
 
-                    if self.state.total_micro_batches % accum_steps == 0:
-                        if self.config.max_grad_norm is not None:
-                            self.precision.unscale_(self.optimizer)
-                            torch.nn.utils.clip_grad_norm_(
-                                self.model.parameters(), self.config.max_grad_norm
-                            )
-
-                        self.precision.step(self.optimizer)
-                        self.optimizer.zero_grad(set_to_none=True)
-
-                        if self.scheduler is not None:
-                            self.scheduler.step()
-
-                        self.state.global_step += 1
-                        running_loss = accum_loss / accum_steps
+                    if accum_count == accum_steps:
+                        running_loss = self._optimizer_step(
+                            num_accumulated=accum_steps, accum_loss=accum_loss
+                        )
                         accum_loss = 0.0
+                        accum_count = 0
 
                         lr_curr = self.optimizer.param_groups[0]["lr"]
                         pbar.set_postfix(loss=running_loss, lr=lr_curr, step=self.state.global_step)
-                        events.dispatch_step_end(
-                            self, self.state.global_step, {"loss": running_loss, "lr": lr_curr}
-                        )
-
-                        step = self.state.global_step
-                        if (
-                            self.config.save_every_n_steps
-                            and step % self.config.save_every_n_steps == 0
-                        ):
-                            self.save_checkpoint()
-                        if (
-                            self.config.eval_every_n_steps
-                            and step % self.config.eval_every_n_steps == 0
-                        ):
-                            self.evaluate()
-                            self.model.train()
 
                         if self.state.should_stop or (
                             max_steps is not None and self.state.global_step >= max_steps
@@ -232,6 +288,14 @@ class Trainer:
                             break
 
                 pbar.close()
+
+                # Flush any trailing micro-batches at epoch end (#35)
+                if accum_count > 0:
+                    running_loss = self._optimizer_step(
+                        num_accumulated=accum_count, accum_loss=accum_loss
+                    )
+                    accum_loss = 0.0
+                    accum_count = 0
 
                 events.dispatch_epoch_end(self, epoch, {"epoch_loss": running_loss})
 
@@ -253,7 +317,7 @@ class Trainer:
             raise
         finally:
             events.dispatch_train_end(self)
-            self.close()
+            events.flush_loggers(self)
 
         return self.state
 
@@ -295,5 +359,8 @@ class Trainer:
         save_model_weights(self.model, path)
 
     def close(self) -> None:
-        """Close and flush all active loggers."""
+        """Close and flush all active loggers (idempotent)."""
+        if getattr(self, "_closed", False):
+            return
+        self._closed = True
         events.close_loggers(self)

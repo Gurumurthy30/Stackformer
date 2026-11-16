@@ -35,6 +35,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Deleted legacy TorchTitan source copies in favor of 15 clean BSD-3 licensed modules in `ops/`, `quantization/`, and `distributed/`.
 - **Model Registry and Exports**: Removed non-functional scaffold classes `EncoderDecoder`, `Decoder`, and `GPTDecoder` from public language exports (#33). Updated `get_model()` to accept hyphenated architecture names such as `"gpt-2"` and `"llama-2"` (#40).
 - **Generation Config Precedence**: `text_generate` now warns when explicit sampling arguments are passed alongside `generation_config` (#31).
+- **Trainer Argument Validation**: `Trainer.__init__` validates keyword arguments against `TrainConfig` dataclass fields and raises `TypeError` on unknown kwargs (#36).
+- **Trainer Seed Initialization**: `Trainer` applies `TrainConfig.seed` during initialization to seed Python, NumPy, PyTorch, and CUDA RNGs for training reproducibility (#34).
+- **Logger Lifecycle**: `Trainer.train()` flushes loggers upon completion without closing them, allowing subsequent `Trainer.evaluate()` calls to log metrics, and `Trainer.close()` is now idempotent (#37).
+- **Safetensors Load Error Handling**: `stackformer.load_weights` inspects keys using `safetensors.safe_open` and only triggers wrapper-prefix stripping fallback when prefixed keys are present, preserving strict-load error semantics (#39).
 
 ### Fixed
 - **Attention Padding Masking**: Fixed BERT and RoBERTa attention mask propagation through `TransformerEncoder` and attention modules to properly mask padding tokens without evaluating tensor truthiness (#29).
@@ -42,6 +46,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Pretrained Weights Stub**: `BaseModel.load_weights()` with no path now raises `NotImplementedError` rather than silently acting as a no-op (#32).
 - **ViT Device & Dtype**: `ViT` now accepts and propagates `device` and `dtype` parameters to all submodules (#41).
 - **RoPE Cache Bounding**: Global rotary embedding cache is now bounded to 32 entries using LRU eviction and sequence length bucketing (#42).
+- **Gradient Accumulation Epoch-End Flush**: Trailing micro-batches at epoch boundaries are flushed with gradient rescaling by `accum_steps / pending`, and the accumulation counter is reset per window (#35).
+- **Epoch Loss Logging**: Epoch loss is now dispatched and logged to all active loggers under the `epoch/epoch_loss` metric namespace (#37).
+- **LRMonitor Double-Logging**: `LRMonitor` now updates the step metrics dictionary in place rather than creating duplicate, loss-less rows in file loggers (#37).
+- **DDP Checkpoint Race Condition**: Non-DCP checkpoint saving is now gated to rank 0 with barrier synchronization across ranks, and distributed evaluation metrics are all-reduced with `dist_mean` (#38).
 
 ---
 

@@ -100,6 +100,7 @@ def load_weights(
 
     if path_obj.suffix.lower() == ".safetensors":
         try:
+            import safetensors
             import safetensors.torch
 
             unwrapped = model
@@ -114,8 +115,18 @@ def load_weights(
                     unwrapped, str(path_obj), strict=strict, device=str(device)
                 )
                 return model
-            except Exception:
-                # Fallback to load_file if keys have wrapper prefixes or need custom handling
+            except Exception as load_err:
+                try:
+                    with safetensors.safe_open(str(path_obj), framework="pt", device="cpu") as f:
+                        keys = list(f.keys())
+                except Exception:
+                    raise load_err from None
+
+                has_wrapper_prefix = any("_orig_mod." in k or k.startswith("module.") for k in keys)
+                if not has_wrapper_prefix:
+                    raise load_err
+
+                # Fallback to load_file if keys have wrapper prefixes needing custom handling
                 state_dict = safetensors.torch.load_file(str(path_obj), device=str(device))
         except ImportError as e:
             raise ImportError(

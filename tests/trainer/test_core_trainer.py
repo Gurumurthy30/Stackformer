@@ -431,3 +431,52 @@ def test_cross_entropy_loss_mode_paths():
     # 3. Invalid mode raises ValueError
     with pytest.raises(ValueError, match="'loss_mode' must be one of"):
         TrainConfig(loss_mode="invalid")
+
+
+def test_trainer_rejects_unknown_kwargs():
+    """Finding #36: Trainer must raise TypeError for unknown kwargs in both config and no-config styles."""
+    model = create_tiny_gpt()
+    cfg = TrainConfig(max_epochs=1)
+
+    # Style 1: with explicit config and unknown kwarg
+    with pytest.raises(TypeError, match="Unknown Trainer/TrainConfig argument"):
+        Trainer(model=model, config=cfg, eval_loader=None, unknown_arg=123)
+
+    # Style 2: without config and unknown kwarg
+    with pytest.raises(TypeError, match="Unknown Trainer/TrainConfig argument"):
+        Trainer(model=model, eval_loader=None, unknown_arg=123)
+
+
+def test_trainer_applies_seed_reproducibility():
+    """Finding #34: Trainer applies config.seed so runs with identical initial weights and seed produce identical results."""
+    cfg_model = ModelConfig(
+        vocab_size=32,
+        num_layers=1,
+        embed_dim=16,
+        num_heads=2,
+        seq_len=8,
+        hidden_dim=32,
+        dropout=0.5,
+    )
+    m1 = GPT2(cfg_model)
+    m2 = GPT2(cfg_model)
+    m2.load_state_dict(copy.deepcopy(m1.state_dict()))
+
+    # Verify dropout causes divergence when seed is not reset between runs
+    x = torch.randint(0, 32, (8, 6))
+    ds1 = TensorDataset(x, x)
+    ds2 = TensorDataset(x, x)
+    loader1 = DataLoader(ds1, batch_size=4, shuffle=False)
+    loader2 = DataLoader(ds2, batch_size=4, shuffle=False)
+
+    cfg = TrainConfig(max_epochs=1, seed=42, lr=1e-3)
+    t1 = Trainer(model=m1, config=cfg, train_loader=loader1)
+    t1.train()
+
+    t2 = Trainer(model=m2, config=cfg, train_loader=loader2)
+    t2.train()
+
+    for p1, p2 in zip(m1.parameters(), m2.parameters(), strict=True):
+        assert torch.allclose(p1, p2), (
+            "Identically configured Trainer runs must produce identical parameters"
+        )

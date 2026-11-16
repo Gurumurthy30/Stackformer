@@ -38,6 +38,10 @@ class TensorBoardLogger(Logger):
             return
         self.writer.add_text(tag, text, global_step=step)
 
+    def flush(self) -> None:
+        if self.writer is not None:
+            self.writer.flush()
+
     def finish(self) -> None:
         if self.writer is not None:
             self.writer.flush()

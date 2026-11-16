@@ -10,7 +10,11 @@ import torch
 class TrainStats:
     """Helper for tracking step time, throughput, learning rates, and memory.
 
-    Note: This is an operational trainer statistic tracker, not an evaluation Metric subclass.
+    Note:
+        This is an operational throughput tracking utility class, not an evaluation
+        Metric subclass, and is not automatically wired into `Trainer`. Users who
+        need step-time or token-throughput logging can instantiate and update
+        `TrainStats` within custom training loops or callbacks.
     """
 
     def __init__(self) -> None:

@@ -122,3 +122,132 @@ def test_wandb_logger_import_hint(monkeypatch):
 
     with pytest.raises(ImportError, match="pip install wandb"):
         WandbLogger(project="test-proj")
+
+
+class InMemoryLogger(CSVLogger):
+    def __init__(self):
+        self.metrics_history: list[tuple[int, dict[str, float]]] = []
+        self.flushed = False
+        self.finished = False
+
+    def log_metrics(self, metrics: dict[str, float], step: int) -> None:
+        self.metrics_history.append((step, metrics))
+
+    def flush(self) -> None:
+        self.flushed = True
+
+    def finish(self) -> None:
+        self.finished = True
+
+
+def test_epoch_metrics_logged_to_loggers():
+    """Finding #37(a): dispatch_epoch_end logs epoch metrics to all registered loggers."""
+    from torch.utils.data import DataLoader, TensorDataset
+
+    from stackformer.config import ModelConfig
+    from stackformer.models import GPT2
+    from stackformer.training import TrainConfig, Trainer
+
+    cfg = ModelConfig(
+        vocab_size=32, embed_dim=16, num_layers=1, num_heads=2, seq_len=8, hidden_dim=32
+    )
+    model = GPT2(cfg)
+    x = torch.randint(0, 32, (8, 6))
+    loader = DataLoader(TensorDataset(x, x), batch_size=4)
+
+    logger = InMemoryLogger()
+    trainer = Trainer(
+        model=model,
+        train_loader=loader,
+        config=TrainConfig(max_epochs=1, lr=1e-3),
+        loggers=[logger],
+    )
+    trainer.train()
+
+    epoch_metrics = [m for _, m in logger.metrics_history if "epoch/epoch_loss" in m]
+    assert len(epoch_metrics) == 1, "Epoch loss must reach registered loggers"
+    assert isinstance(epoch_metrics[0]["epoch/epoch_loss"], float)
+
+
+def test_loggers_remain_active_after_train_until_close():
+    """Finding #37(e): train() flushes loggers without closing them, allowing evaluate() to log, and close() is idempotent."""
+    from torch.utils.data import DataLoader, TensorDataset
+
+    from stackformer.config import ModelConfig
+    from stackformer.models import GPT2
+    from stackformer.training import TrainConfig, Trainer
+
+    cfg = ModelConfig(
+        vocab_size=32, embed_dim=16, num_layers=1, num_heads=2, seq_len=8, hidden_dim=32
+    )
+    model = GPT2(cfg)
+    x = torch.randint(0, 32, (8, 6))
+    loader = DataLoader(TensorDataset(x, x), batch_size=4)
+
+    logger = InMemoryLogger()
+    trainer = Trainer(
+        model=model,
+        train_loader=loader,
+        val_loader=loader,
+        config=TrainConfig(max_epochs=1, lr=1e-3),
+        loggers=[logger],
+    )
+    trainer.train()
+
+    assert logger.flushed is True
+    assert logger.finished is False, "loggers must not be finalized in train() finally block"
+
+    # evaluate() works after train() and logs metrics
+    trainer.evaluate()
+    val_logs = [m for _, m in logger.metrics_history if "val_loss" in m]
+    assert len(val_logs) >= 1, (
+        "evaluate() after train() must successfully record metrics to loggers"
+    )
+
+    # Trainer.close() closes loggers and is idempotent
+    trainer.close()
+    assert logger.finished is True
+    trainer.close()  # Must not error on repeated close
+
+
+def test_lr_monitor_does_not_double_log_lr():
+    """Finding #37(d): LRMonitor enriches step metrics in place without writing duplicate logger rows."""
+    from unittest.mock import MagicMock
+
+    from stackformer.training.callbacks.lr_monitor import LRMonitor
+
+    opt = MagicMock()
+    opt.param_groups = [{"lr": 0.001}]
+    trainer = MagicMock()
+    trainer.optimizer = opt
+
+    monitor = LRMonitor()
+    metrics = {"loss": 1.0, "lr": 0.001}
+    monitor.on_step_end(trainer, step=1, metrics=metrics)
+    assert metrics == {"loss": 1.0, "lr": 0.001}
+
+    # Step metrics without 'lr'
+    metrics2 = {"loss": 0.9}
+    monitor.on_step_end(trainer, step=2, metrics=metrics2)
+    assert metrics2 == {"loss": 0.9, "lr": 0.001}
+
+    # Multiple param groups
+    opt.param_groups = [{"lr": 0.001}, {"lr": 0.0005}]
+    metrics3 = {"loss": 0.8}
+    monitor.on_step_end(trainer, step=3, metrics=metrics3)
+    assert metrics3 == {"loss": 0.8, "lr": 0.001, "lr/group_0": 0.001, "lr/group_1": 0.0005}
+
+
+def test_metrics_on_train_emits_warning():
+    """Finding #37(b): Trainer emits a UserWarning when metrics_on_train=True."""
+    from stackformer.config import ModelConfig
+    from stackformer.models import GPT2
+    from stackformer.training import TrainConfig, Trainer
+
+    cfg = ModelConfig(
+        vocab_size=32, embed_dim=16, num_layers=1, num_heads=2, seq_len=8, hidden_dim=32
+    )
+    model = GPT2(cfg)
+
+    with pytest.warns(UserWarning, match="metrics_on_train is not implemented"):
+        Trainer(model=model, config=TrainConfig(metrics_on_train=True, max_epochs=1))

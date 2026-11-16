@@ -332,6 +332,13 @@ def test_load_weights_error_handling(tmp_path):
     with pytest.raises(RuntimeError):
         stackformer.load_weights(model, other_file, strict=True)
 
+    other_st_file = tmp_path / "other.safetensors"
+    import safetensors.torch
+
+    safetensors.torch.save_model(other_model, str(other_st_file))
+    with pytest.raises(RuntimeError):
+        stackformer.load_weights(model, other_st_file, strict=True)
+
 
 def test_all_model_families_materialize_and_finite_parameters():
     cfg = ModelConfig(

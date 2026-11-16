@@ -35,6 +35,10 @@ class Logger(abc.ABC):
         """Log visual figures or plots."""
         pass
 
+    def flush(self) -> None:
+        """Flush pending buffered writes to disk or network."""
+        pass
+
     def finish(self) -> None:
         """Flush buffers and cleanly finalize logger sessions."""
         pass

@@ -38,14 +38,31 @@ def run_evaluation(trainer: Any) -> dict[str, float]:
                 m.update(outputs, batch)
 
     avg_loss = total_loss / max(1, num_batches)
+
+    from stackformer.distributed.utils import dist_mean, is_distributed_initialized
+
+    is_dist = is_distributed_initialized() and torch.distributed.get_world_size() > 1
+    if is_dist:
+        dev = trainer.device if trainer.device.type != "meta" else torch.device("cpu")
+        loss_t = torch.tensor(avg_loss, dtype=torch.float32, device=dev)
+        avg_loss = float(dist_mean(loss_t).item())
+
     eval_metrics = {"val_loss": avg_loss}
 
     for m in trainer.metrics:
         res = m.compute()
         if isinstance(res, dict):
             for k, v in res.items():
+                if is_dist:
+                    dev = trainer.device if trainer.device.type != "meta" else torch.device("cpu")
+                    v_t = torch.tensor(float(v), dtype=torch.float32, device=dev)
+                    v = float(dist_mean(v_t).item())
                 eval_metrics[f"val_{k}"] = v
         else:
+            if is_dist:
+                dev = trainer.device if trainer.device.type != "meta" else torch.device("cpu")
+                res_t = torch.tensor(float(res), dtype=torch.float32, device=dev)
+                res = float(dist_mean(res_t).item())
             eval_metrics[f"val_{m.name}"] = res
 
     # Callbacks and loggers dispatch

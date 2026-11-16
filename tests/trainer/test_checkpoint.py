@@ -425,3 +425,66 @@ def test_state_pt_weights_only_behavior(tmp_path):
     assert (ckpt_dir / "model.safetensors").exists(), (
         "Zero-copy safe model weights must be stored as safetensors"
     )
+
+
+def test_distributed_rank_gating_checkpoint_save(tmp_path, monkeypatch):
+    """Finding #38: Under non-DCP distributed training, non-zero ranks wait on barrier and rank 0 writes."""
+    from unittest.mock import MagicMock
+
+    import stackformer.distributed.utils as dist_utils
+
+    barrier_mock = MagicMock()
+    monkeypatch.setattr(torch.distributed, "barrier", barrier_mock)
+    monkeypatch.setattr(torch.distributed, "get_world_size", lambda: 2)
+    monkeypatch.setattr(dist_utils, "is_distributed_initialized", lambda: True)
+
+    mgr = CheckpointManager(checkpoint_dir=tmp_path)
+    model = create_tiny_model()
+    st = TrainState(epoch=0, global_step=1)
+
+    # Rank 1: should call barrier and return target_dir without writing
+    monkeypatch.setattr(dist_utils, "is_rank_zero", lambda: False)
+    target_dir = mgr.save(model, st)
+    assert barrier_mock.call_count == 1
+    assert not target_dir.exists(), "Rank 1 must not write checkpoint files"
+
+    # Rank 0: should write checkpoint and call barrier at the end
+    barrier_mock.reset_mock()
+    monkeypatch.setattr(dist_utils, "is_rank_zero", lambda: True)
+    target_dir0 = mgr.save(model, st)
+    assert barrier_mock.call_count == 1
+    assert target_dir0.exists(), "Rank 0 must write checkpoint files"
+    assert (target_dir0 / "meta.json").exists()
+
+
+def test_distributed_evaluation_all_reduces_metrics(tmp_path, monkeypatch):
+    """Finding #38: In distributed training, run_evaluation all-reduces val_loss across ranks."""
+    from unittest.mock import MagicMock
+
+    import stackformer.distributed.utils as dist_utils
+    from stackformer.training.evaluation import run_evaluation
+
+    # Mock distributed setup
+    monkeypatch.setattr(torch.distributed, "barrier", MagicMock())
+    monkeypatch.setattr(torch.distributed, "get_world_size", lambda: 2)
+    monkeypatch.setattr(torch.distributed, "get_rank", lambda: 0)
+    monkeypatch.setattr(dist_utils, "is_distributed_initialized", lambda: True)
+    monkeypatch.setattr(dist_utils, "is_rank_zero", lambda: True)
+
+    dist_mean_called = []
+
+    def fake_dist_mean(tensor, group=None):
+        dist_mean_called.append(tensor.item())
+        return tensor * 0.5
+
+    monkeypatch.setattr(dist_utils, "dist_mean", fake_dist_mean)
+
+    model = create_tiny_model()
+    x = torch.randint(0, 64, (4, 8))
+    loader = DataLoader(TensorDataset(x, x), batch_size=2)
+    cfg = TrainConfig(max_epochs=1, checkpoint_dir=str(tmp_path))
+    trainer = Trainer(model=model, val_loader=loader, config=cfg)
+
+    metrics = run_evaluation(trainer)
+    assert len(dist_mean_called) >= 1, "dist_mean must be called to all-reduce val_loss"
+    assert "val_loss" in metrics

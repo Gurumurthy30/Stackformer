@@ -18,10 +18,8 @@ class LRMonitor(Callback):
         if not lrs:
             return
 
-        lr_metrics = {"lr": lrs[0]}
+        if "lr" not in metrics:
+            metrics["lr"] = lrs[0]
         if len(lrs) > 1:
             for idx, lr in enumerate(lrs):
-                lr_metrics[f"lr/group_{idx}"] = lr
-
-        for logger in trainer.loggers:
-            logger.log_metrics(lr_metrics, step=step)
+                metrics[f"lr/group_{idx}"] = lr

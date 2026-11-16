@@ -31,9 +31,12 @@ def dispatch_step_end(trainer: Any, step: int, metrics: dict[str, float]) -> Non
 
 
 def dispatch_epoch_end(trainer: Any, epoch: int, metrics: dict[str, float]) -> None:
-    """Notify callbacks that an epoch has ended."""
+    """Notify callbacks and log epoch-level training metrics."""
     for cb in trainer.callbacks:
         cb.on_epoch_end(trainer, epoch, metrics)
+    epoch_metrics = {f"epoch/{k}": v for k, v in metrics.items()}
+    for lg in trainer.loggers:
+        lg.log_metrics(epoch_metrics, step=trainer.state.global_step)
 
 
 def dispatch_checkpoint_save(trainer: Any, path: str) -> None:
@@ -47,6 +50,13 @@ def dispatch_train_end(trainer: Any) -> None:
     for cb in trainer.callbacks:
         with contextlib.suppress(Exception):
             cb.on_train_end(trainer)
+
+
+def flush_loggers(trainer: Any) -> None:
+    """Safely flush all registered loggers without finalizing sessions."""
+    for lg in trainer.loggers:
+        with contextlib.suppress(Exception):
+            lg.flush()
 
 
 def close_loggers(trainer: Any) -> None:
