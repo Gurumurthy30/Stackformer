@@ -317,7 +317,7 @@ class StackFormerSegformer(BaseModel):
 
     Example:
         >>> import torch
-        >>> from stackformer.vision import SegFormerB0
+        >>> from stackformer.models.vision import SegFormerB0
         >>> model = SegFormerB0(num_labels=150)
         >>> x = torch.randn(2, 3, 512, 512)
         >>> logits = model(x)

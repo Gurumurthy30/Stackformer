@@ -62,7 +62,7 @@ Stackformer/
 | :--- | :--- |
 | `stackformer.modules` | The foundation of StackFormer: `BlockConfig`, `TransformerEncoder`, `TransformerDecoder`, `attention`, `feed_forward`, `normalization`, and `position_embedding`. |
 | `stackformer.models` | Pre-assembled standard language model architectures (GPT-1, GPT-2, LLaMA-1, LLaMA-2, Gemma-1, BERT, RoBERTa, Vaswani Transformer). |
-| `stackformer.vision` | Computer vision Transformer architectures: Vision Transformer (`ViT`) and `SegFormer`. |
+| `stackformer.models.vision` | Computer vision Transformer architectures: Vision Transformer (`ViT`) and `SegFormer`. |
 | `stackformer.cache` | KV-cache implementations: `StaticKVCache` and `PagedKVCache`. |
 | `stackformer.generate` | Autoregressive text generation loop and sampling strategies (greedy, temperature, top-k, nucleus top-p). |
 | `stackformer.config` | Declarative dataclasses for model configuration (`ModelConfig`) and sequence decoding (`GenerationConfig`). |

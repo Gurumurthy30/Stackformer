@@ -51,7 +51,7 @@ Declarative spec object passed to `EncoderBlock`, `DecoderBlock`, `TransformerEn
 
 ---
 
-## Model Zoo (`stackformer.models` & `stackformer.vision`)
+## Model Zoo (`stackformer.models`)
 
 - `GPT1` / `GPT2` (Aliases: `GPT_1`, `GPT_2`)
 - `Llama1` / `Llama2` (Aliases: `llama_1`, `llama_2`, `Llama_1`, `Llama_2`)

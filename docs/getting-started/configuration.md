@@ -68,8 +68,21 @@ print(f"Instantiated GPT-2 with {cfg.num_layers} layers and {cfg.embed_dim} embe
 ### Usage Example
 
 ```python
-from stackformer import text_generate
+import torch
+from stackformer import GPT2, ModelConfig, text_generate
 from stackformer.config import GenerationConfig
+
+# Instantiate a minimal model for generation
+model = GPT2(
+    ModelConfig(
+        vocab_size=10000,
+        num_layers=1,
+        embed_dim=32,
+        num_heads=2,
+        seq_len=64,
+        hidden_dim=128,
+    )
+)
 
 # Define creative sampling profile
 gen_cfg = GenerationConfig(

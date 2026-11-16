@@ -8,8 +8,8 @@ This guide covers installing StackFormer from PyPI, building from source for dev
 
 Before installing StackFormer, ensure your environment meets the following specifications:
 
-- **Python**: `>= 3.10` (Tested on 3.10, 3.11, and 3.12).
-- **PyTorch**: `>= 2.0` (StackFormer relies on native `torch.nn` and `F.scaled_dot_product_attention`).
+- **Python**: `>= 3.10` (Tested on 3.10 and 3.11 in CI, compatible with 3.12).
+- **PyTorch**: `>= 2.5, < 3.0` (StackFormer relies on native `torch.nn` and `F.scaled_dot_product_attention`).
 - **Operating Systems**: Linux (Ubuntu 20.04+), macOS (Apple Silicon / Intel), Windows 10/11.
 - **Hardware**: Compatible with CPU, Apple Silicon (MPS), and NVIDIA CUDA GPUs.
 
@@ -74,7 +74,7 @@ The `.[dev]` extra installs:
 
 ## 4. Optional Extras
 
-StackFormer maintains a lean core dependency footprint (`torch`, `numpy`, `tqdm`, `safetensors`). Experiment loggers are optional:
+StackFormer maintains a lean core dependency footprint (`torch`, `numpy`, `safetensors`). Optional dependencies like `tqdm` (for progress bars in `.[train]`) and experiment loggers are available via extras:
 
 ### TensorBoard & Weights & Biases
 

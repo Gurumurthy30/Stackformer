@@ -10,10 +10,10 @@ Stackformer stores training checkpoints in modular directories structured as fol
 
 ```
 checkpoint_dir/
-├── step_00000100/
+├── epoch_001_step_00100/
 │   ├── model.safetensors       # Model weights stored in zero-copy, safe binary format
 │   ├── state.pt                # Optimizer, LR scheduler, step metadata, and RNG states
-│   └── trainer_config.json     # Serialized TrainConfig hyperparameters
+│   └── meta.json               # Step, epoch, metrics, timestamp, and torch version
 └── latest                      # Plain-text pointer referencing the latest step directory
 ```
 

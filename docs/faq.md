@@ -24,7 +24,7 @@ StackFormer is a **modular Transformer architecture framework** designed for arc
 | **Model Zoo** | GPT-2 only | GPT-1/2, LLaMA-1/2, Gemma-1, BERT, RoBERTa, Vaswani Transformer, ViT, SegFormer |
 | **Composability** | Hardcoded attention and MLP blocks | Declarative `BlockConfig` (10 attention variants, 7 FFNs, 2 norms) |
 | **Training Engine** | Custom loop in `train.py` | Standard PyTorch `nn.Module` compatible with any trainer or framework |
-| **Inference** | Simple top-k script | Stateful KV-cache accelerated `text_generate()`, `prefill()`, and `decode()` |
+| **Inference** | Simple top-k script | Autoregressive `text_generate()` with planned `prefill()` and `decode()` KV cache acceleration |
 
 ---
 

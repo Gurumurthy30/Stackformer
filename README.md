@@ -35,7 +35,7 @@ Stackformer provides a third approach: composable PyTorch building blocks paired
 - **Accelerate-Style Trainer:** Single `Trainer` interface supporting Distributed Data Parallel (DDP), Fully Sharded Data Parallel (FSDP2), mixed precision, activation checkpointing, and block-level compilation.
 - **Dual Checkpointing Engine:** Clean separation between pure weights (`.safetensors` in core dependencies) and training runtime state (`state.pt` / PyTorch Distributed Checkpoint).
 - **Interactive Multi-Process Launcher:** Notebook-compatible distributed launcher (`launch()`) with automatic platform configuration and worker error propagation.
-- **Zero-Warning Quality Foundation:** Strictly typed codebase, zero-error Pyright compliance, Ruff linting/formatting, and Bandit security verification.
+- **Zero-Warning Quality Foundation:** Pyright typing validation for training and distributed engines, Ruff linting/formatting, and Bandit security verification.
 
 ---
 
@@ -126,6 +126,7 @@ trainer.train()
 ### 3. Save and Reload Checkpoints
 
 ```python
+# Continuing from step 2 (uses `trainer` and `model` defined above)
 import stackformer
 from stackformer.models.language import GPT2
 
@@ -269,7 +270,7 @@ stackformer/
 ├── examples/                   # 5 runnable CPU notebooks (GPT-2, BERT, ViT, SegFormer, Seq2Seq)
 ├── benchmarks/                 # Throughput and memory scaling benchmarks (planned)
 ├── docs/                       # Documentation site, roadmap, and guides
-├── tests/                      # 270+ unit, integration, and distributed tests
+├── tests/                      # Comprehensive unit, integration, and distributed test suite
 └── pyproject.toml              # Single source of truth configuration
 ```
 

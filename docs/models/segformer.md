@@ -8,7 +8,7 @@ Unlike standard Vision Transformers that output single-scale low-resolution feat
 3. **Spatial Reduction Attention (SRA)**: Downsamples Key and Value sequence lengths, reducing quadratic attention complexity to manageable bounds on high-resolution inputs.
 4. **Lightweight All-MLP Decoder**: Avoids heavy dilated convolutions or complex feature pyramid networks by simply aggregating multi-level features via MLPs.
 
-In StackFormer, SegFormer is available in `stackformer.vision` as `SegFormer` (or `StackFormerSegformer`).
+In StackFormer, SegFormer is available in `stackformer.models.vision` as `SegFormer` (or `StackFormerSegformer`).
 
 ---
 
@@ -87,7 +87,7 @@ StackFormer supports configurations `b0` through `b5`:
 ## Constructor Parameters
 
 ```python
-from stackformer.vision import SegFormer
+from stackformer.models.vision import SegFormer
 
 model = SegFormer(
     variant="b0",
@@ -110,7 +110,7 @@ model = SegFormer(
 
 ```python
 import torch
-from stackformer.vision import SegFormer
+from stackformer.models.vision import SegFormer
 
 # Initialize lightweight SegFormer-B0 for 19 classes (e.g., Cityscapes)
 model = SegFormer(variant="b0", num_labels=19)
@@ -136,7 +136,7 @@ print("Prediction mask shape:", predictions.shape)  # torch.Size([2, 512, 512])
 You can use the encoder backbone (`MixVisionEncoder` / `Encoder`) directly to extract multi-scale representations for custom decoders or detection heads:
 
 ```python
-from stackformer.vision.segformer import Encoder
+from stackformer.models.vision.segformer import Encoder
 import torch
 
 encoder = Encoder(variant="b0")
@@ -156,7 +156,7 @@ print("Stage 4 (1/32 res):", f4.shape)  # (2, 256, 16, 16)
 ```python
 import torch
 import torch.nn as nn
-from stackformer.vision import SegFormer
+from stackformer.models.vision import SegFormer
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model = SegFormer(variant="b0", num_labels=19).to(device)

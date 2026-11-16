@@ -113,12 +113,12 @@ The saved model configuration does not match the architecture instantiated in co
 **Solution**:
 Instantiate the exact model architecture before restoring weights:
 ```python
-from stackformer.engine import CheckpointManager
+from stackformer.training import CheckpointManager
 
-checkpoint_mgr = CheckpointManager(output_dir="checkpoints")
+checkpoint_mgr = CheckpointManager(checkpoint_dir="checkpoints")
 
 # Load model weights
-checkpoint_mgr.load(model, checkpoint_name="checkpoint_epoch_1")
+checkpoint_mgr.load("checkpoints/epoch_001_step_00100", model=model)
 ```
 
 ---

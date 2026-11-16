@@ -51,6 +51,9 @@ from .feed_forward import (
 )
 from .layer import (
     BlockConfig,
+    DecoderBlock,
+    EncoderBlock,
+    TransformerBlock,
     TransformerDecoder,
     TransformerEncoder,
 )
@@ -70,6 +73,8 @@ __all__ = [
     "AbsolutePositionEmbedding",
     "BlockConfig",
     "Cross_MultiHead_Attention",
+    "DecoderBlock",
+    "EncoderBlock",
     "FF_GELU",
     "FF_GeGLU",
     "FF_LeakyReLU",
@@ -97,6 +102,7 @@ __all__ = [
     "RoPE",
     "Self_Attention",
     "SinusoidalPositionalEmbedding",
+    "TransformerBlock",
     "TransformerEncoder",
     "TransformerDecoder",
     "kv_cache_group_query",

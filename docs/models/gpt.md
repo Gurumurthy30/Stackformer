@@ -2,7 +2,7 @@
 
 StackFormer provides clean, canonical implementations of OpenAI's **GPT-1** and **GPT-2** autoregressive causal language models.
 
-Implemented in `stackformer.models.gpt` and exposed at the top level as `GPT1`, `GPT2`, `GPT_1`, and `GPT_2`.
+Implemented in `stackformer.models.language.gpt` and exposed at the top level as `GPT1`, `GPT2`, `GPT_1`, and `GPT_2`.
 
 ---
 

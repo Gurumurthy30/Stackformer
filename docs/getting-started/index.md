@@ -18,7 +18,7 @@ We recommend following this sequence if you are new to StackFormer:
 ## Prerequisites
 
 - **Python**: Version `3.10`, `3.11`, or `3.12`.
-- **PyTorch**: Version `>= 2.0` (PyTorch 2.3+ recommended for optimal `F.scaled_dot_product_attention` performance).
+- **PyTorch**: Version `>= 2.5, < 3.0` (StackFormer relies on native `torch.nn` and `F.scaled_dot_product_attention`).
 - **Core Hardware**: Standard CPU, Apple Silicon (MPS), or NVIDIA GPU (CUDA).
 
 ---

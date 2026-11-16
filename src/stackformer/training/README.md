@@ -46,16 +46,16 @@ $$\text{Activation Checkpointing (AC)} \longrightarrow \text{torch.compile} \lon
 
 ## 3. Atomic Checkpointing & Resumption
 
-Every checkpoint saved by `CheckpointManager` is written to a unique directory `step_<N>_<timestamp>` using an atomic temporary-directory rename:
+Every checkpoint saved by `CheckpointManager` is written to a directory structured as `epoch_{epoch:03d}_step_{step:05d}` using an atomic temporary-directory rename:
 
 ```text
 checkpoints/
-├── latest -> step_100_20261103_063000/
-├── best -> step_80_20261103_061500/
-└── step_100_20261103_063000/
-    ├── state.pt            # Model, optimizer, scheduler & RNG states
-    ├── model.safetensors   # Standalone zero-copy weights for inference
-    └── meta.json           # Step, epoch, step_in_epoch, best_metric, config
+├── latest                      # Plain-text pointer referencing latest directory name
+├── best/                       # Best evaluation checkpoint directory
+└── epoch_001_step_00100/
+    ├── state.pt                # Model, optimizer, scheduler & RNG states
+    ├── model.safetensors       # Standalone zero-copy weights for inference
+    └── meta.json               # Step, epoch, step_in_epoch, best_metric, config
 ```
 
 ### Bit-Identical Mid-Epoch Resumption

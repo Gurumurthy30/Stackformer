@@ -2,6 +2,9 @@
 
 This document provides reference captures of training output across Stackformer's display modes (`plain` and `rich`) and outlines visual criteria to eyeball when running training inside an interactive Jupyter notebook.
 
+> [!NOTE] Design Target vs Active Runtime
+> The progress bar (`Epoch 1/3: 100%|...| [loss=..., lr=..., step=...]`) is the active runtime output emitted by `Trainer.train()`. Extended displays such as the full configuration dump table and epoch summary banners are design targets provided by `DisplayManager` for standalone inspection or custom training loops, and are not automatically wired into the default `Trainer.train()` loop.
+
 ---
 
 ## 1. Plain Mode Output (`display="plain"`)
@@ -143,11 +146,11 @@ When testing or demonstrating Stackformer within a JupyterLab, VS Code Jupyter N
   - `step`: Current monotonic global step counter.
   - `it/s` or throughput speed.
 
-### 3. Training Configuration Table Formatting
-- **Check:** Before step 1 begins, the `DisplayManager` renders a structured configuration table.
+### 3. Training Configuration Table Formatting (Design Target / Standalone DisplayManager)
+- **Check:** When using `DisplayManager` standalone before training begins:
 - **Expected:** Two neatly aligned columns (`Parameter` and `Value`). In Jupyter with Rich enabled, it renders with crisp borders and colored headers. In plain mode, clean tab-aligned ASCII.
 
-### 4. Epoch Summary and Evaluation Tables
+### 4. Epoch Summary and Evaluation Tables (Design Target / Standalone DisplayManager)
 - **Check:** At the end of each epoch or validation interval:
   - An epoch summary block appears with elapsed time in seconds.
   - A comparison table displays `Train` vs `Val` loss and computed evaluation metrics.

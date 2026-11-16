@@ -2,7 +2,7 @@
 
 StackFormer provides native implementations of Meta's **LLaMA-1** (Touvron et al., Feb 2023) and **LLaMA-2** (Touvron et al., Jul 2023) foundational language models.
 
-Implemented in `stackformer.models.llama` and exposed at the top level as `Llama1`, `Llama2`, `Llama_1`, `Llama_2`, `llama_1`, and `llama_2`.
+Implemented in `stackformer.models.language.llama` and exposed at the top level as `Llama1`, `Llama2`, `Llama_1`, `Llama_2`, `llama_1`, and `llama_2`.
 
 ---
 

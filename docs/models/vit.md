@@ -2,7 +2,7 @@
 
 The Vision Transformer (ViT) architecture was introduced by Dosovitskiy et al. in *An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale* (Google Research, ICLR 2021). ViT demonstrates that the standard Transformer architecture can be directly applied to computer vision tasks with minimal inductive bias, matching or outperforming state-of-the-art convolutional networks when pretrained at scale.
 
-In StackFormer, `ViT` is implemented inside `stackformer.vision` with clean modular components: `PatchEmbedding`, `Block`, `Encoder`, and the `ViT` classification network.
+In StackFormer, `ViT` is implemented inside `stackformer.models.vision` with clean modular components: `PatchEmbedding`, `Block`, `Encoder`, and the `ViT` classification network.
 
 ---
 
@@ -45,7 +45,7 @@ The representation corresponding to the `[CLS]` token $\mathbf{z}_L^0$ is normal
 ## Constructor Parameters
 
 ```python
-from stackformer.vision import ViT
+from stackformer.models.vision import ViT
 
 model = ViT(
     img_size=224,
@@ -82,7 +82,7 @@ model = ViT(
 
 ```python
 import torch
-from stackformer.vision import ViT
+from stackformer.models.vision import ViT
 
 # Instantiate ViT-Base (patch 16, 224x224 input)
 model = ViT(
@@ -111,7 +111,7 @@ print("Predicted classes:", predicted_classes)
 You can also use lower-level vision modules like `PatchEmbedding` directly:
 
 ```python
-from stackformer.vision.vit import PatchEmbedding
+from stackformer.models.vision.vit import PatchEmbedding
 
 patch_embed = PatchEmbedding(img_size=224, patch_size=16, embed_dim=768, in_channels=3)
 x = torch.randn(2, 3, 224, 224)
@@ -126,7 +126,7 @@ print("Patch tokens shape:", tokens.shape)
 ```python
 import torch
 import torch.nn as nn
-from stackformer.vision import ViT
+from stackformer.models.vision import ViT
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 

@@ -242,7 +242,7 @@ class ViT(BaseModel):
 
     Example:
         >>> import torch
-        >>> from stackformer.vision import ViT
+        >>> from stackformer.models.vision import ViT
         >>> model = ViT(img_size=224, patch_size=16, num_classes=1000)
         >>> x = torch.randn(2, 3, 224, 224)
         >>> logits = model(x)

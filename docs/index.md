@@ -65,7 +65,7 @@ graph TD
   </div>
   <div class="card-item">
     <h3>Stateful KV-Cache Decoding</h3>
-    <p>Fast autoregressive sequence generation with <code>text_generate()</code> and standardized <code>prefill()</code> and <code>decode()</code> contracts.</p>
+    <p>Autoregressive sequence generation with <code>text_generate()</code> and planned <code>prefill()</code> and <code>decode()</code> contracts.</p>
     <a href="generation/text-generation.md">Explore text generation &rarr;</a>
   </div>
   <div class="card-item">
