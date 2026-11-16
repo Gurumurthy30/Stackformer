@@ -10,7 +10,7 @@
 # --------------
 # Run a one-off Python script:
 #   docker run --rm ghcr.io/stackformer-labs/stackformer:latest \
-#       python -c "import stackformer; print(stackformer.__version__)"
+#       python -c "import importlib.metadata; print(importlib.metadata.version('stackformer'))"
 #
 # Interactive shell:
 #   docker run --rm -it ghcr.io/stackformer-labs/stackformer:latest python
@@ -51,13 +51,19 @@ WORKDIR /home/stackformer
 # resolves against the CPU variant rather than downloading the full CUDA
 # wheel (~2 GB) — that would make the image unnecessarily large for a library
 # image.  CUDA support can be added in a derived image.
+COPY . /tmp/stackformer
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         "torch>=2.5,<3.0" \
-    && pip install --no-cache-dir \
-        --extra-index-url https://download.pytorch.org/whl/cpu \
-        stackformer==${STACKFORMER_VERSION}
+    && if [ -n "${STACKFORMER_VERSION}" ] && [ "${STACKFORMER_VERSION}" != "dev" ]; then \
+        pip install --no-cache-dir \
+            --extra-index-url https://download.pytorch.org/whl/cpu \
+            stackformer==${STACKFORMER_VERSION}; \
+       else \
+        pip install --no-cache-dir /tmp/stackformer; \
+       fi \
+    && rm -rf /tmp/stackformer
 
 # ── Switch to non-root user ───────────────────────────────────────────────────
 USER stackformer

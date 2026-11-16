@@ -10,7 +10,7 @@ This document catalogs all placeholder directories, planned architectural subsys
 | :--- | :--- | :--- | :--- |
 | `src/stackformer/models/multimodal/` | Vision-language (e.g. CLIP, LLaVA, PaLI) and document AI architectures combining visual encoders with autoregressive decoders | Planned, not implemented | Phase 4 |
 | `src/stackformer/models/audio/` | Speech recognition (ASR, Whisper), synthesis (TTS), and audio representation transformers | Planned, not implemented | Phase 4 |
-| `src/stackformer/data/` | Stateful streaming datasets, token packing (`PackedSequenceCollator`), and multi-worker collation | Planned, not implemented (see [DESIGN.md](../src/stackformer/data/DESIGN.md)) | Phase 4 |
+| `src/stackformer/data/` | Stateful streaming datasets, token packing (`PackedSequenceCollator`), and multi-worker collation | Planned, not implemented (see `src/stackformer/data/DESIGN.md` in the repository) | Phase 4 |
 | `src/stackformer/peft/` | Parameter-Efficient Fine-Tuning adapters (`LoRA`, `QLoRA`, `DoRA`) natively integrated into transformer layers | Planned, not implemented | Phase 3 |
 | `src/stackformer/export/` | Model export and deployment serialization targeting ONNX Runtime and `torch.export` (AOTInductor) | Planned, not implemented | Phase 3 |
 | `src/stackformer/eval/` | Standardized task benchmarks (zero-shot, log-likelihood, generation metrics, and mIoU evaluation) | Planned, not implemented | Phase 4 |

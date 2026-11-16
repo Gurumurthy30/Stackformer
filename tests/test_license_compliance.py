@@ -2,6 +2,7 @@
 
 import importlib
 import subprocess
+import sys
 import tarfile
 import zipfile
 from pathlib import Path
@@ -71,8 +72,12 @@ def test_notice_files_exist_and_contain_conditions_and_disclaimer():
     license_text = license_file.read_text(encoding="utf-8")
     notices_text = notices_file.read_text(encoding="utf-8")
 
-    # (c) Meta Platforms, Inc. and affiliates
-    assert "Meta Platforms, Inc. and affiliates" in license_text
+    # Exact first lines of TORCHTITAN-BSD-3-Clause.txt
+    license_lines = [line.strip() for line in license_text.splitlines() if line.strip()]
+    assert license_lines[0] == "BSD 3-Clause License", f"Expected exact title, got: {license_lines[0]}"
+    assert license_lines[1] == "Copyright (c) Meta Platforms, Inc. and affiliates.", (
+        f"Expected exact copyright line 'Copyright (c) Meta Platforms, Inc. and affiliates.', got: {license_lines[1]}"
+    )
     assert "Meta Platforms, Inc. and affiliates" in notices_text
 
     # Three BSD conditions
@@ -92,17 +97,17 @@ def test_notice_files_exist_and_contain_conditions_and_disclaimer():
 
 
 def test_wheel_and_sdist_license_distribution(tmp_path):
-    """Verify built wheel and sdist packages contain licenses/TORCHTITAN-BSD-3-Clause.txt and THIRD_PARTY_NOTICES.md."""
+    """Verify built wheel and sdist packages contain licenses/TORCHTITAN-BSD-3-Clause.txt, THIRD_PARTY_NOTICES.md, and py.typed."""
     try:
-        import build
+        import build  # noqa: F401
     except ImportError:
         pytest.skip("python -m build is not available in the test environment")
 
     # Build sdist and wheel with --no-isolation to use existing environment
-    cmd = ["python", "-m", "build", "--no-isolation", "--outdir", str(tmp_path)]
+    cmd = [sys.executable, "-m", "build", "--no-isolation", "--outdir", str(tmp_path)]
     result = subprocess.run(cmd, capture_output=True, text=True, cwd=REPO_ROOT)
     if result.returncode != 0:
-        pytest.skip(f"Build failed, skipping package inspection: {result.stderr}")
+        pytest.fail(f"Build failed with exit code {result.returncode}: {result.stderr}")
 
     # Inspect wheel
     wheels = list(tmp_path.glob("*.whl"))
@@ -117,6 +122,9 @@ def test_wheel_and_sdist_license_distribution(tmp_path):
         )
         assert any("THIRD_PARTY_NOTICES" in name for name in namelist), (
             f"THIRD_PARTY_NOTICES not found in wheel: {namelist}"
+        )
+        assert any("py.typed" in name for name in namelist), (
+            f"py.typed not found in wheel: {namelist}"
         )
 
     # Inspect sdist
