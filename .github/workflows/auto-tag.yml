@@ -6,6 +6,9 @@ on:
     paths:
       - 'pyproject.toml'
 
+permissions:
+  contents: read
+
 jobs:
   tag-version:
     runs-on: ubuntu-latest
