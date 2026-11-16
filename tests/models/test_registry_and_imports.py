@@ -187,12 +187,16 @@ def test_get_model_unknown_raises():
 
 
 def test_get_model_hyphenated_and_case_variations():
-    """Finding #40: get_model should accept hyphenated and case-varied names."""
+    """Finding #40: get_model should accept hyphenated, underscored, spaced and case-varied names."""
     from stackformer.models import get_model
     from stackformer.models.language import GPT2, Gemma1_2B, Llama2
 
-    m_gpt = get_model("gpt-2", vocab_size=50, num_layers=2, embed_dim=32, num_heads=2, seq_len=16)
-    assert isinstance(m_gpt, GPT2)
+    # Test all spellings requested in #40: "gpt-2", "gpt_2", "GPT2", "gpt2", " GPT-2 "
+    for spelling in ["gpt-2", "gpt_2", "GPT2", "gpt2", " GPT-2 "]:
+        m = get_model(
+            spelling, vocab_size=50, num_layers=1, embed_dim=32, num_heads=2, seq_len=16
+        )
+        assert isinstance(m, GPT2), f"Failed for spelling: {repr(spelling)}"
 
     m_llama = get_model(
         "llama-2",

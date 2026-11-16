@@ -47,29 +47,33 @@ if TYPE_CHECKING:
 
 def _canonicalize_model_name(name: str) -> str:
     """Normalize model architecture name to lowercase alphanumeric string."""
-    return name.strip().lower().replace("-", "").replace("_", "")
+    return name.strip().lower().replace("-", "").replace("_", "").replace(" ", "")
 
 
 _RAW_REGISTRY: dict[str, type[nn.Module]] = {
     # Language
-    "bert": BERT,
-    "gemma1_2b": Gemma1_2B,
-    "gemma1_7b": Gemma1_7B,
-    "gpt1": GPT1,
-    "gpt2": GPT2,
-    "llama1": Llama1,
-    "llama2": Llama2,
-    "roberta": RoBERTa,
-    "transformer": Transformer,
+    "BERT": BERT,
+    "Gemma1_2B": Gemma1_2B,
+    "Gemma1_7B": Gemma1_7B,
+    "GPT1": GPT1,
+    "GPT2": GPT2,
+    "Llama1": Llama1,
+    "Llama2": Llama2,
+    "RoBERTa": RoBERTa,
+    "Transformer": Transformer,
     # Vision
-    "segformer": SegFormer,
-    "vit": ViT,
+    "SegFormer": SegFormer,
+    "ViT": ViT,
 }
 
 _MODEL_REGISTRY: dict[str, type[nn.Module]] = {}
-for _k, _cls in _RAW_REGISTRY.items():
-    _MODEL_REGISTRY[_k] = _cls
-    _MODEL_REGISTRY[_canonicalize_model_name(_k)] = _cls
+for _name, _cls in _RAW_REGISTRY.items():
+    _canon = _canonicalize_model_name(_name)
+    if _canon in _MODEL_REGISTRY and _MODEL_REGISTRY[_canon] is not _cls:
+        raise ValueError(
+            f"Model registry collision: '{_name}' collides with '{_MODEL_REGISTRY[_canon]}'"
+        )
+    _MODEL_REGISTRY[_canon] = _cls
 
 
 def list_models() -> dict[str, list[str]]:
@@ -102,7 +106,7 @@ def get_model(name: str, **kwargs: Any) -> nn.Module:
     """Instantiate a model by name with the given configuration arguments.
 
     Args:
-        name: Name of the model architecture (case-insensitive, e.g. 'gpt-2', 'Llama2', 'ViT').
+        name: Name of the model architecture (case-insensitive, e.g. 'gpt-2', 'gpt_2', 'GPT2', 'gpt2', ' GPT-2 ').
         **kwargs: Configuration arguments passed directly to the model constructor.
 
     Returns:
@@ -113,14 +117,10 @@ def get_model(name: str, **kwargs: Any) -> nn.Module:
     """
     canonical = _canonicalize_model_name(name)
     if canonical not in _MODEL_REGISTRY:
-        snake = name.strip().lower().replace("-", "_")
-        if snake in _MODEL_REGISTRY:
-            canonical = snake
-        else:
-            available = sorted([m for cat in list_models().values() for m in cat])
-            raise ValueError(
-                f"Unknown model architecture '{name}'. Available models: {', '.join(available)}"
-            )
+        available = sorted([m for cat in list_models().values() for m in cat])
+        raise ValueError(
+            f"Unknown model architecture '{name}'. Available models: {', '.join(available)}"
+        )
     model_cls = _MODEL_REGISTRY[canonical]
     return model_cls(**kwargs)
 
