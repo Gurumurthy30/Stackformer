@@ -159,5 +159,6 @@ def test_gpt_small_vocab_short_batch_position_independence(torch_device):
     p1 = model.position_embedding(x1)
     p2 = model.position_embedding(x2)
     assert torch.allclose(p1, p2), "AbsolutePositionEmbedding must not index by token ID"
-    assert torch.allclose(p1[0], pos_ref), "Position embeddings must correspond to positions 0 and 1"
-
+    assert torch.allclose(p1[0], pos_ref), (
+        "Position embeddings must correspond to positions 0 and 1"
+    )

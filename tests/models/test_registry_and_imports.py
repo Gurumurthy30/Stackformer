@@ -193,10 +193,8 @@ def test_get_model_hyphenated_and_case_variations():
 
     # Test all spellings requested in #40: "gpt-2", "gpt_2", "GPT2", "gpt2", " GPT-2 "
     for spelling in ["gpt-2", "gpt_2", "GPT2", "gpt2", " GPT-2 "]:
-        m = get_model(
-            spelling, vocab_size=50, num_layers=1, embed_dim=32, num_heads=2, seq_len=16
-        )
-        assert isinstance(m, GPT2), f"Failed for spelling: {repr(spelling)}"
+        m = get_model(spelling, vocab_size=50, num_layers=1, embed_dim=32, num_heads=2, seq_len=16)
+        assert isinstance(m, GPT2), f"Failed for spelling: {spelling!r}"
 
     m_llama = get_model(
         "llama-2",
