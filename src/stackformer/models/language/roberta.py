@@ -181,15 +181,23 @@ class RoBERTa(BaseModel):
     def forward(
         self,
         input_ids: torch.Tensor,
+        attention_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         position_ids = self._create_position_ids(input_ids)  # (B, T)
 
         x = self.token_embedding(input_ids)  # (B, T, C)
-        x = x + self.position_embedding(position_ids)  # (B, T, C)
+        x = x + self.position_embedding.forward_ids(position_ids)  # (B, T, C)
         x = self.embed_norm(x)
         x = self.embed_dropout(x)
 
-        x = self.backbone(x, mask=False)  # (B, T, C)
+        if attention_mask is not None:
+            attn_mask = attention_mask
+        elif self.padding_idx is not None and (input_ids == self.padding_idx).any():
+            attn_mask = (input_ids != self.padding_idx).unsqueeze(1).unsqueeze(2)
+        else:
+            attn_mask = None
+
+        x = self.backbone(x, mask=False, attn_mask=attn_mask)  # (B, T, C)
         return self.lm_head(x)  # (B, T, V)
 
     def get_sharding_blocks(self) -> list[nn.Module]:

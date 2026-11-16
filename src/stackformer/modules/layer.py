@@ -284,13 +284,22 @@ class EncoderBlock(nn.Module):
         self.norm1 = _build_norm(cfg)
         self.norm2 = _build_norm(cfg)
 
-    def forward(self, x: torch.Tensor, mask: bool = False) -> torch.Tensor:
+    def forward(
+        self,
+        x: torch.Tensor,
+        mask: bool = False,
+        attn_mask: torch.Tensor | None = None,
+    ) -> torch.Tensor:
         # x: (B, T, C)
+        if isinstance(mask, torch.Tensor):
+            if attn_mask is None:
+                attn_mask = mask
+            mask = False
         if self.pre_norm:
-            x = x + self.self_attn(self.norm1(x), mask=mask)
+            x = x + self.self_attn(self.norm1(x), mask=mask, attn_mask=attn_mask)
             x = x + self.ffn(self.norm2(x))
         else:  # post-norm
-            x = self.norm1(x + self.self_attn(x, mask=mask))
+            x = self.norm1(x + self.self_attn(x, mask=mask, attn_mask=attn_mask))
             x = self.norm2(x + self.ffn(x))
         return x  # (B, T, C)
 
@@ -394,12 +403,21 @@ class TransformerEncoder(nn.Module):
         self.layers = nn.ModuleList([EncoderBlock(cfg) for _ in range(num_layers)])
         self.final_norm = _build_norm(cfg) if cfg.pre_norm else nn.Identity()
 
-    def forward(self, x: torch.Tensor, mask: bool = False) -> torch.Tensor:
+    def forward(
+        self,
+        x: torch.Tensor,
+        mask: bool = False,
+        attn_mask: torch.Tensor | None = None,
+    ) -> torch.Tensor:
         # x: (B, T, C)
+        if isinstance(mask, torch.Tensor):
+            if attn_mask is None:
+                attn_mask = mask
+            mask = False
         if self.pos_embedding is not None:
             x = x + self.pos_embedding(x)
         for layer in self.layers:
-            x = layer(x, mask=mask)
+            x = layer(x, mask=mask, attn_mask=attn_mask)
         return self.final_norm(x)  # (B, T, C)
 
 

@@ -33,6 +33,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Core dependency `safetensors>=0.4.0` moved into primary package dependencies.
 - Updated `torch>=2.5,<3.0` and `numpy>=1.24,<3.0`.
 - Deleted legacy TorchTitan source copies in favor of 15 clean BSD-3 licensed modules in `ops/`, `quantization/`, and `distributed/`.
+- **Model Registry and Exports**: Removed non-functional scaffold classes `EncoderDecoder`, `Decoder`, and `GPTDecoder` from public language exports (#33). Updated `get_model()` to accept hyphenated architecture names such as `"gpt-2"` and `"llama-2"` (#40).
+- **Generation Config Precedence**: `text_generate` now warns when explicit sampling arguments are passed alongside `generation_config` (#31).
+
+### Fixed
+- **Attention Padding Masking**: Fixed BERT and RoBERTa attention mask propagation through `TransformerEncoder` and attention modules to properly mask padding tokens without evaluating tensor truthiness (#29).
+- **Position Embedding Disambiguation**: Added `AbsolutePositionEmbedding.forward_ids()` for explicit position lookups, preventing token IDs from being treated as position indices (#30).
+- **Pretrained Weights Stub**: `BaseModel.load_weights()` with no path now raises `NotImplementedError` rather than silently acting as a no-op (#32).
+- **ViT Device & Dtype**: `ViT` now accepts and propagates `device` and `dtype` parameters to all submodules (#41).
+- **RoPE Cache Bounding**: Global rotary embedding cache is now bounded to 32 entries using LRU eviction and sequence length bucketing (#42).
 
 ---
 

@@ -44,7 +44,13 @@ from .vision import SegFormer, ViT, segformer, vit
 if TYPE_CHECKING:
     import torch.nn as nn
 
-_MODEL_REGISTRY: dict[str, type[nn.Module]] = {
+
+def _canonicalize_model_name(name: str) -> str:
+    """Normalize model architecture name to lowercase alphanumeric string."""
+    return name.strip().lower().replace("-", "").replace("_", "")
+
+
+_RAW_REGISTRY: dict[str, type[nn.Module]] = {
     # Language
     "bert": BERT,
     "gemma1_2b": Gemma1_2B,
@@ -59,6 +65,11 @@ _MODEL_REGISTRY: dict[str, type[nn.Module]] = {
     "segformer": SegFormer,
     "vit": ViT,
 }
+
+_MODEL_REGISTRY: dict[str, type[nn.Module]] = {}
+for _k, _cls in _RAW_REGISTRY.items():
+    _MODEL_REGISTRY[_k] = _cls
+    _MODEL_REGISTRY[_canonicalize_model_name(_k)] = _cls
 
 
 def list_models() -> dict[str, list[str]]:
@@ -91,7 +102,7 @@ def get_model(name: str, **kwargs: Any) -> nn.Module:
     """Instantiate a model by name with the given configuration arguments.
 
     Args:
-        name: Name of the model architecture (case-insensitive, e.g. 'gpt2', 'Llama2', 'ViT').
+        name: Name of the model architecture (case-insensitive, e.g. 'gpt-2', 'Llama2', 'ViT').
         **kwargs: Configuration arguments passed directly to the model constructor.
 
     Returns:
@@ -100,13 +111,17 @@ def get_model(name: str, **kwargs: Any) -> nn.Module:
     Raises:
         ValueError: If model name is not recognized.
     """
-    normalized = name.strip().lower().replace("-", "_")
-    if normalized not in _MODEL_REGISTRY:
-        available = sorted([m for cat in list_models().values() for m in cat])
-        raise ValueError(
-            f"Unknown model architecture '{name}'. Available models: {', '.join(available)}"
-        )
-    model_cls = _MODEL_REGISTRY[normalized]
+    canonical = _canonicalize_model_name(name)
+    if canonical not in _MODEL_REGISTRY:
+        snake = name.strip().lower().replace("-", "_")
+        if snake in _MODEL_REGISTRY:
+            canonical = snake
+        else:
+            available = sorted([m for cat in list_models().values() for m in cat])
+            raise ValueError(
+                f"Unknown model architecture '{name}'. Available models: {', '.join(available)}"
+            )
+    model_cls = _MODEL_REGISTRY[canonical]
     return model_cls(**kwargs)
 
 

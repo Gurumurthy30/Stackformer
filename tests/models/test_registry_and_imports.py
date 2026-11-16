@@ -7,19 +7,17 @@ import torch.nn as nn
 
 def test_category_imports():
     """Verify all models can be imported from their respective category subpackages."""
+    import stackformer.models.language as lang_pkg
     from stackformer.models.language import (
         BERT,
         GPT1,
         GPT2,
         GPT_1,
         GPT_2,
-        Decoder,
-        EncoderDecoder,
         Gemma1_2B,
         Gemma1_7B,
         Gemma_1_2B,
         Gemma_1_7B,
-        GPTDecoder,
         Llama1,
         Llama2,
         Llama_1,
@@ -31,6 +29,8 @@ def test_category_imports():
         llama_1,
         llama_2,
     )
+    from stackformer.models.language.decoder import Decoder, GPTDecoder
+    from stackformer.models.language.encoder_decoder import EncoderDecoder
     from stackformer.models.vision import (
         SegFormer,
         SegFormerB0,
@@ -38,6 +38,11 @@ def test_category_imports():
         segformer,
         vit,
     )
+
+    # Scaffolds are removed from public exports (#33)
+    assert "Decoder" not in lang_pkg.__all__
+    assert "EncoderDecoder" not in lang_pkg.__all__
+    assert "GPTDecoder" not in lang_pkg.__all__
 
     assert issubclass(GPT2, nn.Module)
     assert issubclass(Llama2, nn.Module)
@@ -179,3 +184,33 @@ def test_get_model_unknown_raises():
 
     with pytest.raises(ValueError, match="Unknown model architecture 'nonexistent'"):
         get_model("nonexistent")
+
+
+def test_get_model_hyphenated_and_case_variations():
+    """Finding #40: get_model should accept hyphenated and case-varied names."""
+    from stackformer.models import get_model
+    from stackformer.models.language import GPT2, Gemma1_2B, Llama2
+
+    m_gpt = get_model("gpt-2", vocab_size=50, num_layers=2, embed_dim=32, num_heads=2, seq_len=16)
+    assert isinstance(m_gpt, GPT2)
+
+    m_llama = get_model(
+        "llama-2",
+        vocab_size=50,
+        num_layers=2,
+        embed_dim=32,
+        num_query_heads=4,
+        num_kv_heads=2,
+        seq_len=16,
+    )
+    assert isinstance(m_llama, Llama2)
+
+    m_gemma = get_model(
+        "gemma-1-2b",
+        vocab_size=50,
+        num_layers=2,
+        embed_dim=32,
+        num_heads=2,
+        seq_len=16,
+    )
+    assert isinstance(m_gemma, Gemma1_2B)

@@ -26,4 +26,6 @@ def download_and_load_pretrained(
         pretrained_model_name_or_path (str | None, default=None): Name or URL of pretrained artifact.
         **kwargs: Additional parameters passed to remote loader.
     """
-    pass
+    raise NotImplementedError(
+        "Pretrained weight download is not implemented yet; pass an explicit local path to load_weights(path)."
+    )

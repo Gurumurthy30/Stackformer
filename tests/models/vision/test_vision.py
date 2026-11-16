@@ -37,6 +37,24 @@ def test_vit_forward(torch_device):
     assert torch.isfinite(out).all()
 
 
+def test_vit_device_and_dtype():
+    """Finding #41: ViT should accept device and dtype and apply to all parameters."""
+    model = ViT(
+        img_size=32,
+        patch_size=8,
+        num_layers=1,
+        embed_dim=32,
+        num_heads=4,
+        hidden_dim=64,
+        num_classes=10,
+        dropout=0.0,
+        device="cpu",
+        dtype=torch.float64,
+    )
+    for name, p in model.named_parameters():
+        assert p.dtype == torch.float64, f"Parameter {name} has wrong dtype {p.dtype}"
+
+
 def test_patch_embedding(torch_device):
     _checkpoint("test_patch_embedding setup", device=torch_device)
     B = 2

@@ -74,7 +74,9 @@ def test_notice_files_exist_and_contain_conditions_and_disclaimer():
 
     # Exact first lines of TORCHTITAN-BSD-3-Clause.txt
     license_lines = [line.strip() for line in license_text.splitlines() if line.strip()]
-    assert license_lines[0] == "BSD 3-Clause License", f"Expected exact title, got: {license_lines[0]}"
+    assert license_lines[0] == "BSD 3-Clause License", (
+        f"Expected exact title, got: {license_lines[0]}"
+    )
     assert license_lines[1] == "Copyright (c) Meta Platforms, Inc. and affiliates.", (
         f"Expected exact copyright line 'Copyright (c) Meta Platforms, Inc. and affiliates.', got: {license_lines[1]}"
     )
@@ -99,7 +101,7 @@ def test_notice_files_exist_and_contain_conditions_and_disclaimer():
 def test_wheel_and_sdist_license_distribution(tmp_path):
     """Verify built wheel and sdist packages contain licenses/TORCHTITAN-BSD-3-Clause.txt, THIRD_PARTY_NOTICES.md, and py.typed."""
     try:
-        import build  # noqa: F401
+        import build
     except ImportError:
         pytest.skip("python -m build is not available in the test environment")
 

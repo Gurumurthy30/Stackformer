@@ -1,4 +1,5 @@
 import math
+
 import pytest
 import torch
 
@@ -102,3 +103,24 @@ def test_sinusoidal_requires_even_embed_dim(torch_device):
     _checkpoint("test_sinusoidal_requires_even_embed_dim setup")
     with pytest.raises(ValueError):
         SinusoidalPositionalEmbedding(seq_len=8, embed_dim=7, device=torch_device)
+
+
+def test_absolute_position_embedding_token_invariance(torch_device):
+    """Finding #30: AbsolutePositionEmbedding.forward(x) must produce standard arange positions."""
+    layer = AbsolutePositionEmbedding(seq_len=16, embed_dim=8, device=torch_device)
+    # Two token sequences of length 4 with different token IDs, both with IDs < seq_len
+    x1 = torch.tensor([[0, 1, 2, 3]], device=torch_device)
+    x2 = torch.tensor([[5, 4, 2, 1]], device=torch_device)
+    pos1 = layer(x1)
+    pos2 = layer(x2)
+    # Both must return the positional embeddings for positions 0, 1, 2, 3
+    assert torch.allclose(pos1, pos2), "AbsolutePositionEmbedding must not index by token ID"
+
+
+def test_absolute_position_embedding_forward_ids(torch_device):
+    """Finding #30: forward_ids explicitly indexes by position IDs."""
+    layer = AbsolutePositionEmbedding(seq_len=16, embed_dim=8, device=torch_device)
+    p_ids = torch.tensor([[2, 3, 4]], device=torch_device)
+    out = layer.forward_ids(p_ids)
+    expected = layer.embedding(p_ids)
+    assert torch.allclose(out, expected)

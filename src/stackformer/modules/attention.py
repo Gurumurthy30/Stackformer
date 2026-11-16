@@ -57,42 +57,55 @@ from stackformer.cache import StaticKVCache
 from stackformer.modules.attention_engine import _run_attention
 from stackformer.modules.masks import _get_attention_mask, _get_block_mask
 
-_ROPE_FREQ_CACHE: dict[tuple[int, int, str, torch.dtype, float], torch.Tensor] = {}
+_ROPE_FREQ_CACHE: OrderedDict[tuple[int, int, str, float], torch.Tensor] = OrderedDict()
+_MAX_ROPE_CACHE_SIZE: int = 32
 
 
 def _build_rope_frequency(
     head_dim: int,
     seq_len: int,
     device: torch.device | str,
-    dtype: torch.dtype,
+    dtype: torch.dtype | None = None,
     theta: float = 10000.0,
 ) -> torch.Tensor:
     """Precompute complex rotary positional frequency spectrum for RoPE.
+
+    Computations are performed in float32/complex64 and cached LRU up to 32 entries.
+    Shorter sequences reuse slices of existing larger cached buckets.
 
     Args:
         head_dim (int): Dimension per attention head (must be even).
         seq_len (int): Maximum sequence length to compute frequencies for.
         device (torch.device | str): Target compute device.
-        dtype (torch.dtype): Target data type.
+        dtype (torch.dtype | None, default=None): Target data type (frequencies precomputed in complex64).
         theta (float, default=10000.0): RoPE base frequency multiplier.
 
     Returns:
         torch.Tensor: Complex frequency tensor of shape ``(seq_len, head_dim // 2)``.
     """
     assert head_dim % 2 == 0, "head_dim must be even for RoPE"
-    key = (head_dim, seq_len, str(device), dtype, theta)
-    if key in _ROPE_FREQ_CACHE:
-        return _ROPE_FREQ_CACHE[key]
+    dev_str = str(device)
+
+    for (h, b_len, d, th), tensor in list(_ROPE_FREQ_CACHE.items()):
+        if h == head_dim and d == dev_str and th == theta and b_len >= seq_len:
+            _ROPE_FREQ_CACHE.move_to_end((h, b_len, d, th))
+            return tensor[:seq_len]
+
+    bucket_len = max(64, 1 << (seq_len - 1).bit_length()) if seq_len > 0 else 64
+    key = (head_dim, bucket_len, dev_str, theta)
 
     dim_half = head_dim // 2
     inv_freq = 1.0 / (
         theta ** (torch.arange(0, dim_half, device=device, dtype=torch.float32) / dim_half)
     )
-    pos = torch.arange(seq_len, device=device, dtype=torch.float32)
+    pos = torch.arange(bucket_len, device=device, dtype=torch.float32)
     freqs = torch.outer(pos, inv_freq)
     freq_complex = torch.polar(torch.ones_like(freqs), freqs)
     _ROPE_FREQ_CACHE[key] = freq_complex
-    return freq_complex
+    _ROPE_FREQ_CACHE.move_to_end(key)
+    while len(_ROPE_FREQ_CACHE) > _MAX_ROPE_CACHE_SIZE:
+        _ROPE_FREQ_CACHE.popitem(last=False)
+    return freq_complex[:seq_len]
 
 
 def _apply_rotary_position_embedding(x: torch.Tensor, freq_complex: torch.Tensor) -> torch.Tensor:
@@ -196,8 +209,12 @@ class Self_Attention(nn.Module):
             **self.mask_kwargs,
         )
 
-    def forward(self, x, mask=True):
+    def forward(self, x, mask=True, attn_mask: torch.Tensor | None = None):
         _B, T, _C = x.shape
+        if isinstance(mask, torch.Tensor):
+            if attn_mask is None:
+                attn_mask = mask
+            mask = False
 
         # Project Q, K, V
         qkv = self.qkv_proj(x)  # (B, T, 3*C)
@@ -213,7 +230,8 @@ class Self_Attention(nn.Module):
             q=q,
             k=k,
             v=v,
-            mask_type=self.mask_type if mask else None,
+            attn_mask=attn_mask,
+            mask_type=self.mask_type if (mask and attn_mask is None) else None,
             seq_len=T,
             device=x.device,
             cache=self._causal_mask_cache,
@@ -324,8 +342,12 @@ class Multi_Head_Attention(nn.Module):
             **self.mask_kwargs,
         )
 
-    def forward(self, x, mask=True):
+    def forward(self, x, mask=True, attn_mask: torch.Tensor | None = None):
         B, T, C = x.shape
+        if isinstance(mask, torch.Tensor):
+            if attn_mask is None:
+                attn_mask = mask
+            mask = False
 
         qkv = self.qkv_proj(x)  # (B, T, 3*C)
         q, k, v = qkv.split(self.embed_dim, dim=-1)  # each (B, T, C)
@@ -341,7 +363,8 @@ class Multi_Head_Attention(nn.Module):
             q=q,
             k=k,
             v=v,
-            mask_type=self.mask_type if mask else None,
+            attn_mask=attn_mask,
+            mask_type=self.mask_type if (mask and attn_mask is None) else None,
             seq_len=T,
             device=x.device,
             cache=self._causal_mask_cache,
@@ -450,8 +473,18 @@ class Multi_Head_Attention_With_RoPE(nn.Module):
     ):
         return _build_rope_frequency(head_dim, seq_len, device, self.dtype, theta=theta)
 
-    def forward(self, x, mask=True, theta: float = 10000.0):
+    def forward(
+        self,
+        x,
+        mask=True,
+        theta: float = 10000.0,
+        attn_mask: torch.Tensor | None = None,
+    ):
         B, T, C = x.shape
+        if isinstance(mask, torch.Tensor):
+            if attn_mask is None:
+                attn_mask = mask
+            mask = False
 
         qkv = self.qkv_proj(x)  # (B, T, 3*C)
         q, k, v = qkv.split(self.embed_dim, dim=-1)  # each (B, T, C)
@@ -473,7 +506,8 @@ class Multi_Head_Attention_With_RoPE(nn.Module):
             q=q,
             k=k,
             v=v,
-            mask_type=self.mask_type if mask else None,
+            attn_mask=attn_mask,
+            mask_type=self.mask_type if (mask and attn_mask is None) else None,
             seq_len=T,
             device=x.device,
             cache=self._causal_mask_cache,
@@ -739,8 +773,12 @@ class Multi_query_Attention(nn.Module):
             **self.mask_kwargs,
         )
 
-    def forward(self, x, mask=True):
+    def forward(self, x, mask=True, attn_mask: torch.Tensor | None = None):
         B, T, C = x.shape
+        if isinstance(mask, torch.Tensor):
+            if attn_mask is None:
+                attn_mask = mask
+            mask = False
 
         # Project
         q = self.q_proj(x)  # (B, T, C)
@@ -759,7 +797,8 @@ class Multi_query_Attention(nn.Module):
             q=q,
             k=k,
             v=v,
-            mask_type=self.mask_type if mask else None,
+            attn_mask=attn_mask,
+            mask_type=self.mask_type if (mask and attn_mask is None) else None,
             seq_len=T,
             device=x.device,
             cache=self._causal_mask_cache,
@@ -874,8 +913,18 @@ class Multi_query_Attention_With_RoPE(nn.Module):
     ):
         return _build_rope_frequency(head_dim, seq_len, device, self.dtype, theta=theta)
 
-    def forward(self, x, mask=True, theta: float = 10000.0):
+    def forward(
+        self,
+        x,
+        mask=True,
+        theta: float = 10000.0,
+        attn_mask: torch.Tensor | None = None,
+    ):
         B, T, C = x.shape
+        if isinstance(mask, torch.Tensor):
+            if attn_mask is None:
+                attn_mask = mask
+            mask = False
 
         # Project
         q = self.q_proj(x)  # (B, T, C)
@@ -907,7 +956,8 @@ class Multi_query_Attention_With_RoPE(nn.Module):
             q=q,
             k=k,
             v=v,
-            mask_type=self.mask_type if mask else None,
+            attn_mask=attn_mask,
+            mask_type=self.mask_type if (mask and attn_mask is None) else None,
             seq_len=T,
             device=x.device,
             cache=self._causal_mask_cache,
@@ -1027,8 +1077,12 @@ class Group_query_Attention(nn.Module):
             **self.mask_kwargs,
         )
 
-    def forward(self, x, mask=True):
+    def forward(self, x, mask=True, attn_mask: torch.Tensor | None = None):
         B, T, C = x.shape
+        if isinstance(mask, torch.Tensor):
+            if attn_mask is None:
+                attn_mask = mask
+            mask = False
 
         # Project Q, K, V
         q = self.q_proj(x)  # (B, T, C)
@@ -1056,7 +1110,8 @@ class Group_query_Attention(nn.Module):
             q=q,
             k=k,
             v=v,
-            mask_type=self.mask_type if mask else None,
+            attn_mask=attn_mask,
+            mask_type=self.mask_type if (mask and attn_mask is None) else None,
             seq_len=T,
             device=x.device,
             cache=self._causal_mask_cache,
@@ -1175,8 +1230,18 @@ class Group_query_Attention_With_RoPE(nn.Module):
     ):
         return _build_rope_frequency(head_dim, seq_len, device, self.dtype, theta=theta)
 
-    def forward(self, x, mask=True, theta: float = 10000.0):
+    def forward(
+        self,
+        x,
+        mask=True,
+        theta: float = 10000.0,
+        attn_mask: torch.Tensor | None = None,
+    ):
         B, T, C = x.shape
+        if isinstance(mask, torch.Tensor):
+            if attn_mask is None:
+                attn_mask = mask
+            mask = False
 
         # Project Q, K, V
         q = self.q_proj(x)  # (B, T, C)
@@ -1209,7 +1274,8 @@ class Group_query_Attention_With_RoPE(nn.Module):
             q=q,
             k=k,
             v=v,
-            mask_type=self.mask_type if mask else None,
+            attn_mask=attn_mask,
+            mask_type=self.mask_type if (mask and attn_mask is None) else None,
             seq_len=T,
             device=x.device,
             cache=self._causal_mask_cache,

@@ -188,9 +188,11 @@ def test_base_model_load_pretrained_stub():
         dropout=0.0,
     )
     model = GPT1(config)
-    # Calling load_weights() with no path triggers pretrained download stub (pass)
-    result = model.load_weights()
-    assert result is model
+    # Calling load_weights() with no path raises NotImplementedError (#32)
+    with pytest.raises(
+        NotImplementedError, match="Pretrained weight download is not implemented yet"
+    ):
+        model.load_weights()
 
 
 def test_vit_base_model_lifecycle(tmp_path):
@@ -462,4 +464,3 @@ def test_poisoned_buffers_fail_before_refill():
         rope_real.refill_buffer()
     fresh_rope = RoPE(head_dim=32, seq_len=16)
     assert torch.equal(rope_real.freq_complex, fresh_rope.freq_complex)
-

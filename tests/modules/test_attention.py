@@ -236,6 +236,16 @@ def test_attention_rope_freq_cache_tracking(torch_device):
     assert isinstance(_ROPE_FREQ_CACHE, dict)
 
 
+def test_rope_freq_cache_bounded(torch_device):
+    """Finding #42: _ROPE_FREQ_CACHE must be bounded (e.g. max 32 entries) under variable seq_len."""
+    from stackformer.modules.attention import _build_rope_frequency
+
+    _ROPE_FREQ_CACHE.clear()
+    for s in range(2, 80, 2):
+        _build_rope_frequency(head_dim=16, seq_len=s, device=torch_device, dtype=torch.float32)
+    assert len(_ROPE_FREQ_CACHE) <= 32
+
+
 def test_run_attention_dispatcher_defaults(torch_device):
     _checkpoint("test_run_attention_dispatcher_defaults setup", device=torch_device)
     q = torch.randn(2, 2, 4, 8, device=torch_device)

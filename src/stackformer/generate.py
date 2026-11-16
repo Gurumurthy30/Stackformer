@@ -6,6 +6,8 @@ optional KV-cache acceleration for models implementing `prefill` and `decode` in
 
 from __future__ import annotations
 
+import warnings
+
 import torch
 import torch.nn.functional as F
 
@@ -101,6 +103,21 @@ def _resolve_generation_config(
             eos_token_id=eos_token_id,
         )
 
+    has_explicit = (
+        max_context_len != 128
+        or max_new_tokens != 50
+        or temperature != 1.0
+        or top_k is not None
+        or top_p != 1.0
+        or eos_token_id is not None
+    )
+    if has_explicit:
+        warnings.warn(
+            "When generation_config is provided, explicit sampling arguments are ignored in favor of generation_config.",
+            UserWarning,
+            stacklevel=3,
+        )
+
     return generation_config
 
 
@@ -168,6 +185,7 @@ def text_generate(
         top_p (float, default=1.0): Top-p nucleus filtering limit.
         eos_token_id (int | None, default=None): Optional EOS token ID to halt generation.
         generation_config (GenerationConfig | None, default=None): Optional generation config override.
+            If provided, explicit sampling arguments are ignored in favor of the configuration.
 
     Returns:
         torch.Tensor: Generated token IDs tensor of shape ``(B, T + num_generated)``.

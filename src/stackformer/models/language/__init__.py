@@ -7,13 +7,9 @@ Exposes:
     - Llama1, Llama2: Meta LLaMA autoregressive models
     - Gemma1_2B, Gemma1_7B: Google Gemma open models
     - Transformer: Original encoder-decoder sequence-to-sequence model
-    - Decoder, GPTDecoder: Abstract autoregressive decoder base classes
-    - EncoderDecoder: Encoder-decoder sequence-to-sequence base class
 """
 
 from .bert import BERT
-from .decoder import Decoder, GPTDecoder
-from .encoder_decoder import EncoderDecoder
 from .gemma import (
     Gemma1_2B,
     Gemma1_7B,
@@ -36,11 +32,8 @@ from .transformer import Transformer
 
 __all__ = [
     "BERT",
-    "Decoder",
-    "EncoderDecoder",
     "GPT1",
     "GPT2",
-    "GPTDecoder",
     "GPT_1",
     "GPT_2",
     "Gemma1_2B",

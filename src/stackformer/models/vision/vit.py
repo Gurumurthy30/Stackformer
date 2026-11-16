@@ -61,6 +61,8 @@ class PatchEmbedding(nn.Module):
         embed_dim: int = 768,
         in_channels: int = 3,
         Emb_dim: int | None = None,
+        device: torch.device | str | None = None,
+        dtype: torch.dtype | None = None,
     ) -> None:
         super().__init__()
         if Emb_dim is not None:
@@ -72,7 +74,12 @@ class PatchEmbedding(nn.Module):
         self.num_patches = (img_size // patch_size) ** 2
 
         self.projection = nn.Conv2d(
-            in_channels, embed_dim, kernel_size=patch_size, stride=patch_size
+            in_channels,
+            embed_dim,
+            kernel_size=patch_size,
+            stride=patch_size,
+            device=device,
+            dtype=dtype,
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -131,9 +138,9 @@ class Block(nn.Module):
             device=device,
             dtype=dtype,
         )
-        self.norm1 = nn.LayerNorm(embed_dim, eps=eps, dtype=dtype)
+        self.norm1 = nn.LayerNorm(embed_dim, eps=eps, device=device, dtype=dtype)
         self.ff_gelu = FeedForwardGELU(embed_dim, hidden_dim, dropout, device=device, dtype=dtype)
-        self.norm2 = nn.LayerNorm(embed_dim, eps=eps, dtype=dtype)
+        self.norm2 = nn.LayerNorm(embed_dim, eps=eps, device=device, dtype=dtype)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         residual = x
@@ -270,6 +277,8 @@ class ViT(BaseModel):
         eps: float = 1e-5,
         in_channels: int = 3,
         Emb_dim: int | None = None,
+        device: torch.device | str | None = None,
+        dtype: torch.dtype | None = None,
         config: Any = None,
         **kwargs: Any,
     ) -> None:
@@ -286,6 +295,8 @@ class ViT(BaseModel):
             eps=eps,
             in_channels=in_channels,
             Emb_dim=Emb_dim,
+            device=device,
+            dtype=dtype,
             **kwargs,
         )
         resolved_config = cfg or config
@@ -304,22 +315,30 @@ class ViT(BaseModel):
         eps = resolved.get("eps", eps)
         in_channels = resolved.get("in_channels", in_channels)
         Emb_dim = resolved.get("Emb_dim", Emb_dim)
+        device = resolved.get("device", device)
+        dtype = resolved.get("dtype", dtype) or torch.float32
 
         if Emb_dim is not None:
             embed_dim = Emb_dim
-        self.patch_embedding = PatchEmbedding(img_size, patch_size, embed_dim, in_channels)
+        self.patch_embedding = PatchEmbedding(
+            img_size, patch_size, embed_dim, in_channels, device=device, dtype=dtype
+        )
 
-        self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim, device=device, dtype=dtype))
         self.pos_embed = nn.Parameter(
-            torch.zeros(1, 1 + self.patch_embedding.num_patches, embed_dim)
+            torch.zeros(
+                1, 1 + self.patch_embedding.num_patches, embed_dim, device=device, dtype=dtype
+            )
         )
         self.dropout = nn.Dropout(dropout)
 
-        self.encoder = Encoder(num_layers, embed_dim, num_heads, dropout, hidden_dim, eps)
+        self.encoder = Encoder(
+            num_layers, embed_dim, num_heads, dropout, hidden_dim, eps, device=device, dtype=dtype
+        )
 
         self.mlp_head = nn.Sequential(
-            nn.LayerNorm(embed_dim, eps=eps),
-            nn.Linear(embed_dim, num_classes),
+            nn.LayerNorm(embed_dim, eps=eps, device=device, dtype=dtype),
+            nn.Linear(embed_dim, num_classes, device=device, dtype=dtype),
         )
 
         self.create_weights()

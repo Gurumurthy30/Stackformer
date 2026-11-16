@@ -53,12 +53,32 @@ class AbsolutePositionEmbedding(nn.Module):
         factory_kwargs = {"device": device, "dtype": dtype}
         self.embedding = nn.Embedding(seq_len, embed_dim, **factory_kwargs)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # If x is integer position_ids tensor of shape (B, T) or (T,) where max index < self.seq_len
-        if x.dtype in (torch.int32, torch.int64, torch.long) and x.max() < self.seq_len:
-            if x.dim() == 1:
-                return self.embedding(x).unsqueeze(0)
-            return self.embedding(x)
+    def forward_ids(self, position_ids: torch.Tensor) -> torch.Tensor:
+        """Lookup positional embeddings directly from integer position IDs.
+
+        Args:
+            position_ids (torch.Tensor): Integer position IDs of shape ``(B, T)`` or ``(T,)``.
+
+        Returns:
+            torch.Tensor: Position embeddings of shape ``(B, T, embed_dim)``.
+        """
+        if position_ids.dim() == 1:
+            return self.embedding(position_ids).unsqueeze(0)
+        return self.embedding(position_ids)
+
+    def forward(self, x: torch.Tensor, as_positions: bool = False) -> torch.Tensor:
+        """Embed positions for sequence x.
+
+        Args:
+            x (torch.Tensor): Hidden states of shape ``(B, T, C)`` or token IDs ``(B, T)``,
+                or position IDs if ``as_positions=True``.
+            as_positions (bool, default=False): If True, treat x directly as position indices.
+
+        Returns:
+            torch.Tensor: Position embeddings broadcast across batch dimension ``(B, T, embed_dim)``.
+        """
+        if as_positions:
+            return self.forward_ids(x)
 
         # x: (B, T, C) or token_ids (B, T)
         batch_size, seq_len = x.shape[0], x.shape[1]
@@ -221,11 +241,7 @@ class RoPE(nn.Module):
             )
         )
         inv_freq = 1.0 / (
-            theta
-            ** (
-                torch.arange(0, dim_half, device=dev, dtype=torch.float32)
-                / dim_half
-            )
+            theta ** (torch.arange(0, dim_half, device=dev, dtype=torch.float32) / dim_half)
         )
         pos = torch.arange(seq_len, device=dev, dtype=torch.float32)
         freqs = torch.outer(pos, inv_freq)

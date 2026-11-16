@@ -113,3 +113,15 @@ def test_generation_batch_eos_tracking_mixed_completion():
     _checkpoint("Asserting EOS tracking output shape", out_shape=out.shape)
     assert out.shape[0] == 2
     assert out.shape[1] == prompt.shape[1] + 3
+
+
+def test_generation_config_warns_on_explicit_arguments():
+    """Finding #31: text_generate must warn when explicit sampling arguments are passed with generation_config."""
+    from stackformer.config import GenerationConfig
+
+    model = _FixedLogitModel()
+    prompt = torch.tensor([[3, 4], [5, 6]])
+    cfg = GenerationConfig(max_new_tokens=2, max_context_len=8)
+
+    with pytest.warns(UserWarning, match="explicit sampling argument.*ignored"):
+        model.generate(prompt, max_new_tokens=5, generation_config=cfg)
