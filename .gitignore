@@ -56,3 +56,6 @@ site/
 
 # ruff cache
 .ruff_cache
+
+# Local training runs
+runs/
