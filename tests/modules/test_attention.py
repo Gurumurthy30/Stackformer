@@ -246,6 +246,31 @@ def test_rope_freq_cache_bounded(torch_device):
     assert len(_ROPE_FREQ_CACHE) <= 32
 
 
+def test_rope_frequency_slice_equals_built_for_t(torch_device):
+    """Finding #42: A slice [:T] of a longer precomputed table must equal one built directly for T."""
+    from stackformer.modules.attention import _build_rope_frequency
+
+    _ROPE_FREQ_CACHE.clear()
+    head_dim = 16
+    t_short = 24
+    t_long = 128
+
+    table_long = _build_rope_frequency(head_dim=head_dim, seq_len=t_long, device=torch_device)
+    table_short_slice = table_long[:t_short]
+
+    # Directly compute table for t_short (without cache)
+    _ROPE_FREQ_CACHE.clear()
+    table_short_direct = _build_rope_frequency(
+        head_dim=head_dim, seq_len=t_short, device=torch_device
+    )
+
+    assert table_short_slice.shape == (t_short, head_dim // 2)
+    assert table_short_direct.shape == (t_short, head_dim // 2)
+    assert torch.allclose(table_short_slice, table_short_direct), (
+        "Slice [:T] of longer RoPE table must equal table directly computed for T"
+    )
+
+
 def test_run_attention_dispatcher_defaults(torch_device):
     _checkpoint("test_run_attention_dispatcher_defaults setup", device=torch_device)
     q = torch.randn(2, 2, 4, 8, device=torch_device)
