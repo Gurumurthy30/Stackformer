@@ -74,12 +74,12 @@ class PagedKVCache(nn.Module):
 
         self.register_buffer(
             "pool_keys",
-            torch.empty(num_blocks, num_heads, block_size, head_dim, device=device, dtype=dtype),
+            torch.zeros(num_blocks, num_heads, block_size, head_dim, device=device, dtype=dtype),
             persistent=False,
         )
         self.register_buffer(
             "pool_values",
-            torch.empty(num_blocks, num_heads, block_size, head_dim, device=device, dtype=dtype),
+            torch.zeros(num_blocks, num_heads, block_size, head_dim, device=device, dtype=dtype),
             persistent=False,
         )
 
@@ -220,6 +220,7 @@ class PagedKVCache(nn.Module):
         Returns:
             tuple[torch.Tensor, torch.Tensor]: Inspected Key and Value tensors.
         """
+        assert self._live is not None, "update() must be called before peek_kv()"
         if end_pos is None:
             end_pos = self.max_len
         k_full, v_full = self._gather(end_pos)

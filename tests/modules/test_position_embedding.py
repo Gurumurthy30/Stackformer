@@ -1,3 +1,4 @@
+import math
 import pytest
 import torch
 
@@ -43,6 +44,23 @@ def test_sinusoidal_position_embedding_shapes_and_stability(batch, seq, torch_de
     _checkpoint("Asserting SinusoidalPositionalEmbedding output shape", out_shape=out.shape)
     assert out.shape == (batch, seq, 8)
     assert torch.isfinite(out).all()
+    # Exact value check on pe buffer (#43)
+    expected_row0 = torch.tensor([0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0], device=torch_device)
+    assert torch.allclose(layer.pe[0], expected_row0, atol=1e-6)
+    expected_row1 = torch.tensor(
+        [
+            math.sin(1.0),
+            math.cos(1.0),
+            math.sin(0.1),
+            math.cos(0.1),
+            math.sin(0.01),
+            math.cos(0.01),
+            math.sin(0.001),
+            math.cos(0.001),
+        ],
+        device=torch_device,
+    )
+    assert torch.allclose(layer.pe[1], expected_row1, atol=1e-5)
 
 
 def test_rope_compatibility_with_attention_shape_and_stability(torch_device):

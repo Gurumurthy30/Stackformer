@@ -108,18 +108,33 @@ class SinusoidalPositionalEmbedding(nn.Module):
         if embed_dim % 2 != 0:
             raise ValueError(f"embed_dim must be even, got {embed_dim}")
 
-        factory_kwargs = {"device": device, "dtype": dtype}
+        self.seq_len = seq_len
+        self.embed_dim = embed_dim
+        target_dtype = dtype if dtype is not None else torch.float32
 
-        position = torch.arange(seq_len, **factory_kwargs).unsqueeze(1)
+        pe = torch.empty(seq_len, embed_dim, device=device, dtype=target_dtype)
+        self.register_buffer("pe", pe, persistent=False)
+        if not self.pe.is_meta:
+            self.refill_buffer()
+
+    def _compute_pe(self, device: torch.device | str | None = None) -> torch.Tensor:
+        dev = device if device is not None else self.pe.device
+        position = torch.arange(self.seq_len, device=dev, dtype=torch.float32).unsqueeze(1)
         div_term = torch.exp(
-            torch.arange(0, embed_dim, 2, **factory_kwargs) * -(math.log(10000.0) / embed_dim)
+            torch.arange(0, self.embed_dim, 2, device=dev, dtype=torch.float32)
+            * -(math.log(10000.0) / self.embed_dim)
         )
-
-        pe = torch.zeros(seq_len, embed_dim, **factory_kwargs)
+        pe = torch.zeros(self.seq_len, self.embed_dim, device=dev, dtype=torch.float32)
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
+        return pe
 
-        self.register_buffer("pe", pe, persistent=False)
+    @torch.no_grad()
+    def refill_buffer(self) -> None:
+        """Recompute sinusoidal positional embedding buffer in float32 and copy into buffer."""
+        if hasattr(self, "pe") and not self.pe.is_meta:
+            pe_float = self._compute_pe(device=self.pe.device)
+            self.pe.copy_(pe_float.to(dtype=self.pe.dtype))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x: (B, T, C)
@@ -163,16 +178,24 @@ class RoPE(nn.Module):
         theta: float = 10000.0,
     ) -> None:
         super().__init__()
+        if head_dim % 2 != 0:
+            raise ValueError("head_dim must be even for RoPE")
         self.head_dim = head_dim
         self.seq_len = seq_len
         self.theta = theta
         self.factory_kwargs = {"device": device, "dtype": dtype}
 
-        freq_complex = self._precompute_theta_position_frequency(head_dim, seq_len, theta)
+        freq_complex = torch.empty(seq_len, head_dim // 2, device=device, dtype=torch.complex64)
         self.register_buffer("freq_complex", freq_complex, persistent=True)
+        if not self.freq_complex.is_meta:
+            self.refill_buffer()
 
     def _precompute_theta_position_frequency(
-        self, head_dim: int, seq_len: int, theta: float
+        self,
+        head_dim: int,
+        seq_len: int,
+        theta: float,
+        device: torch.device | str | None = None,
     ) -> torch.Tensor:
         """Precompute complex rotary frequency spectrum tensor.
 
@@ -180,6 +203,7 @@ class RoPE(nn.Module):
             head_dim (int): Per-head feature dimension (D).
             seq_len (int): Maximum sequence context length (T).
             theta (float): Base frequency scaling parameter.
+            device (torch.device | str | None): Target device.
 
         Returns:
             torch.Tensor: Complex frequency tensor of shape ``(T, D // 2)``.
@@ -187,11 +211,35 @@ class RoPE(nn.Module):
         if head_dim % 2 != 0:
             raise ValueError("head_dim must be even for RoPE")
         dim_half = head_dim // 2
-        inv_freq = 1.0 / (theta ** (torch.arange(0, dim_half, **self.factory_kwargs) / dim_half))
-        pos = torch.arange(seq_len, **self.factory_kwargs)
+        dev = (
+            device
+            if device is not None
+            else (
+                self.freq_complex.device
+                if hasattr(self, "freq_complex")
+                else self.factory_kwargs.get("device")
+            )
+        )
+        inv_freq = 1.0 / (
+            theta
+            ** (
+                torch.arange(0, dim_half, device=dev, dtype=torch.float32)
+                / dim_half
+            )
+        )
+        pos = torch.arange(seq_len, device=dev, dtype=torch.float32)
         freqs = torch.outer(pos, inv_freq)
         freq_complex = torch.polar(torch.ones_like(freqs), freqs)
         return freq_complex  # (seq_len, dim_half)
+
+    @torch.no_grad()
+    def refill_buffer(self) -> None:
+        """Recompute RoPE complex frequency spectrum buffer."""
+        if hasattr(self, "freq_complex") and not self.freq_complex.is_meta:
+            fc = self._precompute_theta_position_frequency(
+                self.head_dim, self.seq_len, self.theta, device=self.freq_complex.device
+            )
+            self.freq_complex.copy_(fc.to(dtype=self.freq_complex.dtype))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Apply Rotary Position Embedding to input Query or Key tensor.

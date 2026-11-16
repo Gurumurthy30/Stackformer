@@ -155,7 +155,17 @@ class BaseModel(nn.Module):
                         nn.init.zeros_(m.bias)
         else:
             Initializer(strategy=method, **kwargs).apply(self)
+        self._refill_deterministic_buffers()
         return self
+
+    def _refill_deterministic_buffers(self) -> None:
+        """Recompute deterministic buffers across all submodules (sinusoidal PE, RoPE, BatchNorm)."""
+        for m in self.modules():
+            refill = getattr(m, "refill_buffer", None)
+            if callable(refill):
+                refill()
+            if isinstance(m, nn.modules.batchnorm._BatchNorm):
+                m.reset_running_stats()
 
     def materialize(
         self,
@@ -186,6 +196,7 @@ class BaseModel(nn.Module):
         if dtype is not None:
             self.to(dtype=dtype)
 
+        self._refill_deterministic_buffers()
         return self
 
     def load_weights(

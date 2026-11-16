@@ -56,12 +56,12 @@ class StaticKVCache(nn.Module):
         self.max_len = max_len
         self.register_buffer(
             "cache_keys",
-            torch.empty(batch_size, num_heads, max_len, head_dim, device=device, dtype=dtype),
+            torch.zeros(batch_size, num_heads, max_len, head_dim, device=device, dtype=dtype),
             persistent=False,
         )
         self.register_buffer(
             "cache_values",
-            torch.empty(batch_size, num_heads, max_len, head_dim, device=device, dtype=dtype),
+            torch.zeros(batch_size, num_heads, max_len, head_dim, device=device, dtype=dtype),
             persistent=False,
         )
         self._live: tuple[torch.Tensor, torch.Tensor, int, int] | None = None
@@ -130,6 +130,7 @@ class StaticKVCache(nn.Module):
         Returns:
             tuple[torch.Tensor, torch.Tensor]: Key and Value buffer slices.
         """
+        assert self._live is not None, "update() must be called before peek_kv()"
         if end_pos is None:
             end_pos = self.max_len
         return (

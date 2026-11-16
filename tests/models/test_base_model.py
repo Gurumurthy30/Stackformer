@@ -378,16 +378,88 @@ def test_all_model_families_materialize_and_finite_parameters():
         ("SegFormer", lambda: SegFormer(variant="b0", num_labels=10)),
     ]
 
+    failures = []
     for name, init_fn in models:
-        with torch.device("meta"):
-            model = init_fn()
-        model.materialize("cpu")
-        model.create_weights("default")
-        for p_name, p in model.named_parameters():
-            assert torch.isfinite(p).all(), (
-                f"{name} parameter {p_name} is not finite after materialize and create_weights"
-            )
-        for b_name, b in model.named_buffers():
-            assert torch.isfinite(b).all(), (
-                f"{name} buffer {b_name} is not finite after materialize and create_weights"
-            )
+        try:
+            with torch.device("meta"):
+                model = init_fn()
+            model.materialize("cpu")
+            model.create_weights("default")
+            for p_name, p in model.named_parameters():
+                if not torch.isfinite(p).all():
+                    failures.append(
+                        f"{name} parameter {p_name} is not finite after materialize and create_weights"
+                    )
+            for b_name, b in model.named_buffers():
+                if not torch.isfinite(b).all():
+                    failures.append(
+                        f"{name} buffer {b_name} is not finite after materialize and create_weights"
+                    )
+            # Check value equality against fresh non-meta twin
+            fresh_twin = init_fn()
+            for b_name, b in model.named_buffers():
+                twin_b = dict(fresh_twin.named_buffers())[b_name]
+                if not torch.equal(b, twin_b):
+                    failures.append(
+                        f"{name} buffer {b_name} does not match fresh non-meta twin after materialize and create_weights"
+                    )
+        except Exception as exc:
+            failures.append(f"{name} raised exception during materialize/check: {exc}")
+
+    assert not failures, "Materialize failures across model families:\n" + "\n".join(failures)
+
+
+def test_poisoned_buffers_fail_before_refill():
+    from stackformer.modules.position_embedding import RoPE
+
+    cfg = ModelConfig(
+        vocab_size=100,
+        embed_dim=32,
+        num_layers=2,
+        num_heads=4,
+        seq_len=16,
+        hidden_dim=64,
+        dropout=0.0,
+    )
+    # Test Transformer sinusoidal pe
+    with torch.device("meta"):
+        m_trans = Transformer(cfg)
+    m_trans.materialize("cpu")
+    # Poison with NaN
+    m_trans.encoder_stack.pos_embedding.pe.fill_(float("nan"))
+    m_trans.decoder_stack.pos_embedding.pe.fill_(float("nan"))
+    m_trans.create_weights("default")
+    fresh_trans = Transformer(cfg)
+    assert torch.equal(
+        m_trans.encoder_stack.pos_embedding.pe, fresh_trans.encoder_stack.pos_embedding.pe
+    )
+    assert torch.equal(
+        m_trans.decoder_stack.pos_embedding.pe, fresh_trans.decoder_stack.pos_embedding.pe
+    )
+
+    # Test SegFormer BatchNorm stats
+    with torch.device("meta"):
+        m_seg = SegFormer(variant="b0", num_labels=10)
+    m_seg.materialize("cpu")
+    # Poison with NaN
+    m_seg.decode_head.batch_norm.running_mean.fill_(float("nan"))
+    m_seg.decode_head.batch_norm.running_var.fill_(float("nan"))
+    m_seg.create_weights("default")
+    assert torch.equal(
+        m_seg.decode_head.batch_norm.running_mean,
+        torch.zeros_like(m_seg.decode_head.batch_norm.running_mean),
+    )
+    assert torch.equal(
+        m_seg.decode_head.batch_norm.running_var,
+        torch.ones_like(m_seg.decode_head.batch_norm.running_var),
+    )
+    assert m_seg.decode_head.batch_norm.num_batches_tracked.item() == 0
+
+    # Test RoPE
+    rope_real = RoPE(head_dim=32, seq_len=16)
+    rope_real.freq_complex.fill_(float("nan"))
+    if hasattr(rope_real, "refill_buffer"):
+        rope_real.refill_buffer()
+    fresh_rope = RoPE(head_dim=32, seq_len=16)
+    assert torch.equal(rope_real.freq_complex, fresh_rope.freq_complex)
+
