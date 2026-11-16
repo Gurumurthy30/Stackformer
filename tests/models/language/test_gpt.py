@@ -133,3 +133,31 @@ def test_gpt_invalid_head_configuration_raises(torch_device):
             hidden_dim=20,
             device=torch_device,
         )
+
+
+def test_gpt_small_vocab_short_batch_position_independence(torch_device):
+    """Finding #30: Token IDs < seq_len must not be treated as position IDs in GPT."""
+    torch.manual_seed(42)
+    # Small vocab: 8, seq_len: 128 (all token IDs are < seq_len)
+    model = GPT_2(
+        vocab_size=8,
+        num_layers=1,
+        embed_dim=16,
+        num_heads=2,
+        seq_len=128,
+        hidden_dim=32,
+        device=torch_device,
+    )
+    # Position embeddings for positions 0, 1
+    pos_ref = model.position_embedding.embedding(torch.tensor([0, 1], device=torch_device))
+
+    # Two batches with distinct token IDs: [0, 1] and [6, 7]
+    x1 = torch.tensor([[0, 1]], device=torch_device)
+    x2 = torch.tensor([[6, 7]], device=torch_device)
+
+    # Position embeddings must be identical and equal to positions 0, 1
+    p1 = model.position_embedding(x1)
+    p2 = model.position_embedding(x2)
+    assert torch.allclose(p1, p2), "AbsolutePositionEmbedding must not index by token ID"
+    assert torch.allclose(p1[0], pos_ref), "Position embeddings must correspond to positions 0 and 1"
+
