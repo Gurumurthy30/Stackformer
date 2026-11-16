@@ -488,3 +488,76 @@ def test_distributed_evaluation_all_reduces_metrics(tmp_path, monkeypatch):
     metrics = run_evaluation(trainer)
     assert len(dist_mean_called) >= 1, "dist_mean must be called to all-reduce val_loss"
     assert "val_loss" in metrics
+
+
+def test_kill_and_resume_with_epoch_end_flush(tmp_path):
+    """Finding #46: Kill-and-resume parity across epoch boundary when trailing micro-batches were flushed."""
+    torch.manual_seed(42)
+    # 7 micro-batches per epoch with accum=3:
+    # micro-batches 1-3 -> step 1
+    # micro-batches 4-6 -> step 2
+    # micro-batch 7 -> flushed at epoch end -> step 3
+    x = torch.randint(0, 64, (14, 8))
+    dataset = TensorDataset(x, x)
+
+    init_model = create_tiny_model()
+    init_state = copy.deepcopy(init_model.state_dict())
+
+    # Run A: uninterrupted for 2 epochs (14 micro-batches, 6 optimizer steps)
+    loader_a = DataLoader(dataset, batch_size=2, shuffle=False)
+    model_a = create_tiny_model()
+    model_a.load_state_dict(copy.deepcopy(init_state))
+
+    dir_a = tmp_path / "a"
+    cfg_a = TrainConfig(
+        max_epochs=2,
+        grad_accum_steps=3,
+        lr=1e-3,
+        optimizer="adamw",
+        scheduler="none",
+        checkpoint_dir=str(dir_a),
+        seed=42,
+    )
+    trainer_a = Trainer(model_a, cfg_a, train_loader=loader_a)
+    trainer_a.train()
+
+    # Run B: train 1 epoch (with epoch-end flush of batch 7), save, resume to 2 epochs
+    loader_b1 = DataLoader(dataset, batch_size=2, shuffle=False)
+    model_b = create_tiny_model()
+    model_b.load_state_dict(copy.deepcopy(init_state))
+
+    dir_b = tmp_path / "b"
+    cfg_b1 = TrainConfig(
+        max_epochs=1,
+        grad_accum_steps=3,
+        lr=1e-3,
+        optimizer="adamw",
+        scheduler="none",
+        checkpoint_dir=str(dir_b),
+        save_every_n_epochs=1,
+        seed=42,
+    )
+    trainer_b1 = Trainer(model_b, cfg_b1, train_loader=loader_b1)
+    trainer_b1.train()
+
+    # Resume Run B for epoch 2
+    loader_b2 = DataLoader(dataset, batch_size=2, shuffle=False)
+    model_b_res = create_tiny_model()
+    cfg_b2 = TrainConfig(
+        max_epochs=2,
+        grad_accum_steps=3,
+        lr=1e-3,
+        optimizer="adamw",
+        scheduler="none",
+        checkpoint_dir=str(dir_b),
+        resume_from=str(dir_b / "latest"),
+        seed=42,
+    )
+    trainer_b2 = Trainer(model_b_res, cfg_b2, train_loader=loader_b2)
+    trainer_b2.train()
+
+    # Assert exact weight parity between uninterrupted and resumed run
+    for p_a, p_b in zip(model_a.parameters(), model_b_res.parameters(), strict=True):
+        assert torch.allclose(p_a, p_b, atol=1e-6), (
+            "Model weights must be identical between uninterrupted and resumed runs after epoch-end flush"
+        )

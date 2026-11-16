@@ -370,6 +370,9 @@ class CheckpointManager:
                 p = self.checkpoint_dir / p
             if not p.exists():
                 raise FileNotFoundError(f"Checkpoint not found at: {path}")
+            if p.is_file() and p.name == "latest":
+                dir_name = p.read_text(encoding="utf-8").strip()
+                p = p.parent / dir_name
             target_path = p
 
         if target_path.is_dir():

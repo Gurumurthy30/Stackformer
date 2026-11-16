@@ -332,3 +332,42 @@ def test_attention_modules_backend_support(ctor, torch_device):
 
     with pytest.raises(ValueError):
         ctor(torch_device, "unsupported_backend")
+
+
+@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
+def test_attention_numerical_equivalence_with_sdpa_fp32_bf16(dtype, torch_device):
+    """Finding #47: Multi_Head_Attention matches F.scaled_dot_product_attention with explicit mask in fp32 and bf16."""
+    import torch.nn.functional as F
+
+    torch.manual_seed(42)
+    B, T, H, D = 2, 4, 2, 8
+    embed_dim = H * D
+
+    mha = Multi_Head_Attention(
+        embed_dim=embed_dim,
+        num_heads=H,
+        dropout=0.0,
+        device=torch_device,
+        dtype=dtype,
+        mask_type=["no"],
+    )
+
+    x = torch.randn(B, T, embed_dim, device=torch_device, dtype=dtype)
+    # Boolean mask: mask out the last token
+    mask = torch.ones(B, 1, T, T, device=torch_device, dtype=torch.bool)
+    mask[:, :, :, -1] = False
+
+    actual = mha(x, mask=False, attn_mask=mask)
+
+    # Compute expected output using torch.nn.functional.scaled_dot_product_attention
+    qkv = mha.qkv_proj(x)
+    q, k, v = qkv.split(embed_dim, dim=-1)
+    q = q.view(B, T, H, D).transpose(1, 2)
+    k = k.view(B, T, H, D).transpose(1, 2)
+    v = v.view(B, T, H, D).transpose(1, 2)
+
+    expected_sdpa = F.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=0.0)
+    expected = mha.out_proj(expected_sdpa.transpose(1, 2).contiguous().view(B, T, embed_dim))
+
+    atol = 1e-4 if dtype == torch.float32 else 2e-2
+    assert torch.allclose(actual, expected, atol=atol), f"MHA must match SDPA reference for {dtype}"

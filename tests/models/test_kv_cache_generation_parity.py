@@ -40,8 +40,10 @@ def test_incremental_next_token_logits_match_full_forward(torch_device):
 
     stacked = torch.stack(step_logits, dim=1)
     assert stacked.shape == full_logits.shape
-    _checkpoint("Asserting incremental next-token logits match full forward logits")
-    assert torch.allclose(full_logits[:, -1, :], stacked[:, -1, :], atol=1e-5)
+    _checkpoint(
+        "Asserting incremental prefix next-token logits match full forward logits across all positions"
+    )
+    assert torch.allclose(full_logits, stacked, atol=1e-5)
 
     _checkpoint("Checking backward pass gradients")
     loss = full_logits.mean()

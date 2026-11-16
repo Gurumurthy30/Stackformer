@@ -64,6 +64,59 @@ def test_sinusoidal_position_embedding_shapes_and_stability(batch, seq, torch_de
     assert torch.allclose(layer.pe[1], expected_row1, atol=1e-5)
 
 
+def test_sinusoidal_exact_formula_reference(torch_device):
+    """Finding #47: Sinusoidal table matches textbook formula across all positions and dimensions."""
+    seq_len = 16
+    embed_dim = 16
+    layer = SinusoidalPositionalEmbedding(seq_len=seq_len, embed_dim=embed_dim, device=torch_device)
+
+    positions = torch.arange(seq_len, dtype=torch.float32, device=torch_device).unsqueeze(1)
+    div_term = torch.exp(
+        torch.arange(0, embed_dim, 2, dtype=torch.float32, device=torch_device)
+        * -(math.log(10000.0) / embed_dim)
+    )
+    expected = torch.zeros(seq_len, embed_dim, device=torch_device)
+    expected[:, 0::2] = torch.sin(positions * div_term)
+    expected[:, 1::2] = torch.cos(positions * div_term)
+
+    assert torch.allclose(layer.pe, expected, atol=1e-6)
+
+
+def test_rope_rotation_matrix_reference(torch_device):
+    """Finding #47: RoPE matches exact 2D rotation matrix: position 0 is identity, position t rotates by frequencies."""
+    head_dim = 4
+    seq_len = 8
+    rope = RoPE(head_dim=head_dim, seq_len=seq_len, device=torch_device)
+
+    # 1. Position 0 must be an exact identity operation
+    x0 = torch.randn(1, 1, 1, head_dim, device=torch_device)
+    out0 = rope(x0)
+    assert torch.allclose(out0, x0, atol=1e-6), "RoPE at position 0 must act as identity"
+
+    # 2. Test rotation of 2D pairs at position t against explicit 2D rotation matrix
+    x = torch.randn(1, 1, seq_len, head_dim, device=torch_device)
+    out = rope(x)
+
+    for t in range(seq_len):
+        for k in range(head_dim // 2):
+            freq = 1.0 / (10000.0 ** ((2 * k) / head_dim))
+            theta_t = t * freq
+            cos_t = math.cos(theta_t)
+            sin_t = math.sin(theta_t)
+
+            u = x[0, 0, t, 2 * k].item()
+            v = x[0, 0, t, 2 * k + 1].item()
+
+            expected_u = u * cos_t - v * sin_t
+            expected_v = u * sin_t + v * cos_t
+
+            actual_u = out[0, 0, t, 2 * k].item()
+            actual_v = out[0, 0, t, 2 * k + 1].item()
+
+            assert math.isclose(actual_u, expected_u, rel_tol=1e-5, abs_tol=1e-5)
+            assert math.isclose(actual_v, expected_v, rel_tol=1e-5, abs_tol=1e-5)
+
+
 def test_rope_compatibility_with_attention_shape_and_stability(torch_device):
     _checkpoint(
         "test_rope_compatibility_with_attention_shape_and_stability setup", device=torch_device
