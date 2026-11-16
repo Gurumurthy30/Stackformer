@@ -12,25 +12,49 @@ permissions:
 jobs:
   tag-version:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write
+      actions: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
-          token: ${{ secrets.PAT_TOKEN || github.token }}   # Falls back to github.token if PAT_TOKEN secret is not set
+          persist-credentials: false
 
       - name: Extract version from pyproject.toml
         id: version
         run: |
-          VERSION=$(grep -m1 '^version' pyproject.toml | sed -E 's/version = "(.*)"/\1/')
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          python3 - <<'PY'
+          import os
+          try:
+              import tomllib
+          except ImportError:
+              try:
+                  import tomli as tomllib
+              except ImportError:
+                  tomllib = None
+
+          if tomllib is not None:
+              with open("pyproject.toml", "rb") as f:
+                  v = tomllib.load(f)["project"]["version"]
+          else:
+              import re
+              with open("pyproject.toml", "r") as f:
+                  m = re.search(r'version\s*=\s*"([^"]+)"', f.read())
+                  v = m.group(1) if m else ""
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"version={v}\n")
+          PY
 
       - name: Check if tag already exists
         id: check_tag
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          if git rev-parse "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+          if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -38,8 +62,19 @@ jobs:
 
       - name: Create and push tag
         if: steps.check_tag.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          PUSH_TOKEN: ${{ secrets.TAG_TOKEN || github.token }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "v${{ steps.version.outputs.version }}"
-          git push origin "v${{ steps.version.outputs.version }}"
+          git tag "v${VERSION}"
+          git push "https://x-access-token:${PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "v${VERSION}"
+
+      - name: Trigger CD workflow
+        if: steps.check_tag.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh workflow run cd.yml -f tag="v${VERSION}" || true
