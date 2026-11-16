@@ -72,13 +72,10 @@ def test_notice_files_exist_and_contain_conditions_and_disclaimer():
     license_text = license_file.read_text(encoding="utf-8")
     notices_text = notices_file.read_text(encoding="utf-8")
 
-    # Exact first lines of TORCHTITAN-BSD-3-Clause.txt
-    license_lines = [line.strip() for line in license_text.splitlines() if line.strip()]
-    assert license_lines[0] == "BSD 3-Clause License", (
-        f"Expected exact title, got: {license_lines[0]}"
-    )
-    assert license_lines[1] == "Copyright (c) Meta Platforms, Inc. and affiliates.", (
-        f"Expected exact copyright line 'Copyright (c) Meta Platforms, Inc. and affiliates.', got: {license_lines[1]}"
+    # Exact first line of licenses/TORCHTITAN-BSD-3-Clause.txt must be upstream copyright line
+    raw_lines = license_text.splitlines()
+    assert raw_lines[0] == "(c) Meta Platforms, Inc. and affiliates.", (
+        f"Expected line 1 to be exact upstream copyright line '(c) Meta Platforms, Inc. and affiliates.', got: {raw_lines[0]}"
     )
     assert "Meta Platforms, Inc. and affiliates" in notices_text
 

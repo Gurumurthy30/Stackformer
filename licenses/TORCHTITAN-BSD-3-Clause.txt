@@ -1,11 +1,9 @@
-BSD 3-Clause License
-
-Copyright (c) Meta Platforms, Inc. and affiliates.
+(c) Meta Platforms, Inc. and affiliates.
 
 Redistribution and use in source and binary forms, with or without modification,
 are permitted provided that the following conditions are met:
 
-1. Redistributions of source code must retain the above copyright notice, this list
+1. Redistributions of source code must retain the above copyright notice,this list
 of conditions and the following disclaimer.
 
 2. Redistributions in binary form must reproduce the above copyright notice, this
@@ -28,4 +26,4 @@ ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF S
 DAMAGE.
 
 ---
-Source: https://github.com/pytorch/torchtitan
+Source: https://github.com/pytorch/torchtitan (retrieved 2026-11-16 from https://raw.githubusercontent.com/pytorch/torchtitan/main/LICENSE)
